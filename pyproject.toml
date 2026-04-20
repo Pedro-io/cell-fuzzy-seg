@@ -1,0 +1,19 @@
+[project]
+name = "cell-fuzzy-seg"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Pedro-io",email = "p.rodrigues2532@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "numpy (>=2.4.4,<3.0.0)",
+    "matplotlib (>=3.10.8,<4.0.0)",
+    "scikit-image (>=0.26.0,<0.27.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
