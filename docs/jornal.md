@@ -440,3 +440,7 @@ Você está construindo:
 
 ---
 
+# Sobre o Poetry
+Optamos por remover o poetry devido a necessidade de utilizar o Google colab para rodar o projeto. 
+Com isso temos uma perda significativa em relação ao controle de depêndencias do repositório, porém é necessário devido a características do Colab
+
