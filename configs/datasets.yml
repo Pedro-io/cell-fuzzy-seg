@@ -1,0 +1,38 @@
+# configs/datasets.yml
+monuseg: 
+  monuseg_training:
+    name: "MoNuSeg_Training"
+    root_dir: "cell-fuzzy-seg/data_source/MoNuSegTrainingData"
+    split: "train"
+    image_dir: "Tissue_Images"
+    mask_dir: "Annotations" 
+    image_extension: ".png"
+    mask_extension: ".npy"
+    train_split: 0.8  # 80% treino, 20% validação
+    
+  monuseg_test:
+    name: "MoNuSeg_Test"
+    root_dir: "cell-fuzzy-seg/data_source/MoNuSegTestData"
+    split: "test"
+    image_dir: "Tissue_Images"
+    mask_dir: "Annotations"
+    image_extension: ".png"
+    mask_extension: ".npy"
+
+  # Configurações de carregamento
+  loader_config:
+    batch_size: 32
+    num_workers: 4  # Parallelizar carregamento
+    shuffle_train: true
+    shuffle_val: false
+    pin_memory: true  # Acelerar transferência para GPU
+
+  # Preprocessamento/transforms
+  preprocessing:
+    image_size: [256, 256]
+    normalize: true
+    mean: [0.5, 0.5, 0.5]
+    std: [0.5, 0.5, 0.5]
+    augmentation:
+      train: ["flip", "rotate", "elastic_deform"]
+      val: []
