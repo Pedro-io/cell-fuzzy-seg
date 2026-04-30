@@ -6,8 +6,8 @@ monuseg:
     split: "train"
     image_dir: "Tissue_Images"
     mask_dir: "Annotations" 
-    image_extension: ".png"
-    mask_extension: ".npy"
+    image_extension: ".tif"
+    mask_extension: ".xml"
     train_split: 0.8  # 80% treino, 20% validação
     
   monuseg_test:
