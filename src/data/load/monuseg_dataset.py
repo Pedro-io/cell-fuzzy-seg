@@ -3,10 +3,16 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from cellpose import io
-
+import cv2
+import xml.etree.ElementTree as ET
 from .base_dataset import BaseDataset
 
-
+"""
+Still to implement:
+- Reading masks from .npy files (if masks are saved in that format)
+- Checking file existence and error handling (e.g., image without a corresponding mask)
+- Proper __getitem__ configuration (saving data as a tuple or dictionary depending on what the model expects)
+"""
 class MonusegDataset(BaseDataset):
     def __init__(
       self,
@@ -21,11 +27,11 @@ class MonusegDataset(BaseDataset):
         self.file_pairs = self._get_file_pairs()
 
     def __len__(self) -> int:
-        """Retorna o número de amostras no dataset."""
+        """Returns the number of samples in the dataset."""
         return len(self.file_pairs)
     
     def __getitem__(self, idx: int) -> Dict[str, Any]:
-        """Retorna a amostra (imagem e máscara) no índice especificado."""
+        """Returns the sample (image and mask) at the specified index."""
         if idx < 0 or idx >= len(self.file_pairs):
             raise IndexError(f"Index {idx} out of range for dataset of size {len(self)}")
 
@@ -48,28 +54,49 @@ class MonusegDataset(BaseDataset):
         return sample
 
     def _load_image(self, image_path: str) -> np.ndarray:
-        """Carrega uma imagem a partir do caminho usando o mesmo leitor do Cellpose."""
+        """Loads an image from the path using the same reader as Cellpose."""
         image = io.imread(image_path)
         if image is None:
-            raise FileNotFoundError(f"Falha ao carregar a imagem: {image_path}")
+            raise FileNotFoundError(f"Failed to load image: {image_path}")
         return image
 
+    def _xml_to_mask(self, xml_path, shape):
+        mask = np.zeros(shape, dtype=np.uint8)
+        tree = ET.parse(xml_path)
+        root = tree.getroot()
+        for region in root.iter("Region"):
+            points = []
+            for vertex in region.iter("Vertex"):
+                x = float(vertex.attrib["X"])
+                y = float(vertex.attrib["Y"])
+                points.append([int(x), int(y)])
+            points = np.array(points, dtype=np.int32)
+            cv2.fillPoly(mask, [points], 1)
+        return mask
+
     def _load_mask(self, mask_path: str) -> np.ndarray:
-        """Carrega máscara do disco. Suporta .npy e leitura por imagem."""
+        """Loads a mask from disk. Supports .npy and image-based reading."""
         extension = os.path.splitext(mask_path)[1].lower()
 
         if extension == '.npy':
             mask = np.load(mask_path)
+        elif extension == '.xml':
+            # For XML files, we need the corresponding image shape to create the mask
+            image_path = mask_path.replace(self.mask_dir, self.image_dir).replace('.xml', '.tif')
+            if not os.path.exists(image_path):
+                raise FileNotFoundError(f"Corresponding image not found for {mask_path}: expected {image_path}")
+            image = self._load_image(image_path)
+            mask = self._xml_to_mask(mask_path, image.shape[:2])
         else:
             mask = io.imread(mask_path)
 
         if mask is None:
-            raise FileNotFoundError(f"Falha ao carregar a máscara: {mask_path}")
+            raise FileNotFoundError(f"Failed to load mask: {mask_path}")
 
         return mask
 
     def _get_file_pairs(self) -> List[Tuple[str, str]]:
-        """Retorna a lista de pares (imagem, máscara) a partir das pastas configuradas."""
+        """Returns the list of (image, mask) pairs from the configured folders."""
         image_ext = self.config['image_extension'].lower()
         mask_ext = self.config['mask_extension'].lower()
 
@@ -79,7 +106,7 @@ class MonusegDataset(BaseDataset):
 
         if not image_files:
             raise FileNotFoundError(
-                f"Nenhuma imagem encontrada em {self.image_dir} com extensão {image_ext}"
+                f"No images found in {self.image_dir} with extension {image_ext}"
             )
 
         pairs: List[Tuple[str, str]] = []
@@ -91,7 +118,7 @@ class MonusegDataset(BaseDataset):
 
             if not os.path.exists(mask_path):
                 raise FileNotFoundError(
-                    f"Máscara não encontrada para {image_name}: esperado {mask_path}"
+                    f"Mask not found for {image_name}: expected {mask_path}"
                 )
 
             pairs.append((image_path, mask_path))
