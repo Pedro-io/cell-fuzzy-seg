@@ -2,7 +2,7 @@
 monuseg: 
   monuseg_training:
     name: "MoNuSeg_Training"
-    root_dir: "cell-fuzzy-seg/data_source/MoNuSegTrainingData"
+    root_dir: "data_source/MoNuSegTrainingData"
     split: "train"
     image_dir: "Tissue_Images"
     mask_dir: "Annotations" 
@@ -12,7 +12,7 @@ monuseg:
     
   monuseg_test:
     name: "MoNuSeg_Test"
-    root_dir: "cell-fuzzy-seg/data_source/MoNuSegTestData"
+    root_dir: "data_source/MoNuSegTestData"
     split: "test"
     image_dir: "Tissue_Images"
     mask_dir: "Annotations"
