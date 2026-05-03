@@ -1,6 +1,7 @@
 import numpy as np
 from cellpose import models, core
 from .base_step import PipelineStep
+from src.utils.logger import logger
 
 
 class CellposeStep(PipelineStep):
@@ -11,7 +12,7 @@ class CellposeStep(PipelineStep):
         self.model = models.CellposeModel(gpu=True)
         self.batch_size = batch_size
 
-        print("[CellposeStep] Running on GPU")
+        logger.info("[CellposeStep] Running on GPU")
 
     def forward(self, data: dict) -> dict:
         if "image" not in data:

@@ -6,6 +6,7 @@ from cellpose import io
 import cv2
 import xml.etree.ElementTree as ET
 from .base_dataset import BaseDataset
+from src.utils.logger import logger
 
 """
 Still to implement:
@@ -56,6 +57,7 @@ class MonusegDataset(BaseDataset):
 
     def _load_image(self, image_path: str) -> np.ndarray:
         """Loads an image from the path using the same reader as Cellpose."""
+        logger.debug(f"Loading image: {image_path}")
         image = io.imread(image_path)
         if image is None:
             raise FileNotFoundError(f"Failed to load image: {image_path}")
@@ -77,6 +79,7 @@ class MonusegDataset(BaseDataset):
 
     def _load_mask(self, mask_path: str) -> np.ndarray:
         """Loads a mask from disk. Supports .npy and image-based reading."""
+        logger.debug(f"Loading mask: {mask_path}")
         extension = os.path.splitext(mask_path)[1].lower()
 
         if extension == '.npy':
@@ -98,6 +101,7 @@ class MonusegDataset(BaseDataset):
 
     def _get_file_pairs(self) -> List[Tuple[str, str]]:
         """Returns the list of (image, mask) pairs from the configured folders."""
+        logger.debug(f"Getting file pairs from: image_dir={self.image_dir}, mask_dir={self.mask_dir}")  
         image_ext = self.config['image_extension'].lower()
         mask_ext = self.config['mask_extension'].lower()
 

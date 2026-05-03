@@ -1,5 +1,6 @@
 import numpy as np
 from .base_step import PipelineStep
+from src.utils.logger import logger
 
 
 class RGBAStep(PipelineStep):
@@ -26,7 +27,7 @@ class RGBAStep(PipelineStep):
         return data
 
     def _build_rgba(self, image: np.ndarray, segmentation: np.ndarray) -> np.ndarray:
-        # 🔹 garantir RGB
+        logger.debug(f"Building RGBA image: image shape {image.shape}, segmentation shape {segmentation.shape}")  
         if image.ndim == 2:
             image = np.stack([image]*3, axis=-1)
 
