@@ -5,7 +5,8 @@ from src.utils.logger import logger
 
 
 class CellposeStep(PipelineStep):
-    def __init__(self, batch_size: int = 10):
+    def __init__(self, batch_size: int = 10, name: str = "CellposeStep"):
+        super().__init__(name=name)
         if not core.use_gpu():
             raise RuntimeError("GPU is required but not available.")
 

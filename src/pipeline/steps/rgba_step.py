@@ -10,7 +10,9 @@ class RGBAStep(PipelineStep):
     Output:
         data["rgba"] -> shape (H, W, 4), dtype uint8
     """
-
+    def __init__(self, name = "RGBAStep"):
+        super().__init__(name)
+    
     def forward(self, data: dict) -> dict:
         if "image" not in data:
             raise KeyError("Missing 'image' in data")

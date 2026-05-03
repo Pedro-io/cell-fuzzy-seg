@@ -11,6 +11,8 @@ class PipelineStep(ABC):
     - Processes it
     - Returns the updated dictionary
     """
+    def __init__(self, name: str = "PipelineStep"):
+        self.name = name
 
     def __call__(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
