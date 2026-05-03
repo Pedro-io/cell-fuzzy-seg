@@ -40,12 +40,13 @@ class MonusegDataset(BaseDataset):
         mask = self._load_mask(mask_path)
 
         sample = {
+            'id': os.path.splitext(os.path.basename(image_path))[0],
             'image': image,
-            'mask': mask,
-            'image_name': os.path.basename(image_path),
-            'mask_name': os.path.basename(mask_path),
-            'image_path': image_path,
-            'mask_path': mask_path,
+            'ground_truth': mask,
+            'meta': {
+                'image_path': image_path,
+                'mask_path': mask_path
+            }
         }
 
         if self.transform is not None:
