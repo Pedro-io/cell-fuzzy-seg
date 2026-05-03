@@ -81,24 +81,27 @@ class OutputWriter:
         segmentation: np.ndarray,
         ground_truth: Optional[np.ndarray] = None,
     ) -> None:
-        """Save an overlay image with segmentation and optional ground truth.
-
-        Args:
-            image_id: Identifier for the image used in the filename.
-            image: Original image array.
-            segmentation: Predicted segmentation mask.
-            ground_truth: Optional ground truth mask.
-        """
         path = os.path.join(self.overlay_dir, f"{image_id}_overlay.png")
 
         image = self._to_rgb(image)
-        seg_color = self._colorize(segmentation, color=(0, 255, 0))
 
-        overlay = cv2.addWeighted(image, 0.7, seg_color, 0.3, 0)
+        mask = segmentation > 0
+        overlay = image.copy()
+
+        overlay[mask] = (
+            0.7 * image[mask] +
+            0.3 * np.array([0, 255, 0])
+        ).astype(np.uint8)
 
         if ground_truth is not None:
-            gt_color = self._colorize(ground_truth, color=(255, 0, 0))
-            overlay = cv2.addWeighted(overlay, 0.7, gt_color, 0.3, 0)
+            gt_mask = ground_truth > 0
+
+            overlay[gt_mask] = (
+                0.7 * overlay[gt_mask] +
+                0.3 * np.array([255, 0, 0])
+            ).astype(np.uint8)
+
+        overlay = cv2.cvtColor(overlay, cv2.COLOR_RGB2BGR)
 
         cv2.imwrite(path, overlay)
     
