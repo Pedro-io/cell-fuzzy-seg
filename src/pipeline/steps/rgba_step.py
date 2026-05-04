@@ -1,6 +1,9 @@
+from typing import Dict, Any
+
 import numpy as np
 from .base_step import PipelineStep
 from src.utils.logger import logger
+from src.utils.image_utils import to_uint8_rgb
 
 
 class RGBAStep(PipelineStep):
@@ -22,7 +25,7 @@ class RGBAStep(PipelineStep):
         """
         super().__init__(name)
 
-    def forward(self, data: dict) -> dict:
+    def forward(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Builds an RGBA image and stores it in the data dictionary.
 
         Args:
@@ -69,16 +72,7 @@ class RGBAStep(PipelineStep):
         """
         logger.debug(f"Building RGBA image: image shape {image.shape}, segmentation shape {segmentation.shape}")
 
-        # Cellpose expects a 3-channel image; duplicate the single channel.
-        if image.ndim == 2:
-            image = np.stack([image]*3, axis=-1)
-
-        # Normalise to uint8 [0, 255].
-        if image.dtype != np.uint8:
-            image = image.astype(np.float32)
-            if image.max() > 0:
-                image = image / image.max() * 255
-            image = image.astype(np.uint8)
+        image = to_uint8_rgb(image)
 
         # Binary alpha: fully opaque for segmented pixels, transparent for background.
         alpha = (segmentation > 0).astype(np.uint8) * 255

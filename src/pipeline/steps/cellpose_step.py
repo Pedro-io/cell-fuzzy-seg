@@ -1,7 +1,9 @@
-import numpy as np
+from typing import Dict, Any
+
 from cellpose import models, core
 from .base_step import PipelineStep
 from src.utils.logger import logger
+from src.utils.image_utils import to_uint8_rgb
 
 
 class CellposeStep(PipelineStep):
@@ -13,14 +15,18 @@ class CellposeStep(PipelineStep):
     Attributes:
         model: Loaded CellposeModel instance running on GPU.
         batch_size: Number of images processed per Cellpose batch.
+        eval_kwargs: Extra keyword arguments forwarded to ``model.eval()``.
     """
 
-    def __init__(self, batch_size: int = 10, name: str = "CellposeStep"):
+    def __init__(self, batch_size: int = 10, name: str = "CellposeStep", **eval_kwargs: Any):
         """Initializes CellposeStep and verifies GPU availability.
 
         Args:
             batch_size: Number of images per inference batch.
             name: Identifier for this step in the pipeline.
+            **eval_kwargs: Additional keyword arguments forwarded to
+                ``CellposeModel.eval()`` on every call (e.g. ``diameter``,
+                ``channels``, ``flow_threshold``).
 
         Raises:
             RuntimeError: If no GPU is detected by Cellpose.
@@ -31,10 +37,11 @@ class CellposeStep(PipelineStep):
 
         self.model = models.CellposeModel(gpu=True)
         self.batch_size = batch_size
+        self.eval_kwargs = eval_kwargs
 
         logger.info("[CellposeStep] Running on GPU")
 
-    def forward(self, data: dict) -> dict:
+    def forward(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Runs Cellpose segmentation and stores results back into the data dict.
 
         Expects a single image array. Converts grayscale inputs to 3-channel and
@@ -57,21 +64,12 @@ class CellposeStep(PipelineStep):
             raise KeyError("Input data must contain 'image'")
 
         image = data["image"]
-
-        # Cellpose expects a 3-channel image; duplicate the single channel.
-        if image.ndim == 2:
-            image = np.stack([image]*3, axis=-1)
-
-        # Normalise to uint8 [0, 255] required by Cellpose.
-        if image.dtype != np.uint8:
-            image = image.astype(np.float32)
-            if image.max() > 0:
-                image = image / image.max() * 255
-            image = image.astype(np.uint8)
+        image = to_uint8_rgb(image)
 
         masks, flows, styles = self.model.eval(
             image,
-            batch_size=self.batch_size
+            batch_size=self.batch_size,
+            **self.eval_kwargs
         )
 
         data["segmentation"] = masks
