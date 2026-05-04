@@ -4,16 +4,40 @@ from src.utils.logger import logger
 
 
 class RGBAStep(PipelineStep):
-    """
-    Combines RGB image with segmentation mask into RGBA image.
+    """Pipeline step that merges an RGB image with a segmentation mask into RGBA.
 
-    Output:
-        data["rgba"] -> shape (H, W, 4), dtype uint8
+    The alpha channel is derived from the segmentation mask: pixels belonging
+    to any segment are fully opaque (255) and background pixels are fully
+    transparent (0).
+
+    Attributes:
+        name: Identifier for this step in the pipeline.
     """
-    def __init__(self, name = "RGBAStep"):
+
+    def __init__(self, name: str = "RGBAStep"):
+        """Initializes RGBAStep.
+
+        Args:
+            name: Identifier for this step in the pipeline.
+        """
         super().__init__(name)
-    
+
     def forward(self, data: dict) -> dict:
+        """Builds an RGBA image and stores it in the data dictionary.
+
+        Args:
+            data: Dictionary containing:
+                - ``"image"``: NumPy array of shape ``(H, W)`` or ``(H, W, C)``.
+                - ``"segmentation"``: Integer mask array of shape ``(H, W)``,
+                  where 0 represents background.
+
+        Returns:
+            The same ``data`` dictionary extended with:
+                - ``"rgba"``: uint8 array of shape ``(H, W, 4)``.
+
+        Raises:
+            KeyError: If ``"image"`` or ``"segmentation"`` are absent from ``data``.
+        """
         if "image" not in data:
             raise KeyError("Missing 'image' in data")
 
@@ -29,24 +53,38 @@ class RGBAStep(PipelineStep):
         return data
 
     def _build_rgba(self, image: np.ndarray, segmentation: np.ndarray) -> np.ndarray:
-        logger.debug(f"Building RGBA image: image shape {image.shape}, segmentation shape {segmentation.shape}")  
+        """Constructs an RGBA array from an image and a segmentation mask.
+
+        Grayscale images are expanded to 3 channels. Non-uint8 images are
+        normalised to [0, 255] before concatenation.
+
+        Args:
+            image: Input image of shape ``(H, W)`` or ``(H, W, C)``.
+            segmentation: Integer mask of shape ``(H, W)`` where non-zero values
+                indicate foreground.
+
+        Returns:
+            uint8 array of shape ``(H, W, 4)`` with the alpha channel derived
+            from the segmentation mask.
+        """
+        logger.debug(f"Building RGBA image: image shape {image.shape}, segmentation shape {segmentation.shape}")
+
+        # Cellpose expects a 3-channel image; duplicate the single channel.
         if image.ndim == 2:
             image = np.stack([image]*3, axis=-1)
 
-        # 🔹 garantir uint8 (0–255)
+        # Normalise to uint8 [0, 255].
         if image.dtype != np.uint8:
             image = image.astype(np.float32)
             if image.max() > 0:
                 image = image / image.max() * 255
             image = image.astype(np.uint8)
 
-        # 🔹 alpha binário
+        # Binary alpha: fully opaque for segmented pixels, transparent for background.
         alpha = (segmentation > 0).astype(np.uint8) * 255
 
-        # 🔹 garantir shape (H, W, 1)
         alpha = np.expand_dims(alpha, axis=-1)
 
-        # 🔹 concatena canais
         rgba = np.concatenate([image, alpha], axis=-1)
 
         return rgba
