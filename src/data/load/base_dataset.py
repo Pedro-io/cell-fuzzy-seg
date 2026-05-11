@@ -3,9 +3,10 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
 
 import yaml
+from torch.utils.data import Dataset
 
 
-class BaseDataset(ABC):
+class BaseDataset(ABC, Dataset):
     """Abstract base class for datasets.
 
     Defines the standard interface for all datasets in the project, allowing

@@ -8,12 +8,6 @@ import xml.etree.ElementTree as ET
 from .base_dataset import BaseDataset
 from src.utils.logger import logger
 
-"""
-Still to implement:
-- Reading masks from .npy files (if masks are saved in that format)
-- Checking file existence and error handling (e.g., image without a corresponding mask)
-- Proper __getitem__ configuration (saving data as a tuple or dictionary depending on what the model expects)
-"""
 class MonusegDataset(BaseDataset):
     def __init__(
       self,
@@ -33,12 +27,9 @@ class MonusegDataset(BaseDataset):
     
     def __getitem__(self, idx: int) -> Dict[str, Any]:
         """Returns the sample (image and mask) at the specified index."""
-        if idx < 0 or idx >= len(self.file_pairs):
-            raise IndexError(f"Index {idx} out of range for dataset of size {len(self)}")
-
         image_path, mask_path = self.file_pairs[idx]
         image = self._load_image(image_path)
-        mask = self._load_mask(mask_path)
+        mask = self._load_mask(mask_path, image_shape=image.shape[:2])
 
         sample = {
             'id': os.path.splitext(os.path.basename(image_path))[0],
@@ -77,20 +68,21 @@ class MonusegDataset(BaseDataset):
             cv2.fillPoly(mask, [points], 1)
         return mask
 
-    def _load_mask(self, mask_path: str) -> np.ndarray:
-        """Loads a mask from disk. Supports .npy and image-based reading."""
+    def _load_mask(self, mask_path: str, image_shape: Optional[Tuple[int, int]] = None) -> np.ndarray:
+        """Loads a mask from disk. Supports .xml, .npy and image-based formats."""
         logger.debug(f"Loading mask: {mask_path}")
         extension = os.path.splitext(mask_path)[1].lower()
 
         if extension == '.npy':
             mask = np.load(mask_path)
         elif extension == '.xml':
-            # For XML files, we need the corresponding image shape to create the mask
-            image_path = mask_path.replace(self.mask_dir, self.image_dir).replace('.xml', '.tif')
-            if not os.path.exists(image_path):
-                raise FileNotFoundError(f"Corresponding image not found for {mask_path}: expected {image_path}")
-            image = self._load_image(image_path)
-            mask = self._xml_to_mask(mask_path, image.shape[:2])
+            if image_shape is None:
+                stem = os.path.splitext(os.path.basename(mask_path))[0]
+                image_path = os.path.join(self.image_dir, stem + self.config['image_extension'])
+                if not os.path.exists(image_path):
+                    raise FileNotFoundError(f"Corresponding image not found for {mask_path}: expected {image_path}")
+                image_shape = self._load_image(image_path).shape[:2]
+            mask = self._xml_to_mask(mask_path, image_shape)
         else:
             mask = io.imread(mask_path)
 
