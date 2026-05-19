@@ -10,8 +10,6 @@ from .not_too_thin_loss import NotTooThinLoss
 from .object_size_loss import ObjectSizeLoss
 from .rmse_loss import RMSELoss
 from .soft_dice_loss import SoftDiceLoss
-from .topology.attributes import attribute_max_altitudes
-from .topology.topology_loss import TopologyLoss
 from .total_variation_loss import TotalVariationLoss
 from .loss_term import LossTerm
 
@@ -59,34 +57,6 @@ class DMapTerm(LossTerm):
 
     def compute(self, ctx: Dict[str, torch.Tensor]) -> torch.Tensor:
         return self._loss(ctx["markers"], ctx["distance_maps"], ctx["gt_masks"])
-
-
-class TopologyTerm(LossTerm):
-    """Wraps :class:`TopologyLoss`. Uses ``markers`` only."""
-
-    def __init__(
-        self,
-        weight: float = 0.2,
-        num_components: int = 3,
-        margin: float = 1.0,
-        cpus: int = 2,
-    ) -> None:
-        super().__init__()
-        self._loss = TopologyLoss(
-            weight=weight,
-            num_target_maxima=num_components,
-            margin=margin,
-            attribute_function=attribute_max_altitudes,
-            cpus=cpus,
-        )
-
-    @property
-    def name(self) -> str:
-        return "topo"
-
-    def compute(self, ctx: Dict[str, torch.Tensor]) -> torch.Tensor:
-        return self._loss(ctx["markers"])
-
 
 class BorderTerm(LossTerm):
     """Wraps :class:`BorderLoss`. Uses ``markers`` only."""
@@ -159,7 +129,6 @@ __all__ = [
     "SizeTerm",
     "TVTerm",
     "DMapTerm",
-    "TopologyTerm",
     "BorderTerm",
     "DiceTerm",
     "RMSETerm",

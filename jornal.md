@@ -157,7 +157,6 @@ São 8 classes finas, cada uma embrulhando uma loss existente e adaptando sua as
 | `SizeTerm` | Penaliza tamanho errado | `ObjectSizeLoss` |
 | `TVTerm` | Penaliza variações bruscas | `TotalVariationLoss` |
 | `DMapTerm` | Penaliza ativação longe do centro | `DistanceMapLoss` |
-| `TopologyTerm` | Controla número de máximos | `TopologyLoss` |
 | `BorderTerm` | Penaliza bordas da imagem | `BorderLoss` |
 | `DiceTerm` | Mede sobreposição com GT | `SoftDiceLoss` |
 | `RMSETerm` | Erro quadrático médio | `RMSELoss` |
@@ -231,7 +230,7 @@ O step em si **não faz backward** — ele só calcula e armazena. Quem decide q
 ### Como montar um experimento agora
 
 ```python
-from src.losses import LossComposer, DiceTerm, TVTerm, TopologyTerm
+from src.losses import LossComposer, DiceTerm, TVTerm
 from src.pipeline.steps.training_step import TrainingStep
 
 # Monta a composição desejada — zero mudança no fonte
@@ -239,7 +238,6 @@ step = TrainingStep(
     LossComposer([
         DiceTerm(epsilon=1e-9),
         TVTerm(weight=0.05),
-        TopologyTerm(weight=0.2, num_components=3),
     ])
 )
 
@@ -263,7 +261,7 @@ MultiRegularization(size=0.1, tv=0.05, dmap=0.1, topo=0.2)
 DEPOIS
 ──────
 LossComposer([SizeTerm(0.1), TVTerm(0.05)])   ← Experimento A
-LossComposer([DiceTerm(), TopologyTerm(0.2)]) ← Experimento B
+LossComposer([DiceTerm()]) ← Experimento B
       │
       ▼
   cada term implementa LossTerm

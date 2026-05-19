@@ -21,9 +21,9 @@ class LossComposer(nn.Module):
 
     Example::
 
-        composer = LossComposer([SizeTerm(0.1), TVTerm(0.05), TopologyTerm(0.2)])
+        composer = LossComposer([SizeTerm(0.1), TVTerm(0.05)])
         total, log = composer(markers, distance_maps, gt_masks)
-        # log = {"size": tensor, "tv": tensor, "topo": tensor}
+        # log = {"size": tensor, "tv": tensor}
     """
 
     def __init__(self, terms: List[LossTerm]) -> None:

@@ -18,7 +18,6 @@ cell-fuzzy-seg/
 │   ├── data/transforms/          # Transforms (vazio ainda)
 │   ├── io/                       # Salvar outputs em disco
 │   ├── losses/                   # Funções de perda e regularizadores
-│   │   └── topology/             # Perda topológica (component trees com Higra)
 │   ├── models/networks/          # Arquiteturas de rede
 │   ├── pipeline/                 # Orquestrador de steps
 │   │   └── steps/
@@ -232,7 +231,6 @@ LossTerm (abstrata, nn.Module)
     ├── SizeTerm       → ObjectSizeLoss
     ├── TVTerm         → TotalVariationLoss
     ├── DMapTerm       → DistanceMapLoss
-    ├── TopologyTerm   → TopologyLoss
     ├── BorderTerm     → BorderLoss
     ├── DiceTerm       → SoftDiceLoss
     ├── RMSETerm       → RMSELoss
@@ -354,34 +352,6 @@ Aplica abertura morfológica (erosão seguida de dilatação) de forma diferenci
 > **`F.unfold(input, kernel_size, padding)`**: extrai patches locais de um tensor 4D como colunas. Shape `(N, C*kH*kW, L)` onde L = número de patches. Permite operações de vizinhança (como morfologia) de forma vetorizada.
 
 ---
-
-#### `TopologyLoss` — `src/losses/topology/topology_loss.py`
-
-A mais complexa. Controla quantos máximos proeminentes existem na predição — queremos que o número de máximos corresponda ao número de núcleos.
-
-```
-Entrada: markers (N,C,H,W)
-Saída: weight * mean(loss_per_channel)
-```
-
-**Parâmetros principais:** `weight`, `num_target_maxima`, `margin=1.0`, `power=2`, `cpus=2`.
-
-**Funcionamento interno:**
-1. Achata o batch: `(N,C,H,W)` → lista de `N*C` slices 2D `(H,W)`
-2. Para cada slice (em paralelo via `multiprocessing.Pool`):
-   - Constrói uma max-tree via Higra (`ComponentTree("max")`)
-   - Calcula a *dinâmica* de cada máximo: `extrema_altitude - saddle_altitude`
-   - Ordena as dinâmicas em ordem decrescente
-3. Aplica `_loss_ranked_selection()` em cada slice:
-   - Os top `num_target_maxima` devem ter dinâmica > `margin` → penaliza se não tiverem
-   - O restante deve ter dinâmica ≈ 0 → penaliza qualquer máximo extra
-4. Soma tudo e divide por `N*C` para a média
-
-**Paralelismo:** usa `get_context("spawn").Pool(cpus)` para processar canais simultaneamente. O `"spawn"` é necessário para compatibilidade com PyTorch + Higra (evita deadlocks do `fork` com threads CUDA).
-
-**`ComponentTreeFunction(autograd.Function)`**: wrapper autograd customizado para a construção da max-tree. Permite que gradientes fluam da perda de volta para `vertex_weights` (os pixels da predição).
-
-> **`torch.autograd.Function`**: classe base para operações com gradientes customizados. Implemente `forward()` (computa output, salva no `ctx`) e `backward()` (recebe `grad_output`, retorna gradientes para cada input). Uso quando a operação não é composta de ops PyTorch nativos (como aqui, onde usamos Higra em Python/C++).
 
 ---
 
@@ -506,8 +476,6 @@ Tensores com `requires_grad=True` constroem um grafo computacional enquanto ops 
 | `optimizer.step()` | `MarkerNet.train_step` | Atualiza pesos |
 | `loss.item()` | `MarkerNet.train_step` | Tensor → float para logging |
 | `F.unfold()` | `NotTooThinLoss._morpho` | Extrai patches para morfologia diferenciável |
-| `torch.sort()` | `TopologyLoss` | Ordena dinâmicas para ranked selection |
-| `autograd.Function` | `ComponentTreeFunction` | Gradiente customizado através do Higra |
 
 ---
 
@@ -600,6 +568,5 @@ A ligação entre MarkerNet (que treina os marcadores) e o pipeline de inferênc
 | `torchvision` | ≥0.16 | Transforms de imagem |
 | `segmentation-models-pytorch` | 0.5.0 | Arquitetura U-Net pronta |
 | `cellpose` | 4.1.1 | Segmentação inicial (inference) |
-| `higra` | não declarado | Component trees para TopologyLoss |
 | `loguru` | 0.7.3 | Logger |
 | `opencv` (cv2) | implícita | `fillPoly` nas máscaras XML |

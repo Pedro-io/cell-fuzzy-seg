@@ -16,33 +16,20 @@ from .terms import (
     NotTooThinTerm,
     RMSETerm,
     SizeTerm,
-    TopologyTerm,
     TVTerm,
 )
 from .total_variation_loss import TotalVariationLoss
-from .topology import (
-    ComponentTree,
-    ComponentTreeFunction,
-    TopologyLoss,
-    attribute_max_altitudes,
-    attribute_saddle_nodes,
-)
 
 __all__ = [
     # Primitives
     "BorderLoss",
-    "ComponentTree",
-    "ComponentTreeFunction",
     "DistanceMapLoss",
     "NotTooThinLoss",
     "ObjectSizeLoss",
     "RMSEAccuracy",
     "RMSELoss",
     "SoftDiceLoss",
-    "TopologyLoss",
     "TotalVariationLoss",
-    "attribute_max_altitudes",
-    "attribute_saddle_nodes",
     # Strategy pattern
     "LossTerm",
     "LossComposer",
@@ -52,6 +39,5 @@ __all__ = [
     "NotTooThinTerm",
     "RMSETerm",
     "SizeTerm",
-    "TopologyTerm",
     "TVTerm",
 ]
