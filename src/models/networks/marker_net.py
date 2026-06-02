@@ -25,7 +25,7 @@ class MarkerNet(BaseNetwork):
         self.model.eval()
         with torch.no_grad():
             probs = self.forward(x)
-        return (probs >= self.threshold).float()
+        return probs
 
     def train_step(self, batch, optimizer, loss_fn):
         self.model.train()
