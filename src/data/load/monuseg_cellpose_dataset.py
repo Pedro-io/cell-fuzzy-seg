@@ -106,6 +106,7 @@ def collate_fn_with_cellpose(samples, target_size: Tuple[int, int] = (256, 256))
             target_size,
             interpolation=cv2.INTER_NEAREST,
         )
+        cp_mask = (cp_mask > 0).astype(np.float32)
 
         rgba = np.concatenate([img, cp_mask[:, :, None]], axis=-1)
         rgba = rgba.transpose(2, 0, 1)
