@@ -8,7 +8,7 @@
 
 ### Visão geral
 
-Este módulo contém todas as funções de perda e regularização utilizadas no treinamento dos modelos de segmentação celular. As perdas estão organizadas em três grupos: **segmentação**, **regularização** e **topologia**.
+Este módulo contém todas as funções de perda e regularização utilizadas no treinamento dos modelos de segmentação celular. As perdas estão organizadas em dois grupos: **segmentação** e **regularização**.
 
 ---
 
@@ -31,14 +31,6 @@ losses/
 ├── distance_map_loss.py              # DistanceMapLoss
 ├── border_loss.py                    # BorderLoss
 ├── not_too_thin_loss.py              # NotTooThinLoss
-├── multi_regularization.py           # MultiRegularization (legado)
-│
-└── topology/
-    ├── __init__.py
-    ├── component_tree_function.py    # ComponentTreeFunction
-    ├── component_tree.py             # ComponentTree
-    ├── attributes.py                 # attribute_max_altitudes, attribute_saddle_nodes
-    └── topology_loss.py              # TopologyLoss
 ```
 
 ---
@@ -104,17 +96,6 @@ loss_fn = NotTooThinLoss(kernel=kernel, weight=0.5)
 loss = loss_fn(image)
 ```
 
-#### `MultiRegularization` *(legado)*
-**Arquivo:** `multi_regularization.py`
-
-Classe composta que combina todas as regularizações acima em uma única chamada. Cada termo é **ativado apenas quando seu peso é fornecido** (diferente de `None`). Retorna o loss total e um dicionário com o valor individual de cada termo para logging.
-
-> **Atenção:** Esta classe está mantida apenas para compatibilidade. Para novos experimentos, use [`LossComposer`](#losscomposer) com os termos de `terms.py`.
-
-```python
-reg = MultiRegularization(size=0.1, tv=0.05, dmap=0.1, topo_weight=0.2)
-total_loss, log = reg(markers, distance_maps, gt_masks)
-```
 
 ---
 
@@ -143,16 +124,16 @@ Cada termo extrai do contexto apenas as chaves que precisa.
 Recebe uma lista de `LossTerm` no construtor e os registra como submódulos PyTorch (`nn.ModuleList`). Retorna o loss total e um log por termo.
 
 ```python
-from src.losses import LossComposer, SizeTerm, TVTerm, TopologyTerm
+from src.losses import LossComposer, SizeTerm, TVTerm, DMapTerm
 
 # Experimento A
 composer = LossComposer([SizeTerm(0.1), TVTerm(0.05)])
 
 # Experimento B — mesma classe, outra composição, zero mudança no fonte
-composer = LossComposer([SizeTerm(0.2), TopologyTerm(0.3), DMapTerm(0.1)])
+composer = LossComposer([SizeTerm(0.2), DMapTerm(0.1)])
 
 total_loss, log = composer(markers, distance_maps, gt_masks)
-# log = {"size": tensor, "topo": tensor, "dmap": tensor}
+# log = {"size": tensor, "dmap": tensor}
 ```
 
 #### Termos disponíveis
@@ -163,7 +144,6 @@ total_loss, log = composer(markers, distance_maps, gt_masks)
 | `SizeTerm(weight)` | `"size"` | `markers`, `gt_masks` |
 | `TVTerm(weight, power)` | `"tv"` | `markers`, `gt_masks` |
 | `DMapTerm(weight)` | `"dmap"` | `markers`, `distance_maps`, `gt_masks` |
-| `TopologyTerm(weight, num_components, margin, cpus)` | `"topo"` | `markers` |
 | `BorderTerm(weight, border_size)` | `"border"` | `markers` |
 | `DiceTerm(epsilon)` | `"dice"` | `markers`, `gt_masks` |
 | `RMSETerm()` | `"rmse"` | `markers`, `gt_masks` |
@@ -204,45 +184,6 @@ class MyTerm(LossTerm):
 
 ---
 
-### Perdas Topológicas (`topology/`)
-
-Controlam a estrutura de componentes conectados da predição usando árvores de componentes da biblioteca [Higra](https://higra.readthedocs.io). Permitem especificar explicitamente o número desejado de máximos proeminentes (núcleos celulares).
-
-#### `ComponentTreeFunction`
-**Arquivo:** `topology/component_tree_function.py`
-
-Operação de construção de árvore de componentes com gradiente customizado (`torch.autograd.Function`). Define manualmente o `forward` (constrói a árvore com Higra) e o `backward` (propaga gradientes das altitudes dos nós de volta aos pixels). Suporta os tipos `"max"`, `"min"` e `"tos"` (tree of shapes).
-
-#### `ComponentTree`
-**Arquivo:** `topology/component_tree.py`
-
-Wrapper `nn.Module` em torno de `ComponentTreeFunction`. Oferece a interface padrão do PyTorch para composição com outros módulos. Retorna a árvore Higra e o tensor de altitudes diferenciável.
-
-#### `attributes.py`
-**Arquivo:** `topology/attributes.py`
-
-Funções utilitárias para calcular atributos dos nós da árvore:
-
-- **`attribute_max_altitudes(tree, altitudes)`** — para cada nó, retorna a maior altitude entre seus descendentes. Usada como medida de proeminência de máximos.
-- **`attribute_saddle_nodes(tree, altitudes, attribute)`** — encontra o nó de sela de cada máximo, ou seja, o ponto onde dois ramos da árvore se encontram. Essencial para calcular as dinâmicas.
-
-#### `TopologyLoss`
-**Arquivo:** `topology/topology_loss.py`
-
-Penaliza desvios em relação ao número-alvo de máximos proeminentes por canal. A proeminência é medida pelas **dinâmicas** de cada máximo (altitude do máximo menos a altitude do seu nó de sela). O cálculo é paralelizado por canal via `multiprocessing`.
-
-```python
-topo = TopologyLoss(
-    weight=0.2,
-    num_target_maxima=3,
-    margin=1.0,
-    cpus=4,
-)
-loss = topo(markers)  # markers: (N, C, H, W)
-```
-
----
-
 ### Como importar
 
 Todos os símbolos públicos são exportados pelo `__init__.py` do pacote:
@@ -252,16 +193,14 @@ Todos os símbolos públicos são exportados pelo `__init__.py` do pacote:
 from src.losses import (
     RMSELoss, RMSEAccuracy, SoftDiceLoss,
     ObjectSizeLoss, TotalVariationLoss, DistanceMapLoss,
-    BorderLoss, NotTooThinLoss, TopologyLoss,
-    ComponentTree, ComponentTreeFunction,
-    attribute_max_altitudes, attribute_saddle_nodes,
+    BorderLoss, NotTooThinLoss,
 )
 
 # Padrão Strategy
 from src.losses import (
     LossTerm,       # interface base
     LossComposer,   # composição
-    SizeTerm, TVTerm, DMapTerm, TopologyTerm,
+    SizeTerm, TVTerm, DMapTerm,
     BorderTerm, DiceTerm, RMSETerm, NotTooThinTerm,
 )
 ```
@@ -273,7 +212,7 @@ from src.losses import (
 
 ### Overview
 
-This module contains all loss functions and regularization terms used during training of the cell segmentation models. Losses are organized into three groups: **segmentation**, **regularization**, and **topology**.
+This module contains all loss functions and regularization terms used during training of the cell segmentation models. Losses are organized into two groups: **segmentation** and **regularization**.
 
 ---
 
@@ -296,14 +235,6 @@ losses/
 ├── distance_map_loss.py              # DistanceMapLoss
 ├── border_loss.py                    # BorderLoss
 ├── not_too_thin_loss.py              # NotTooThinLoss
-├── multi_regularization.py           # MultiRegularization (legacy)
-│
-└── topology/
-    ├── __init__.py
-    ├── component_tree_function.py    # ComponentTreeFunction
-    ├── component_tree.py             # ComponentTree
-    ├── attributes.py                 # attribute_max_altitudes, attribute_saddle_nodes
-    └── topology_loss.py              # TopologyLoss
 ```
 
 ---
@@ -369,20 +300,6 @@ loss_fn = NotTooThinLoss(kernel=kernel, weight=0.5)
 loss = loss_fn(image)
 ```
 
-#### `MultiRegularization` *(legacy)*
-**File:** `multi_regularization.py`
-
-Composite class that combines all regularization terms above in a single call. Each term is **active only when its weight is provided** (not `None`). Returns the total scalar loss and a per-term dictionary for logging.
-
-> **Note:** Kept for reference only. For new experiments use [`LossComposer`](#losscomposer-1) with terms from `terms.py`.
-
-```python
-reg = MultiRegularization(size=0.1, tv=0.05, dmap=0.1, topo_weight=0.2)
-total_loss, log = reg(markers, distance_maps, gt_masks)
-```
-
----
-
 ### Strategy Pattern — Free Loss Composition
 
 The Strategy pattern lets you assemble any combination of loss functions without modifying source code — just swap the list of terms passed to `LossComposer`.
@@ -408,16 +325,16 @@ Each term reads only the keys it needs from the context.
 Accepts a list of `LossTerm` at construction and registers them as PyTorch submodules (`nn.ModuleList`). Returns the total loss and a per-term log.
 
 ```python
-from src.losses import LossComposer, SizeTerm, TVTerm, TopologyTerm
+from src.losses import LossComposer, SizeTerm, TVTerm, DMapTerm
 
 # Experiment A
 composer = LossComposer([SizeTerm(0.1), TVTerm(0.05)])
 
 # Experiment B — same class, different composition, zero source changes
-composer = LossComposer([SizeTerm(0.2), TopologyTerm(0.3), DMapTerm(0.1)])
+composer = LossComposer([SizeTerm(0.2), DMapTerm(0.1)])
 
 total_loss, log = composer(markers, distance_maps, gt_masks)
-# log = {"size": tensor, "topo": tensor, "dmap": tensor}
+# log = {"size": tensor, "dmap": tensor}
 ```
 
 #### Available terms
@@ -428,7 +345,6 @@ total_loss, log = composer(markers, distance_maps, gt_masks)
 | `SizeTerm(weight)` | `"size"` | `markers`, `gt_masks` |
 | `TVTerm(weight, power)` | `"tv"` | `markers`, `gt_masks` |
 | `DMapTerm(weight)` | `"dmap"` | `markers`, `distance_maps`, `gt_masks` |
-| `TopologyTerm(weight, num_components, margin, cpus)` | `"topo"` | `markers` |
 | `BorderTerm(weight, border_size)` | `"border"` | `markers` |
 | `DiceTerm(epsilon)` | `"dice"` | `markers`, `gt_masks` |
 | `RMSETerm()` | `"rmse"` | `markers`, `gt_masks` |
@@ -469,45 +385,6 @@ class MyTerm(LossTerm):
 
 ---
 
-### Topology Losses (`topology/`)
-
-Control the connected-component structure of predictions using component trees from the [Higra](https://higra.readthedocs.io) library. Allow explicitly specifying the desired number of prominent maxima (cell nuclei) in the output.
-
-#### `ComponentTreeFunction`
-**File:** `topology/component_tree_function.py`
-
-Component tree construction as a custom `torch.autograd.Function` with manually defined `forward` (builds the tree via Higra) and `backward` (propagates gradients from node altitudes back to pixel values). Supports `"max"`, `"min"`, and `"tos"` (tree of shapes) variants.
-
-#### `ComponentTree`
-**File:** `topology/component_tree.py`
-
-`nn.Module` wrapper around `ComponentTreeFunction`. Provides the standard PyTorch interface for composition with other modules. Returns the Higra tree object and a differentiable altitude tensor.
-
-#### `attributes.py`
-**File:** `topology/attributes.py`
-
-Utility functions for computing node attributes on component trees:
-
-- **`attribute_max_altitudes(tree, altitudes)`** — for each node, returns the maximum altitude among all leaf descendants. Used as the prominence measure for maxima.
-- **`attribute_saddle_nodes(tree, altitudes, attribute)`** — finds the saddle node of each maximum, i.e., the point where two branches of the tree meet. Required to compute dynamics.
-
-#### `TopologyLoss`
-**File:** `topology/topology_loss.py`
-
-Penalizes deviations from the target number of prominent maxima per channel. Prominence is measured by the **dynamics** of each maximum (maximum altitude minus saddle node altitude). Per-channel computation is parallelized via `multiprocessing`.
-
-```python
-topo = TopologyLoss(
-    weight=0.2,
-    num_target_maxima=3,
-    margin=1.0,
-    cpus=4,
-)
-loss = topo(markers)  # markers: (N, C, H, W)
-```
-
----
-
 ### Importing
 
 All public symbols are exported from the package `__init__.py`:
@@ -517,16 +394,14 @@ All public symbols are exported from the package `__init__.py`:
 from src.losses import (
     RMSELoss, RMSEAccuracy, SoftDiceLoss,
     ObjectSizeLoss, TotalVariationLoss, DistanceMapLoss,
-    BorderLoss, NotTooThinLoss, TopologyLoss,
-    ComponentTree, ComponentTreeFunction,
-    attribute_max_altitudes, attribute_saddle_nodes,
+    BorderLoss, NotTooThinLoss,
 )
 
 # Strategy pattern
 from src.losses import (
     LossTerm,       # base interface
     LossComposer,   # composition
-    SizeTerm, TVTerm, DMapTerm, TopologyTerm,
+    SizeTerm, TVTerm, DMapTerm,
     BorderTerm, DiceTerm, RMSETerm, NotTooThinTerm,
 )
 ```

@@ -1,19 +1,24 @@
 import torch
 import segmentation_models_pytorch as smp
-from .base_networks import BaseNetwork
+
+from typing import Dict, Any, Optional
+import numpy as np
+import cv2
+
+from .base_step import PipelineStep
+from src.utils.logger import logger
 
 
-class MarkerNet(BaseNetwork):
+class FrozenUnetSegmentationStep(PipelineStep):
     def __init__(self, config: dict):
         encoder_name = config.get("encoder_name", "resnet34")
-        pretrained = config.get("pretrained", True)
         in_channels = config.get("in_channels", 4)
         self.threshold = config.get("threshold", 0.5)
         self._config = config
 
         self.model = smp.Unet(
             encoder_name=encoder_name,
-            encoder_weights="imagenet" if pretrained else None,
+            encoder_weights="imagenet",
             in_channels=in_channels,
             classes=1,
         )

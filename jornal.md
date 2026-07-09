@@ -2,6 +2,94 @@
 
 ---
 
+## [2026-05-17] Notebook de Experimento Template
+
+### Por que fizemos isso?
+
+Depois de implementar o MarkerNet e o sistema de losses, o próximo passo natural era rodar um treinamento real. O problema: cada vez que ia experimentar, precisava reescrever o mesmo boilerplate — criar DataLoader, montar o loop de treino, configurar optimizer, salvar checkpoint, plotar curvas. Com múltiplos experimentos planejados, isso virava fonte de erro e inconsistência.
+
+A solução foi criar um template que:
+1. Centraliza todos os hiperparâmetros em blocos no topo (fácil comparar experimentos)
+2. Resolve o problema do `collate_fn` de uma vez
+3. Serve de referência para o que o `MarkerStep` precisará fazer quando implementado
+
+---
+
+### O problema do `collate_fn`
+
+O `DataLoader` padrão não funciona direto com o `MonusegDataset` por três razões:
+
+**1. Shapes diferentes:** imagens do MoNuSeg têm tamanhos distintos. O stack em batch exige shapes iguais.
+
+**2. O 4º canal:** `MarkerNet` espera `(N, 4, H, W)`. Os 3 primeiros canais são RGB da imagem. O 4º precisa ser construído — por enquanto é o `ground_truth` como proxy da máscara Cellpose (quando o pipeline estiver completo, será a saída real do `CellposeStep`).
+
+**3. O `distance_map`:** A `DistanceMapLoss` precisa de um mapa de distância euclidiana calculado a partir do `ground_truth`. Isso não é parte do dataset — precisa ser computado na hora do batch.
+
+O `collate_fn` resolve tudo isso em um lugar só, antes de os tensores chegarem no modelo.
+
+---
+
+### Decisão de design: backprop fora do `MarkerNet.train_step()`
+
+O notebook usa `model.forward()` + `loss.backward()` + `optimizer.step()` diretamente em vez de `model.train_step()`. Por quê?
+
+O `train_step()` encapsula tudo internamente (incluindo `zero_grad`). Mas no notebook é mais claro expor cada passo separadamente para fins didáticos e para ter controle explícito do loop (ex.: gradient clipping, logging granular). Os dois caminhos funcionam — `train_step()` é para quando você confia na abstração, o loop explícito é para quando precisa de controle total.
+
+---
+
+### Como usar o template
+
+1. Copie `notebooks/experiment_template.ipynb`
+2. Mude `EXPERIMENT_NAME`, `MODEL_CONFIG`, `TRAIN_CONFIG`, e a lista `LOSS_TERMS`
+3. Rode tudo — os outputs ficam em `results/{EXPERIMENT_NAME}/`
+4. Preencha a tabela da seção 11 com os resultados
+
+Os checkpoints ficam em `results/{EXPERIMENT_NAME}/checkpoints/best.pt`. Para retomar:
+```python
+model = MarkerNet(config=MODEL_CONFIG)
+model.load("results/exp_001_baseline/checkpoints/best.pt")
+```
+
+---
+
+## [2026-05-11] Implementação do MarkerNet e Dataset Handling
+
+### Por que fizemos isso?
+
+As abstrações (`BaseNetwork`, `BaseDataset`) estavam definidas há semanas mas sem implementação concreta. Com o sistema de losses pronto (entry anterior), a prioridade virou ter uma rede real para treinar e um dataset confiável para alimentá-la.
+
+---
+
+### O que mudou no `MarkerNet`
+
+A implementação concreta do `MarkerNet` saiu do rascunho e virou código funcional:
+
+- **Configuração via dict:** em vez de parâmetros fixos no construtor, o `MarkerNet` aceita um `config: dict` com `encoder_name`, `pretrained`, `in_channels`, `threshold`. Isso alinha com o padrão de configuração do projeto (YAML → dict → modelo).
+
+- **`optimizer.zero_grad()` dentro do `train_step()`:** antes, era responsabilidade do chamador zerar os gradientes. Agora o `train_step()` faz isso internamente antes do forward pass. Elimina uma classe de bug onde você esquecia o zero_grad e gradientes acumulavam entre iterações.
+
+- **`get_config()` adicionado:** a interface `BaseNetwork` ganhou um método abstrato `get_config() -> dict` que toda subclasse deve implementar. O `MarkerNet` retorna `self._config`. Isso permite recriar um modelo com exatamente a mesma configuração ao carregar um checkpoint — sem precisar manter o dict de config separado.
+
+- **`evaluate()` implementado:** itera sobre o DataLoader, chama `predict()` em cada batch, acumula métricas. Retorna a média de cada métrica. As métricas são passadas como lista de callables (qualquer objeto com `__call__(pred, target) -> Tensor`).
+
+---
+
+### O que mudou no `MonusegDataset`
+
+- **Suporte a `transform`:** `__getitem__` agora verifica `self.transform is not None` e aplica antes de retornar o sample. A transform recebe e deve retornar o dict completo — não só a imagem.
+
+- **`_load_mask()` mais robusto:** ganhou o parâmetro `image_shape` opcional. Para máscaras `.xml`, o shape é necessário para criar a array com `cv2.fillPoly()`. Se não for passado, o método carrega a imagem correspondente só para inferir o shape. Isso evita passar o shape explicitamente em todo caller mas mantém a opção quando ele já está disponível (economiza I/O).
+
+---
+
+### O que NÃO mudou
+
+- As abstrações `BaseDataset` e `BaseNetwork` continuam com a mesma interface pública.
+- O sistema de losses (`LossComposer`, `LossTerm`, etc.) não foi alterado.
+- O pipeline de inferência (`ModelPipeline`, steps) continua igual.
+
+---
+
 ## [2026-05-04] Padrão Strategy para Funções de Perda
 
 ### Por que fizemos isso?
@@ -69,7 +157,6 @@ São 8 classes finas, cada uma embrulhando uma loss existente e adaptando sua as
 | `SizeTerm` | Penaliza tamanho errado | `ObjectSizeLoss` |
 | `TVTerm` | Penaliza variações bruscas | `TotalVariationLoss` |
 | `DMapTerm` | Penaliza ativação longe do centro | `DistanceMapLoss` |
-| `TopologyTerm` | Controla número de máximos | `TopologyLoss` |
 | `BorderTerm` | Penaliza bordas da imagem | `BorderLoss` |
 | `DiceTerm` | Mede sobreposição com GT | `SoftDiceLoss` |
 | `RMSETerm` | Erro quadrático médio | `RMSELoss` |
@@ -143,7 +230,7 @@ O step em si **não faz backward** — ele só calcula e armazena. Quem decide q
 ### Como montar um experimento agora
 
 ```python
-from src.losses import LossComposer, DiceTerm, TVTerm, TopologyTerm
+from src.losses import LossComposer, DiceTerm, TVTerm
 from src.pipeline.steps.training_step import TrainingStep
 
 # Monta a composição desejada — zero mudança no fonte
@@ -151,7 +238,6 @@ step = TrainingStep(
     LossComposer([
         DiceTerm(epsilon=1e-9),
         TVTerm(weight=0.05),
-        TopologyTerm(weight=0.2, num_components=3),
     ])
 )
 
@@ -175,7 +261,7 @@ MultiRegularization(size=0.1, tv=0.05, dmap=0.1, topo=0.2)
 DEPOIS
 ──────
 LossComposer([SizeTerm(0.1), TVTerm(0.05)])   ← Experimento A
-LossComposer([DiceTerm(), TopologyTerm(0.2)]) ← Experimento B
+LossComposer([DiceTerm()]) ← Experimento B
       │
       ▼
   cada term implementa LossTerm
