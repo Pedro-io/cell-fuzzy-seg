@@ -6,58 +6,70 @@ from src.utils.logger import logger
 
 
 class CellposeStep(PipelineStep):
-    """Pipeline step that runs Cellpose cell segmentation on an input image.
+    """Pipeline step that applies Cellpose segmentation to an input image.
 
-    Requires a CUDA-capable GPU. Initializes a CellposeModel and stores it
-    for repeated use across multiple forward calls.
+    This step initializes a single CellposeModel on the GPU and reuses it for
+    all subsequent calls to ``forward``.
 
     Attributes:
-        model: Loaded CellposeModel instance running on GPU.
-        batch_size: Number of images processed per Cellpose batch.
-        eval_kwargs: Extra keyword arguments forwarded to ``model.eval()``.
+        model: Loaded ``CellposeModel`` instance using GPU inference.
+        batch_size: Number of images processed per inference batch.
+        diam_mean: Estimated object diameter passed to Cellpose.
+        cellprob_threshold: Cell probability threshold for mask selection.
+        flow_threshold: Flow threshold for Cellpose tracking.
+        min_size: Minimum object size to keep in the final mask.
     """
 
-    def __init__(self, batch_size: int = 10, name: str = "CellposeStep", **eval_kwargs: Any):
-        """Initializes CellposeStep and verifies GPU availability.
+    def __init__(
+        self, batch_size: int = 8,
+        name: str = "CellposeStep",
+        pretreined_model: str = "nuclei",
+        diam_mean: float = 30.0,
+        cellprob_threshold: float = 0.0,
+        flow_threshold: float = 0.2,
+        min_size: int = 4
+        ) -> None:
+        """Create a CellposeStep and verify GPU availability.
 
         Args:
             batch_size: Number of images per inference batch.
             name: Identifier for this step in the pipeline.
-            **eval_kwargs: Additional keyword arguments forwarded to
-                ``CellposeModel.eval()`` on every call (e.g. ``diameter``,
-                ``channels``, ``flow_threshold``).
+            pretreined_model: Name of the pretrained Cellpose model to load.
+            diam_mean: Mean diameter of cells for segmentation.
+            cellprob_threshold: Threshold applied to Cellpose cell probability.
+            flow_threshold: Threshold applied to Cellpose flow outputs.
+            min_size: Minimum instance size to keep in the segmentation mask.
 
         Raises:
-            RuntimeError: If no GPU is detected by Cellpose.
+            RuntimeError: If a CUDA-capable GPU is not available.
         """
         super().__init__(name=name)
         if not core.use_gpu():
             raise RuntimeError("GPU is required but not available.")
 
-        self.model = models.CellposeModel(gpu=True)
+        self.model = models.CellposeModel(gpu=True, pretrained_model=pretreined_model, diam_mean=diam_mean)
         self.batch_size = batch_size
-        self.eval_kwargs = eval_kwargs
-
+        self.diam_mean = diam_mean
+        self.cellprob_threshold = cellprob_threshold
+        self.flow_threshold = flow_threshold
+        self.min_size = min_size
         logger.info("[CellposeStep] Running on GPU")
 
     def forward(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Runs Cellpose segmentation and stores results back into the data dict.
-
-        Expects a single image array. Converts grayscale inputs to 3-channel and
-        normalises any non-uint8 array to the [0, 255] range before inference.
+        """Run Cellpose segmentation and attach results to the input data.
 
         Args:
-            data: Dictionary containing at least the key ``"image"`` with a
+            data: Dictionary containing at least the ``"image"`` key with a
                 NumPy array of shape ``(H, W)`` or ``(H, W, C)``.
 
         Returns:
-            The same ``data`` dictionary, extended with:
-                - ``"segmentation"``: integer mask array of shape ``(H, W)``.
-                - ``"flows"``: Cellpose flow outputs.
+            The same ``data`` dictionary with added keys:
+                - ``"segmentation"``: instance mask array of shape ``(H, W)``.
+                - ``"flows"``: Cellpose flow field outputs.
                 - ``"styles"``: Cellpose style vectors.
 
         Raises:
-            KeyError: If ``"image"`` is absent from ``data``.
+            KeyError: If the ``"image"`` key is missing from ``data``.
         """
         if "image" not in data:
             raise KeyError("Input data must contain 'image'")
@@ -67,7 +79,10 @@ class CellposeStep(PipelineStep):
         masks, flows, styles = self.model.eval(
             image,
             batch_size=self.batch_size,
-            **self.eval_kwargs
+            diameter=self.diam_mean,
+            cellprob_threshold=self.cellprob_threshold,
+            flow_threshold=self.flow_threshold,
+            min_size=self.min_size,
         )
 
         data["segmentation"] = masks

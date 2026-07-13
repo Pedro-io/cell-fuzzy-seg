@@ -48,7 +48,7 @@ class MonusegCellposeDataset(MonusegDataset):
         transform: Optional[Any] = None,
         yaml_path: str = MonusegDataset.YAML_CONFIG_PATH,
         cellpose_step: Optional[CellposeStep] = None,
-        cellpose_batch_size: int = 1,
+        cellpose_batch_size: int = 8,
         cache: bool = False,
     ) -> None:
         super().__init__(dataset_name, config_key, transform, yaml_path)
