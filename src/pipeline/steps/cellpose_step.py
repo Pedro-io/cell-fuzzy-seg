@@ -3,7 +3,6 @@ from typing import Dict, Any
 from cellpose import models, core
 from .base_step import PipelineStep
 from src.utils.logger import logger
-from src.utils.image_utils import to_uint8_rgb
 
 
 class CellposeStep(PipelineStep):
@@ -64,7 +63,6 @@ class CellposeStep(PipelineStep):
             raise KeyError("Input data must contain 'image'")
 
         image = data["image"]
-        image = to_uint8_rgb(image)
 
         masks, flows, styles = self.model.eval(
             image,

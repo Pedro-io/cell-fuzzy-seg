@@ -126,8 +126,10 @@ class MarkerStep(PipelineStep):
             interpolation=cv2.INTER_LINEAR
         )
         
-        # Normalize to [0, 1]
-        rgba_norm = rgba_resized.astype(np.float32) / 255.0
+        # Normalize to [0, 1] if the input is still in [0, 255]
+        rgba_norm = rgba_resized.astype(np.float32)
+        if rgba_norm.max() > 1.0:
+            rgba_norm = rgba_norm / 255.0
         
         return rgba_norm
 

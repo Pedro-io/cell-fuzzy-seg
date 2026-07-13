@@ -3,15 +3,15 @@ from typing import Dict, Any
 import numpy as np
 from .base_step import PipelineStep
 from src.utils.logger import logger
-from src.utils.image_utils import to_uint8_rgb
+from src.utils.image_utils import to_float32_rgb
 
 
 class RGBAStep(PipelineStep):
     """Pipeline step that merges an RGB image with a segmentation mask into RGBA.
 
     The alpha channel is derived from the segmentation mask: pixels belonging
-    to any segment are fully opaque (255) and background pixels are fully
-    transparent (0).
+    to any segment are fully opaque (1.0) and background pixels are fully
+    transparent (0.0).
 
     Attributes:
         name: Identifier for this step in the pipeline.
@@ -36,7 +36,7 @@ class RGBAStep(PipelineStep):
 
         Returns:
             The same ``data`` dictionary extended with:
-                - ``"rgba"``: uint8 array of shape ``(H, W, 4)``.
+                - ``"rgba"``: float32 array of shape ``(H, W, 4)`` in [0, 1].
 
         Raises:
             KeyError: If ``"image"`` or ``"segmentation"`` are absent from ``data``.
@@ -58,8 +58,8 @@ class RGBAStep(PipelineStep):
     def _build_rgba(self, image: np.ndarray, segmentation: np.ndarray) -> np.ndarray:
         """Constructs an RGBA array from an image and a segmentation mask.
 
-        Grayscale images are expanded to 3 channels. Non-uint8 images are
-        normalised to [0, 255] before concatenation.
+        Grayscale images are expanded to 3 channels. Non-float32 images are
+        converted to float32 and normalized to [0, 1] before concatenation.
 
         Args:
             image: Input image of shape ``(H, W)`` or ``(H, W, C)``.
@@ -67,18 +67,18 @@ class RGBAStep(PipelineStep):
                 indicate foreground.
 
         Returns:
-            uint8 array of shape ``(H, W, 4)`` with the alpha channel derived
-            from the segmentation mask.
+            float32 array of shape ``(H, W, 4)`` with the alpha channel derived
+            from the segmentation mask and values in [0, 1].
         """
         logger.debug(f"Building RGBA image: image shape {image.shape}, segmentation shape {segmentation.shape}")
 
-        image = to_uint8_rgb(image)
+        image = to_float32_rgb(image)
 
         # Binary alpha: fully opaque for segmented pixels, transparent for background.
-        alpha = (segmentation > 0).astype(np.uint8) * 255
+        alpha = (segmentation > 0).astype(np.float32)
 
         alpha = np.expand_dims(alpha, axis=-1)
 
         rgba = np.concatenate([image, alpha], axis=-1)
 
-        return rgba
+        return rgba.astype(np.float32)
