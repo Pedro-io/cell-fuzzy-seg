@@ -23,7 +23,7 @@ class CellposeStep(PipelineStep):
     def __init__(
         self, batch_size: int = 8,
         name: str = "CellposeStep",
-        pretreined_model: str = "nuclei",
+        pretreined_model: str = "cpsam_v2",
         diam_mean: float = 30.0,
         cellprob_threshold: float = 0.0,
         flow_threshold: float = 0.2,
