@@ -2,9 +2,10 @@ from typing import Any, Dict, Optional
 
 import numpy as np
 
-from .monuseg_dataset import MonusegDataset
 from src.pipeline.steps.cellpose_step import CellposeStep
 from src.utils.image_utils import to_float32_rgb
+
+from .monuseg_dataset import MonusegDataset
 
 
 class MonusegCellposeDataset(MonusegDataset):

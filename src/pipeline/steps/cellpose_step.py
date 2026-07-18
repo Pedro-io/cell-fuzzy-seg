@@ -1,8 +1,10 @@
-from typing import Dict, Any
+from typing import Any, Dict
 
-from cellpose import models, core
-from .base_step import PipelineStep
+from cellpose import core, models
+
 from src.utils.logger import logger
+
+from .base_step import PipelineStep
 
 
 class CellposeStep(PipelineStep):

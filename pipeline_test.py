@@ -12,8 +12,8 @@ Este script:
 4. (Opcional) Visualiza com matplotlib
 """
 
-import sys
 import argparse
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -26,10 +26,9 @@ sys.path.insert(0, str(project_root))
 from src.data.load.monuseg_dataset import MonusegDataset
 from src.pipeline.model_pipeline import ModelPipeline
 from src.pipeline.steps.cellpose_step import CellposeStep
-from src.pipeline.steps.rgba_step import RGBAStep
 from src.pipeline.steps.marker_step import MarkerStep
+from src.pipeline.steps.rgba_step import RGBAStep
 from src.pipeline.steps.segmentation_step import SegmentationStep
-from src.utils.logger import logger
 
 
 def main():
@@ -60,14 +59,14 @@ def main():
     print("=" * 70)
 
     # 1. Verificar GPU
-    print(f"\n🔧 Verificação de Ambiente:")
+    print("\n🔧 Verificação de Ambiente:")
     print(f"   PyTorch device: {torch.device('cuda' if torch.cuda.is_available() else 'cpu')}")
     print(f"   GPU disponível: {torch.cuda.is_available()}")
     if torch.cuda.is_available():
         print(f"   GPU: {torch.cuda.get_device_name(0)}")
 
     # 2. Carregar dataset
-    print(f"\n📊 Carregando Dataset...")
+    print("\n📊 Carregando Dataset...")
     try:
         dataset = MonusegDataset(
             dataset_name="monuseg",
@@ -80,7 +79,7 @@ def main():
         return 1
 
     # 3. Montar pipeline
-    print(f"\n🔗 Montando Pipeline...")
+    print("\n🔗 Montando Pipeline...")
     try:
         pipeline = ModelPipeline([
             CellposeStep(batch_size=1),
@@ -139,7 +138,7 @@ def main():
             stats['successful'] += 1
 
             # Mostrar resultados
-            print(f"   ✅ Sucesso!")
+            print("   ✅ Sucesso!")
             print(f"      - Cellpose: {n_cellpose} células")
             print(f"      - Markers: {n_markers} regiões")
             print(f"      - Final: {n_final} células (refinado)")
@@ -155,21 +154,21 @@ def main():
             traceback.print_exc()
 
     # 5. Resumo
-    print(f"\n" + "=" * 70)
+    print("\n" + "=" * 70)
     print("RESUMO DOS RESULTADOS")
     print("=" * 70)
     print(f"Processadas: {stats['successful']} amostras com sucesso")
     print(f"Falhadas: {stats['failed']} amostras")
 
     if stats['cellpose_cells']:
-        print(f"\n📊 Estatísticas de Células:")
+        print("\n📊 Estatísticas de Células:")
         print(f"   Cellpose (médio): {np.mean(stats['cellpose_cells']):.1f} ± {np.std(stats['cellpose_cells']):.1f}")
         print(f"   Final (médio): {np.mean(stats['final_cells']):.1f} ± {np.std(stats['final_cells']):.1f}")
         print(f"   Diferença (final - cellpose): {np.mean(np.array(stats['final_cells']) - np.array(stats['cellpose_cells'])):+.1f}")
 
     # 6. Visualizar (opcional)
     if args.visualize and stats['successful'] > 0:
-        print(f"\n📈 Gerando visualização...")
+        print("\n📈 Gerando visualização...")
         try:
             import matplotlib.pyplot as plt
 
@@ -227,7 +226,7 @@ def main():
             plt.show()
 
         except ImportError:
-            print(f"   ⚠️  Matplotlib não disponível. Pulando visualização.")
+            print("   ⚠️  Matplotlib não disponível. Pulando visualização.")
         except Exception as e:
             print(f"   ❌ Erro na visualização: {e}")
 

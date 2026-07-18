@@ -1,10 +1,12 @@
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
+import cv2
 import numpy as np
 import torch
-import cv2
+
+from src.utils.logger import logger
 
 from .base_step import PipelineStep
-from src.utils.logger import logger
 
 
 class MarkerStep(PipelineStep):
@@ -42,12 +44,12 @@ class MarkerStep(PipelineStep):
         self.model = model
         self.target_size = target_size
         self.threshold = threshold
-        
+
         if device is None:
             self.device = "cuda" if torch.cuda.is_available() else "cpu"
         else:
             self.device = device
-        
+
         if self.model is not None:
             self.model.model.to(self.device)
             self.model.model.eval()
@@ -88,22 +90,22 @@ class MarkerStep(PipelineStep):
         try:
             # Preprocess: resize and normalize
             rgba_resized = self._preprocess(rgba)
-            
+
             # Convert to tensor and add batch dimension
             rgba_tensor = torch.from_numpy(rgba_resized).float().to(self.device)
             rgba_tensor = rgba_tensor.permute(2, 0, 1).unsqueeze(0)  # (1, 4, 256, 256)
-            
+
             # Inference
             with torch.no_grad():
                 markers_pred = self.model.predict(rgba_tensor)  # (1, 1, 256, 256)
-            
+
             # Post-process: resize back and threshold
             markers = self._postprocess(markers_pred.squeeze().cpu().numpy(), original_shape)
-            
+
             data["markers"] = markers
-            
+
             logger.debug(f"[{self.name}] Generated markers with shape {markers.shape}")
-            
+
         except Exception as e:
             logger.error(f"[{self.name}] Inference failed: {e}")
             raise RuntimeError(f"MarkerNet inference failed: {e}") from e
@@ -125,12 +127,12 @@ class MarkerStep(PipelineStep):
             (self.target_size, self.target_size),
             interpolation=cv2.INTER_LINEAR
         )
-        
+
         # Normalize to [0, 1] if the input is still in [0, 255]
         rgba_norm = rgba_resized.astype(np.float32)
         if rgba_norm.max() > 1.0:
             rgba_norm = rgba_norm / 255.0
-        
+
         return rgba_norm
 
     def _postprocess(self, markers_pred: np.ndarray, original_shape: tuple) -> np.ndarray:
@@ -149,8 +151,8 @@ class MarkerStep(PipelineStep):
             (original_shape[1], original_shape[0]),  # cv2.resize uses (W, H)
             interpolation=cv2.INTER_LINEAR
         )
-        
+
         # Apply threshold
         markers_binary = (markers_resized > self.threshold).astype(np.float32)
-        
+
         return markers_binary

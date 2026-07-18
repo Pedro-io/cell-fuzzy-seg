@@ -1,7 +1,8 @@
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
+from src.utils.logger import logger
 
 from .steps.base_step import PipelineStep
-from src.utils.logger import logger
 
 
 class ModelPipeline:

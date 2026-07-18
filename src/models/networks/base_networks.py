@@ -1,15 +1,24 @@
 from abc import ABC, abstractmethod
 
+import torch.nn as nn
 
-class BaseNetwork(ABC):
-    """Classe base abstrata para redes neurais.
 
-    Esta classe define a interface comum para todas as redes neurais no projeto,
-    garantindo que subclasses implementem métodos essenciais para inicialização,
-    inferência, treinamento, avaliação e persistência.
+class BaseNetwork(nn.Module, ABC):
+    """Classe base abstrata para redes neurais do projeto.
+
+    Esta classe define o contrato comum que toda rede neural deve seguir,
+    garantindo uma interface padronizada para inferência e utilização da rede.
+    As subclasses são responsáveis por implementar os comportamentos essenciais
+    de inicialização, passagem de dados pela rede e geração de previsões.
+
+    Por herdar de nn.Module, todas as subclasses ganham automaticamente:
+    - .to(device), .cuda(), .cpu()
+    - .parameters() (necessário para o optimizer)
+    - .state_dict() / .load_state_dict() no nível correto
+    - .eval() / .train() chamados diretamente na instância
+    - suporte a nn.DataParallel, hooks, torch.compile, etc.
     """
 
-    @abstractmethod
     def __init__(self, config):
         """Inicializa a rede neural com a configuração fornecida.
 
@@ -17,7 +26,8 @@ class BaseNetwork(ABC):
             config (dict): Dicionário contendo configurações da rede, como
                 hiperparâmetros, arquitetura e outras opções específicas.
         """
-        pass
+        super().__init__()
+        self._config = config
 
     @abstractmethod
     def forward(self, x):
@@ -42,67 +52,12 @@ class BaseNetwork(ABC):
             Previsões processadas (ex.: classes preditas ou máscaras segmentadas).
         """
         pass
-
-    @abstractmethod
-    def train_step(self, batch, optimizer, loss_fn):
-        """Executa um passo de treinamento.
-
-        Args:
-            batch: Lote de dados de treinamento (ex.: dicionário com 'input' e 'target').
-            optimizer: Otimizador para atualizar os pesos.
-            loss_fn: Função de perda para calcular o erro.
-        """
-        pass
-
-    @abstractmethod
-    def validation_step(self, batch, loss_fn):
-        """Executa um passo de validação.
-
-        Args:
-            batch: Lote de dados de validação (ex.: dicionário com 'input' e 'target').
-            loss_fn: Função de perda para calcular o erro.
-
-        Returns:
-            Valor da perda para o lote.
-        """
-        pass
-
-    @abstractmethod
-    def evaluate(self, data_loader, metrics):
-        """Avalia a rede em um conjunto de dados completo.
-
-        Args:
-            data_loader: Carregador de dados para iteração.
-            metrics (list): Lista de métricas a serem calculadas (ex.: accuracy, IoU).
-
-        Returns:
-            dict: Dicionário com os valores das métricas calculadas.
-        """
-        pass
-
-    @abstractmethod
-    def save(self, path):
-        """Salva o estado da rede em um arquivo.
-
-        Args:
-            path (str): Caminho do arquivo onde salvar o modelo.
-        """
-        pass
-
-    @abstractmethod
-    def load(self, path):
-        """Carrega o estado da rede de um arquivo.
-
-        Args:
-            path (str): Caminho do arquivo de onde carregar o modelo.
-        """
-        pass
-
-    @abstractmethod
+    
     def get_config(self):
-        """Retorna a configuração atual da rede.
+        """Retorna a configuração da rede.
 
         Returns:
-            dict: Dicionário com a configuração da rede.
+            dict: Dicionário contendo a configuração da rede.
         """
-        pass
+        return self._config
+

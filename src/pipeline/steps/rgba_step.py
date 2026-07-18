@@ -1,9 +1,11 @@
-from typing import Dict, Any
+from typing import Any, Dict
 
 import numpy as np
-from .base_step import PipelineStep
-from src.utils.logger import logger
+
 from src.utils.image_utils import to_float32_rgb
+from src.utils.logger import logger
+
+from .base_step import PipelineStep
 
 
 class RGBAStep(PipelineStep):

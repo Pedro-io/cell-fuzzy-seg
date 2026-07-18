@@ -2,8 +2,9 @@
 
 from typing import Any, Dict
 
-from .base_step import PipelineStep
 from src.losses.loss_composer import LossComposer
+
+from .base_step import PipelineStep
 
 
 class TrainingStep(PipelineStep):

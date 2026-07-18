@@ -104,7 +104,7 @@ class OutputWriter:
         overlay = cv2.cvtColor(overlay, cv2.COLOR_RGB2BGR)
 
         cv2.imwrite(path, overlay)
-    
+
     def save_rgba(self, image_id, rgba):
       path = f"{self.output_dir}/{image_id}_rgba.png"
       cv2.imwrite(path, rgba)

@@ -1,12 +1,15 @@
 import os
+import xml.etree.ElementTree as ET
 from typing import Any, Dict, List, Optional, Tuple
 
+import cv2
 import numpy as np
 from cellpose import io
-import cv2
-import xml.etree.ElementTree as ET
-from .base_dataset import BaseDataset
+
 from src.utils.logger import logger
+
+from .base_dataset import BaseDataset
+
 
 class MonusegDataset(BaseDataset):
     def __init__(
@@ -24,7 +27,7 @@ class MonusegDataset(BaseDataset):
     def __len__(self) -> int:
         """Returns the number of samples in the dataset."""
         return len(self.file_pairs)
-    
+
     def __getitem__(self, idx: int) -> Dict[str, Any]:
         """Returns the sample (image and mask) at the specified index."""
         image_path, mask_path = self.file_pairs[idx]
@@ -93,7 +96,7 @@ class MonusegDataset(BaseDataset):
 
     def _get_file_pairs(self) -> List[Tuple[str, str]]:
         """Returns the list of (image, mask) pairs from the configured folders."""
-        logger.debug(f"Getting file pairs from: image_dir={self.image_dir}, mask_dir={self.mask_dir}")  
+        logger.debug(f"Getting file pairs from: image_dir={self.image_dir}, mask_dir={self.mask_dir}")
         image_ext = self.config['image_extension'].lower()
         mask_ext = self.config['mask_extension'].lower()
 
@@ -121,4 +124,3 @@ class MonusegDataset(BaseDataset):
             pairs.append((image_path, mask_path))
 
         return pairs
-      

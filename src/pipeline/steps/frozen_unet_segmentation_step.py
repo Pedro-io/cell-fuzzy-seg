@@ -1,12 +1,8 @@
-import torch
-import segmentation_models_pytorch as smp
 
-from typing import Dict, Any, Optional
-import numpy as np
-import cv2
+import segmentation_models_pytorch as smp
+import torch
 
 from .base_step import PipelineStep
-from src.utils.logger import logger
 
 
 class FrozenUnetSegmentationStep(PipelineStep):

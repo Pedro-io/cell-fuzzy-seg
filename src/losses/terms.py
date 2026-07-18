@@ -6,12 +6,12 @@ import torch
 
 from .border_loss import BorderLoss
 from .distance_map_loss import DistanceMapLoss
+from .loss_term import LossTerm
 from .not_too_thin_loss import NotTooThinLoss
 from .object_size_loss import ObjectSizeLoss
 from .rmse_loss import RMSELoss
 from .soft_dice_loss import SoftDiceLoss
 from .total_variation_loss import TotalVariationLoss
-from .loss_term import LossTerm
 
 
 class SizeTerm(LossTerm):
