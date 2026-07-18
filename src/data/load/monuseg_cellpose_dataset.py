@@ -198,6 +198,6 @@ def collate_fn_with_cellpose(samples):
         'image': torch.tensor(np.stack(images_list), dtype=torch.float32),
         'distance_map': torch.tensor(np.stack(dmaps_list), dtype=torch.float32),
         'ground_truth': torch.tensor(np.stack(masks_list), dtype=torch.float32),
-        'cellpose_segmentation': torch.tensor(np.stack([s['cellpose_segmentation'] for s in samples]), dtype=torch.float32),
+        'segmentation': torch.tensor(np.stack([s['cellpose_segmentation'] for s in samples]), dtype=torch.float32),
         'id': ids,
     }
