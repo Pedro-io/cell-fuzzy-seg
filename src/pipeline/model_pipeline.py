@@ -7,6 +7,7 @@ from .steps.base_step import PipelineStep
 
 class ModelPipeline:
     """
+    EXCLUIR SCRIPT
     Orchestrates execution of a sequence of pipeline steps.
     """
 

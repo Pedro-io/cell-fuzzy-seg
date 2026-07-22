@@ -9,7 +9,9 @@ from .monuseg_dataset import MonusegDataset
 
 
 class MonusegCellposeDataset(MonusegDataset):
-    """Dataset wrapper that augments Monuseg samples with Cellpose output.
+    """
+    EXCLUIR SCRIPT
+    Dataset wrapper that augments Monuseg samples with Cellpose output.
 
     This dataset subclass wraps the original MonusegDataset and runs Cellpose
     inference on each sample image. It preserves the original ground truth
