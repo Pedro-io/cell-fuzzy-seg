@@ -6,7 +6,7 @@ import torch
 
 from src.utils.logger import logger
 
-from .base_step import PipelineStep
+from ..base_step import PipelineStep
 
 
 class MarkerStep(PipelineStep):

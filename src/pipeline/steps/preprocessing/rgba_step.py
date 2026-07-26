@@ -5,7 +5,7 @@ import numpy as np
 from src.utils.image_utils import to_float32_rgb
 from src.utils.logger import logger
 
-from .base_step import PipelineStep
+from ..base_step import PipelineStep
 
 
 class RGBAStep(PipelineStep):
