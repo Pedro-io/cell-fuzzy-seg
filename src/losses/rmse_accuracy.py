@@ -1,29 +1,29 @@
-"""Root Mean Square Error accuracy module."""
+"""Módulo de métrica de acurácia baseada em RMSE."""
 
 import torch
 import torch.nn as nn
 
 
 class RMSEAccuracy(nn.Module):
-    """Accuracy metric derived from RMSE as ``1 - RMSE(y_pred, y_true)``.
+    """Métrica de acurácia derivada do RMSE como ``1 - RMSE(y_pred, y_true)``.
 
-    Higher values indicate better predictions. The metric is bounded above by
-    1.0 and has no lower bound.
+    Valores maiores indicam melhores previsões. A métrica é limitada
+    superiormente por 1.0 e não possui limite inferior.
     """
 
     def __init__(self) -> None:
-        """Initializes RMSEAccuracy with an internal MSELoss."""
+        """Inicializa RMSEAccuracy com um MSELoss interno."""
         super().__init__()
         self._mse = nn.MSELoss()
 
     def forward(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
-        """Computes RMSE-based accuracy.
+        """Calcula a acurácia baseada em RMSE.
 
         Args:
-            y_pred: Predicted tensor of any shape.
-            y_true: Ground truth tensor of the same shape as ``y_pred``.
+            y_pred: Tensor previsto de qualquer formato.
+            y_true: Tensor de ground truth com o mesmo formato de ``y_pred``.
 
         Returns:
-            Scalar accuracy value in the range ``(-inf, 1]``.
+            Valor escalar de acurácia na faixa ``(-inf, 1]``.
         """
         return 1 - torch.sqrt(self._mse(y_pred, y_true))

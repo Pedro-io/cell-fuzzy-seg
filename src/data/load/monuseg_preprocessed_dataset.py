@@ -5,35 +5,37 @@ from src.data.load.base_dataset import BaseDataset
 
 
 class PreprocessingPipelineProtocol(Protocol):
-    """Protocol defining the expected interface for preprocessing pipelines.
+    """Protocolo que define a interface esperada para pipelines de pré-processamento.
 
-    A preprocessing pipeline must expose a ``run(data)``, ``forward(data)``,
-    or be directly callable with a data dictionary.
+    Um pipeline de pré-processamento deve expor ``run(data)``, ``forward(data)``
+    ou ser diretamente chamável com um dicionário de dados.
     """
 
     def run(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute all preprocessing steps on the data dictionary."""
+        """Executa todos os passos de pré-processamento no dicionário de dados."""
         ...
 
     def forward(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute all preprocessing steps on the data dictionary."""
+        """Executa todos os passos de pré-processamento no dicionário de dados."""
         ...
 
 
 class MonusegPreprocessedDataset(BaseDataset):
-    """Wrap a base dataset and enrich each sample with preprocessing outputs.
+    """Envolve um dataset base e enriquece cada amostra com os resultados do pré-processamento.
 
-    Follows the Composition pattern: receives a ``BaseDataset`` and a
-    preprocessing pipeline (``PreprocessingPipeline`` or compatible object),
-    delegating data loading to the former and preprocessing to the latter.
+    Segue o padrão de composição: recebe um ``BaseDataset`` e um pipeline de
+    pré-processamento (``PreprocessingPipeline`` ou objeto compatível),
+    delegando o carregamento de dados ao primeiro e o pré-processamento ao
+    segundo.
 
-    The class inherits from ``BaseDataset`` to remain compatible with the
-    project's dataset interface, but **does not load its own configuration
-    from YAML** — it relies on the wrapped dataset for metadata.
+    A classe herda de ``BaseDataset`` para permanecer compatível com a
+    interface de datasets do projeto, mas **não carrega sua própria
+    configuração a partir do YAML** — ela depende do dataset encapsulado para
+    obter metadados.
 
-    It does not need to know the specific implementation of the wrapped
-    dataset beyond the standard ``BaseDataset`` contract, nor the specific
-    steps of the preprocessing pipeline (Cellpose, RGBA, etc.).
+    Não precisa conhecer a implementação específica do dataset encapsulado
+    além do contrato padrão de ``BaseDataset``, nem os passos específicos do
+    pipeline de pré-processamento (Cellpose, RGBA, etc.).
     """
 
     def __init__(
@@ -58,11 +60,11 @@ class MonusegPreprocessedDataset(BaseDataset):
         self.yaml_path = getattr(base_dataset, "yaml_path", "")
 
     def __len__(self) -> int:
-        """Return the number of samples in the wrapped dataset."""
+        """Retorna o número de amostras no dataset encapsulado."""
         return len(self.base_dataset)
 
     def __getitem__(self, idx: int) -> Dict[str, Any]:
-        """Return a preprocessed sample from the wrapped dataset."""
+        """Retorna uma amostra pré-processada a partir do dataset encapsulado."""
         sample = self.base_dataset[idx]
         if not isinstance(sample, dict):
             raise TypeError(f"Expected a dict sample, got {type(sample).__name__}")
@@ -76,12 +78,12 @@ class MonusegPreprocessedDataset(BaseDataset):
         return processed_sample
 
     def _run_pipeline(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute the preprocessing pipeline using the supported interface.
+        """Executa o pipeline de pré-processamento usando a interface suportada.
 
-        Checks, in order, for:
-        1. ``.run(data)`` — the canonical ``PreprocessingPipeline`` interface
-        2. ``.forward(data)`` — compatible with ``ModelPipeline``
-        3. ``__call__(data)`` — compatible with any callable
+        Verifica, em ordem, os seguintes casos:
+        1. ``.run(data)`` — a interface canônica de ``PreprocessingPipeline``
+        2. ``.forward(data)`` — compatível com ``ModelPipeline``
+        3. ``__call__(data)`` — compatível com qualquer objeto chamável
         """
         if hasattr(self.preprocessing_pipeline, "run"):
             return self.preprocessing_pipeline.run(data)
@@ -98,13 +100,13 @@ class MonusegPreprocessedDataset(BaseDataset):
         )
 
     def _load_image(self, image_path: str) -> Any:
-        """Delegate image loading to the wrapped dataset."""
+        """Delegue o carregamento de imagem ao dataset encapsulado."""
         return self.base_dataset._load_image(image_path)
 
     def _load_mask(self, mask_path: str, image_shape: Optional[Any] = None) -> Any:
-        """Delegate mask loading to the wrapped dataset."""
+        """Delegue o carregamento de máscara ao dataset encapsulado."""
         return self.base_dataset._load_mask(mask_path, image_shape=image_shape)
 
     def _get_file_pairs(self) -> List[tuple]:
-        """Delegate file pair resolution to the wrapped dataset."""
+        """Delegue a resolução dos pares de arquivos ao dataset encapsulado."""
         return self.base_dataset._get_file_pairs()

@@ -7,22 +7,22 @@ from torch.utils.data import Dataset
 
 
 class BaseDataset(ABC, Dataset):
-    """Abstract base class for datasets.
+    """Classe base abstrata para datasets.
 
-    Defines the standard interface for all datasets in the project, allowing
-    different data sources (MoNuSeg, custom, etc.) to be interchangeable while
-    maintaining the same interface. Loads configurations from a centralized YAML
-    file, enabling easy dataset switching.
+    Define a interface padrão para todos os datasets do projeto, permitindo
+    que diferentes fontes de dados (MoNuSeg, personalizadas, etc.) sejam
+    intercambiáveis, mantendo a mesma interface. Carrega configurações a partir
+    de um arquivo YAML centralizado, facilitando a troca de datasets.
 
-    Attributes:
-        dataset_name (str): Name of the dataset in YAML (e.g., 'monuseg').
-        config_key (str): Specific configuration key within the dataset
-            (e.g., 'monuseg_training').
-        config (dict): Specific configuration loaded from YAML.
-        loader_config (dict): DataLoader configuration.
-        preprocessing (dict): Preprocessing configuration.
-        root_dir (str): Root directory of the dataset.
-        transform: Transformations to apply to data.
+    Atributos:
+        dataset_name (str): Nome do dataset no YAML (por exemplo, 'monuseg').
+        config_key (str): Chave específica da configuração dentro do dataset
+            (por exemplo, 'monuseg_training').
+        config (dict): Configuração específica carregada do YAML.
+        loader_config (dict): Configuração do DataLoader.
+        preprocessing (dict): Configuração de pré-processamento.
+        root_dir (str): Diretório raiz do dataset.
+        transform: Transformações a serem aplicadas aos dados.
     """
 
     YAML_CONFIG_PATH = 'configs/datasets.yml'
@@ -34,20 +34,20 @@ class BaseDataset(ABC, Dataset):
       transform: Optional[Any] = None,
       yaml_path: str = YAML_CONFIG_PATH
       ) -> None:
-        """Initialize the dataset by loading configuration from YAML.
+        """Inicializa o dataset carregando a configuração a partir do YAML.
 
         Args:
-            dataset_name (str): Name of the dataset in YAML (e.g., 'monuseg').
-            config_key (str): Specific configuration key within the dataset
-                (e.g., 'monuseg_training' for training, 'monuseg_test' for testing).
-            transform: Transformations to apply. Default: None.
-            yaml_path (str): Path to the YAML configuration file.
-                Default: 'configs/datasets.yml'.
+            dataset_name (str): Nome do dataset no YAML (por exemplo, 'monuseg').
+            config_key (str): Chave específica da configuração dentro do dataset
+                (por exemplo, 'monuseg_training' para treino, 'monuseg_test' para teste).
+            transform: Transformações a serem aplicadas. Padrão: None.
+            yaml_path (str): Caminho para o arquivo de configuração YAML.
+                Padrão: 'configs/datasets.yml'.
 
         Raises:
-            FileNotFoundError: If the YAML file does not exist.
-            KeyError: If dataset_name or config_key do not exist in YAML.
-            ValueError: If root_dir does not exist or config is incomplete.
+            FileNotFoundError: Se o arquivo YAML não existir.
+            KeyError: Se dataset_name ou config_key não existirem no YAML.
+            ValueError: Se root_dir não existir ou a configuração estiver incompleta.
         """
         self.dataset_name = dataset_name
         self.config_key = config_key
@@ -65,11 +65,11 @@ class BaseDataset(ABC, Dataset):
             raise ValueError(f"Invalid or non-existent root_dir: {self.root_dir}")
 
     def _load_config_from_yaml(self) -> None:
-        """Load configurations from YAML file.
+        """Carrega as configurações a partir do arquivo YAML.
 
         Raises:
-            FileNotFoundError: If YAML file does not exist.
-            KeyError: If dataset_name or config_key are not in YAML.
+            FileNotFoundError: Se o arquivo YAML não existir.
+            KeyError: Se dataset_name ou config_key não estiverem no YAML.
         """
         if not os.path.exists(self.yaml_path):
             raise FileNotFoundError(f"YAML file not found: {self.yaml_path}")
@@ -93,10 +93,10 @@ class BaseDataset(ABC, Dataset):
         self.preprocessing = dataset_config.get('preprocessing', {})
 
     def _validate_config(self) -> None:
-        """Validate if configuration has all required fields.
+        """Valida se a configuração possui todos os campos obrigatórios.
 
         Raises:
-            KeyError: If any required field is missing.
+            KeyError: Se algum campo obrigatório estiver ausente.
         """
         required_keys = ['root_dir', 'image_dir', 'mask_dir', 'image_extension',
                          'mask_extension']
@@ -106,130 +106,130 @@ class BaseDataset(ABC, Dataset):
 
     @abstractmethod
     def __len__(self) -> int:
-        """Return the number of samples in the dataset.
+        """Retorna o número de amostras no dataset.
 
         Returns:
-            int: Total number of samples.
+            int: Total de amostras.
         """
         pass
 
     @abstractmethod
     def __getitem__(self, idx: int) -> Dict[str, Any]:
-        """Return a sample from the dataset by index.
+        """Retorna uma amostra do dataset pelo índice.
 
         Args:
-            idx (int): Index of the sample.
+            idx (int): Índice da amostra.
 
         Returns:
-            dict: Dictionary containing:
-                - 'image': Loaded image.
-                - 'mask': Corresponding mask.
-                - 'image_name': Image filename (optional).
+            dict: Dicionário contendo:
+                - 'image': Imagem carregada.
+                - 'mask': Máscara correspondente.
+                - 'image_name': Nome do arquivo da imagem (opcional).
         """
         pass
 
     @abstractmethod
     def _load_image(self, image_path: str) -> Any:
-        """Load an image from file.
+        """Carrega uma imagem a partir do arquivo.
 
         Args:
-            image_path (str): Path to the image.
+            image_path (str): Caminho para a imagem.
 
         Returns:
-            Loaded image (dataset-specific format).
+            Imagem carregada (no formato específico do dataset).
         """
         pass
 
     @abstractmethod
     def _load_mask(self, mask_path: str) -> Any:
-        """Load a mask from file.
+        """Carrega uma máscara a partir do arquivo.
 
         Args:
-            mask_path (str): Path to the mask.
+            mask_path (str): Caminho para a máscara.
 
         Returns:
-            Loaded mask (dataset-specific format).
+            Máscara carregada (no formato específico do dataset).
         """
         pass
 
     @abstractmethod
     def _get_file_pairs(self) -> list:
-        """Return list of (image, mask) pairs.
+        """Retorna a lista de pares (imagem, máscara).
 
         Returns:
-            list: List of tuples (image_path, mask_path).
+            list: Lista de tuplas (image_path, mask_path).
         """
         pass
 
     def get_config(self) -> Dict[str, Any]:
-        """Return the specific configuration loaded.
+        """Retorna a configuração específica carregada.
 
         Returns:
-            dict: Dataset configuration (e.g., monuseg_training).
+            dict: Configuração do dataset (por exemplo, monuseg_training).
         """
         return self.config
 
     def get_loader_config(self) -> Dict[str, Any]:
-        """Return the DataLoader configuration (batch_size, num_workers, etc).
+        """Retorna a configuração do DataLoader (batch_size, num_workers, etc).
 
         Returns:
-            dict: Loader configuration.
+            dict: Configuração do loader.
         """
         return self.loader_config
 
     def get_preprocessing_config(self) -> Dict[str, Any]:
-        """Return the preprocessing configuration (image_size, normalize, etc).
+        """Retorna a configuração de pré-processamento (image_size, normalize, etc).
 
         Returns:
-            dict: Preprocessing configuration.
+            dict: Configuração de pré-processamento.
         """
         return self.preprocessing
 
     def get_dataset_name(self) -> str:
-        """Return the name of the dataset.
+        """Retorna o nome do dataset.
 
         Returns:
-            str: Dataset name (e.g., 'monuseg').
+            str: Nome do dataset (por exemplo, 'monuseg').
         """
         return self.dataset_name
 
     def get_config_key(self) -> str:
-        """Return the specific configuration key.
+        """Retorna a chave específica da configuração.
 
         Returns:
-            str: Config key (e.g., 'monuseg_training').
+            str: Chave da configuração (por exemplo, 'monuseg_training').
         """
         return self.config_key
 
     def set_transform(self, transform: Any) -> None:
-        """Set the transformations to be applied.
+        """Define as transformações a serem aplicadas.
 
         Args:
-            transform: Transformation object.
+            transform: Objeto de transformação.
         """
         self.transform = transform
 
     def get_image_dir(self) -> str:
-        """Return the full path to the images directory.
+        """Retorna o caminho completo para o diretório de imagens.
 
         Returns:
-            str: Path to the images directory.
+            str: Caminho para o diretório de imagens.
         """
         return os.path.join(self.root_dir, self.config['image_dir'])
 
     def get_mask_dir(self) -> str:
-        """Return the full path to the masks directory.
+        """Retorna o caminho completo para o diretório de máscaras.
 
         Returns:
-            str: Path to the masks directory.
+            str: Caminho para o diretório de máscaras.
         """
         return os.path.join(self.root_dir, self.config['mask_dir'])
 
     def get_stats(self) -> Dict[str, Any]:
-        """Return dataset statistics.
+        """Retorna as estatísticas do dataset.
 
         Returns:
-            dict: Dictionary with statistics (size, configuration, paths, etc).
+            dict: Dicionário com estatísticas (tamanho, configuração, caminhos, etc).
         """
         return {
             'dataset_name': self.dataset_name,

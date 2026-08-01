@@ -1,4 +1,4 @@
-"""Output writer utilities for segmentation and overlay export."""
+"""Utilidades para escrita de saídas de segmentação e sobreposição."""
 
 import os
 from typing import Optional, Tuple
@@ -8,13 +8,13 @@ import numpy as np
 
 
 class OutputWriter:
-    """Write segmentation outputs to disk."""
+    """Escreve saídas de segmentação em disco."""
 
     def __init__(self, output_dir: str):
-        """Initialize output directories.
+        """Inicializa os diretórios de saída.
 
         Args:
-            output_dir: Base directory where output files will be saved.
+            output_dir: Diretório base onde os arquivos de saída serão salvos.
         """
         self.output_dir = output_dir
         self.seg_dir = os.path.join(output_dir, "segmentations")
@@ -26,11 +26,11 @@ class OutputWriter:
         os.makedirs(self.overlay_dir, exist_ok=True)
 
     def save_all(self, data: dict) -> None:
-        """Save all available outputs from a data dictionary.
+        """Salva todas as saídas disponíveis a partir de um dicionário de dados.
 
         Args:
-            data: Dictionary containing optional keys 'id', 'image', 'segmentation',
-                'markers', and 'ground_truth'.
+            data: Dicionário contendo as chaves opcionais 'id', 'image', 'segmentation',
+                'markers' e 'ground_truth'.
         """
         image_id = data.get("id", "sample")
 
@@ -49,11 +49,11 @@ class OutputWriter:
             )
 
     def save_segmentation(self, image_id: str, seg: np.ndarray) -> None:
-        """Save a segmentation mask as a PNG file.
+        """Salva uma máscara de segmentação como arquivo PNG.
 
         Args:
-            image_id: Identifier for the image used in the filename.
-            seg: Segmentation mask array.
+            image_id: Identificador da imagem usado no nome do arquivo.
+            seg: Array da máscara de segmentação.
         """
         path = os.path.join(self.seg_dir, f"{image_id}_seg.png")
 
@@ -62,11 +62,11 @@ class OutputWriter:
         cv2.imwrite(path, seg)
 
     def save_markers(self, image_id: str, markers: np.ndarray) -> None:
-        """Save marker annotations as a PNG file.
+        """Salva anotações de marcadores como arquivo PNG.
 
         Args:
-            image_id: Identifier for the image used in the filename.
-            markers: Marker mask array.
+            image_id: Identificador da imagem usado no nome do arquivo.
+            markers: Array da máscara de marcadores.
         """
         path = os.path.join(self.marker_dir, f"{image_id}_markers.png")
 

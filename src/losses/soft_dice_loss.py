@@ -1,37 +1,36 @@
-"""Soft Dice loss module."""
+"""Módulo de perda Soft Dice."""
 
 import torch
 import torch.nn as nn
 
 
 class SoftDiceLoss(nn.Module):
-    """Soft Dice loss for segmentation tasks.
+    """Perda Soft Dice para tarefas de segmentação.
 
-    Computes the differentiable Dice loss averaged over the batch and all
-    channels.
+    Calcula a perda diferenciável de Dice média sobre o batch e todos os canais.
 
-    Expected input shape: ``(B, C, H, W)``.
+    Formato esperado de entrada: ``(B, C, H, W)``.
     """
 
     def __init__(self, epsilon: float = 1e-9) -> None:
-        """Initializes SoftDiceLoss.
+        """Inicializa SoftDiceLoss.
 
         Args:
-            epsilon: Small constant added to numerator and denominator for
-                numerical stability.
+            epsilon: Constante pequena adicionada ao numerador e ao denominador
+                para estabilidade numérica.
         """
         super().__init__()
         self.epsilon = epsilon
 
     def forward(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
-        """Computes the soft Dice loss.
+        """Calcula a perda soft Dice.
 
         Args:
-            y_pred: Predicted segmentation tensor of shape ``(B, C, H, W)``.
-            y_true: Ground truth segmentation tensor of shape ``(B, C, H, W)``.
+            y_pred: Tensor de segmentação previsto com formato ``(B, C, H, W)``.
+            y_true: Tensor de segmentação de ground truth com formato ``(B, C, H, W)``.
 
         Returns:
-            Scalar soft Dice loss value in the range ``[0, 1]``.
+            Valor escalar da perda soft Dice na faixa ``[0, 1]``.
         """
         axes = tuple(range(2, y_pred.ndim))
         numerator = 2.0 * torch.sum(y_pred * y_true, dim=axes)

@@ -1,39 +1,39 @@
-"""Total variation regularization loss module."""
+"""Módulo de perda de regularização por variação total."""
 
 import torch
 import torch.nn as nn
 
 
 class TotalVariationLoss(nn.Module):
-    """Anisotropic total variation loss normalized by ground truth mass.
+    """Perda anisotrópica de variação total normalizada pela massa do ground truth.
 
-    Encourages spatial smoothness in predictions by penalizing differences
-    between adjacent pixels, normalized by the square root of the ground truth
-    sum to remain invariant to object density.
+    Incentiva suavidade espacial nas previsões penalizando diferenças entre
+    pixels adjacentes, normalizadas pela raiz quadrada da soma do ground truth
+    para permanecer invariantes à densidade de objetos.
 
-    Expected input shape: ``(N, C, H, W)``.
+    Formato esperado de entrada: ``(N, C, H, W)``.
     """
 
     def __init__(self, weight: float = 0.1, power: int = 1) -> None:
-        """Initializes TotalVariationLoss.
+        """Inicializa TotalVariationLoss.
 
         Args:
-            weight: Scalar multiplier applied to the loss.
-            power: Exponent applied to absolute pixel differences.
+            weight: Multiplicador escalar aplicado à perda.
+            power: Expoente aplicado às diferenças absolutas entre pixels.
         """
         super().__init__()
         self.weight = weight
         self.power = power
 
     def forward(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
-        """Computes the total variation loss.
+        """Calcula a perda de variação total.
 
         Args:
-            y_pred: Predicted tensor of shape ``(N, C, H, W)``.
-            y_true: Ground truth tensor used as a normalization reference.
+            y_pred: Tensor previsto com formato ``(N, C, H, W)``.
+            y_true: Tensor de ground truth usado como referência de normalização.
 
         Returns:
-            Scalar weighted total variation loss.
+            Perda de variação total ponderada e escalar.
         """
         normalization = torch.sqrt(y_true.sum())
         h_tv = torch.sum(torch.abs(y_pred[:, :, 1:, :] - y_pred[:, :, :-1, :]) ** self.power)

@@ -1,4 +1,4 @@
-"""Not-too-thin morphological regularization loss module."""
+"""Módulo de perda de regularização morfológica "não muito fina"."""
 
 import torch
 import torch.nn as nn
@@ -6,18 +6,18 @@ import torch.nn.functional as F
 
 
 def _morpho(image: torch.Tensor, kernel: torch.Tensor, operation: str) -> torch.Tensor:
-    """Differentiable morphological dilation or erosion via unfolding.
+    """Dilatação ou erosão morfológica diferenciável via unfolding.
 
     Args:
-        image: 2-D image tensor of shape ``(H, W)``.
-        kernel: 2-D structuring element tensor of shape ``(Kh, Kw)``.
-        operation: Either ``"dilate"`` or ``"erode"``.
+        image: Tensor de imagem 2-D com formato ``(H, W)``.
+        kernel: Tensor do elemento estruturante 2-D com formato ``(Kh, Kw)``.
+        operation: Pode ser ``"dilate"`` ou ``"erode"``.
 
     Returns:
-        Morphologically processed tensor of the same shape as ``image``.
+        Tensor processado morfologicamente com o mesmo formato de ``image``.
 
     Raises:
-        ValueError: If ``operation`` is not ``"dilate"`` or ``"erode"``.
+        ValueError: Se ``operation`` não for ``"dilate"`` nem ``"erode"``.
     """
     p1 = kernel.shape[0] // 2
     p2 = kernel.shape[1] // 2
@@ -41,34 +41,34 @@ def _morpho(image: torch.Tensor, kernel: torch.Tensor, operation: str) -> torch.
 
 
 class NotTooThinLoss(nn.Module):
-    """Regularization loss that penalizes thin, filament-like predictions.
+    """Perda de regularização que penaliza previsões finas, semelhantes a filamentos.
 
-    Applies a morphological opening (erosion followed by dilation) to identify
-    thin structures removed by the opening, then penalizes their presence in
-    the prediction.
+    Aplica uma abertura morfológica (erosão seguida de dilatação) para
+    identificar estruturas finas removidas pela abertura e, em seguida,
+    penaliza sua presença na previsão.
 
-    Expected input: a 2-D image tensor of shape ``(H, W)``.
+    Entrada esperada: tensor de imagem 2-D com formato ``(H, W)``.
     """
 
     def __init__(self, kernel: torch.Tensor, weight: float = 0.5) -> None:
-        """Initializes NotTooThinLoss.
+        """Inicializa NotTooThinLoss.
 
         Args:
-            kernel: 2-D structuring element used for the morphological opening.
-            weight: Scalar multiplier applied to the loss.
+            kernel: Elemento estruturante 2-D usado para a abertura morfológica.
+            weight: Multiplicador escalar aplicado à perda.
         """
         super().__init__()
         self.register_buffer("kernel", kernel)
         self.weight = weight
 
     def forward(self, image: torch.Tensor) -> torch.Tensor:
-        """Computes the not-too-thin loss.
+        """Calcula a perda "não muito fina".
 
         Args:
-            image: 2-D image tensor of shape ``(H, W)``.
+            image: Tensor de imagem 2-D com formato ``(H, W)``.
 
         Returns:
-            Scalar weighted loss value.
+            Valor escalar da perda ponderada.
         """
         opened = _morpho(_morpho(image, self.kernel, "erode"), self.kernel, "dilate")
         removed = ((image - opened) > 0).float() * image

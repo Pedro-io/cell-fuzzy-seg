@@ -2,17 +2,17 @@ import numpy as np
 
 
 def to_uint8_rgb(image: np.ndarray) -> np.ndarray:
-    """Converts an image to a 3-channel uint8 array normalised to [0, 255].
+    """Converte uma imagem para um array uint8 de 3 canais normalizado para [0, 255].
 
-    Grayscale images (H, W) are expanded to (H, W, 3) by duplicating the
-    single channel. Non-uint8 arrays are scaled so that the maximum value
-    maps to 255; an all-zero image is left unchanged.
+    Imagens em tons de cinza (H, W) são expandidas para (H, W, 3) duplicando o
+    único canal. Arrays que não são uint8 são escalonados para que o valor máximo
+    seja mapeado para 255; uma imagem composta apenas por zeros é mantida inalterada.
 
     Args:
-        image: Input array of shape ``(H, W)`` or ``(H, W, C)``.
+        image: Array de entrada com formato ``(H, W)`` ou ``(H, W, C)``.
 
     Returns:
-        uint8 array of shape ``(H, W, 3)``.
+        Array uint8 com formato ``(H, W, 3)``.
     """
     if image.ndim == 2:
         image = np.stack([image] * 3, axis=-1)
@@ -27,17 +27,16 @@ def to_uint8_rgb(image: np.ndarray) -> np.ndarray:
 
 
 def to_float32_rgb(image: np.ndarray) -> np.ndarray:
-    """Converts an image to a 3-channel float32 array normalized to [0, 1].
+    """Converte uma imagem para um array float32 de 3 canais normalizado para [0, 1].
 
-    Grayscale images (H, W) are expanded to (H, W, 3) by duplicating the
-    single channel. Single-channel images (H, W, 1) are expanded to 3
-    channels by concatenation.
+    Imagens em tons de cinza (H, W) são expandidas para (H, W, 3) duplicando o
+    único canal. Imagens de um canal (H, W, 1) são expandidas para 3 canais por concatenação.
 
     Args:
-        image: Input array of shape ``(H, W)`` or ``(H, W, C)``.
+        image: Array de entrada com formato ``(H, W)`` ou ``(H, W, C)``.
 
     Returns:
-        float32 array of shape ``(H, W, 3)`` with values in [0, 1].
+        Array float32 com formato ``(H, W, 3)`` e valores em [0, 1].
     """
     if image.ndim == 2:
         image = np.stack([image] * 3, axis=-1)

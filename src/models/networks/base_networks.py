@@ -7,9 +7,9 @@ class BaseNetwork(nn.Module, ABC):
     """Classe base abstrata para redes neurais do projeto.
 
     Esta classe define o contrato comum que toda rede neural deve seguir,
-    garantindo uma interface padronizada para inferência e utilização da rede.
-    As subclasses são responsáveis por implementar os comportamentos essenciais
-    de inicialização, passagem de dados pela rede e geração de previsões.
+    garantindo uma interface padronizada para inferência e uso da rede.
+    As subclasses são responsáveis por implementar comportamentos essenciais de
+    inicialização, passagem de dados pela rede e geração de previsões.
 
     Por herdar de nn.Module, todas as subclasses ganham automaticamente:
     - .to(device), .cuda(), .cpu()
@@ -34,10 +34,10 @@ class BaseNetwork(nn.Module, ABC):
         """Executa o fluxo de dados pela rede (inferência básica).
 
         Args:
-            x: Entrada da rede (ex.: tensor de imagem ou dados).
+            x: Entrada da rede (por exemplo, tensor de imagem ou dados).
 
         Returns:
-            Saída bruta da rede (ex.: logits ou features).
+            Saída bruta da rede (por exemplo, logits ou features).
         """
         pass
 
@@ -46,10 +46,10 @@ class BaseNetwork(nn.Module, ABC):
         """Realiza previsões finais com pós-processamento.
 
         Args:
-            x: Entrada da rede (ex.: tensor de imagem ou dados).
+            x: Entrada da rede (por exemplo, tensor de imagem ou dados).
 
         Returns:
-            Previsões processadas (ex.: classes preditas ou máscaras segmentadas).
+            Previsões processadas (por exemplo, classes previstas ou máscaras segmentadas).
         """
         pass
     

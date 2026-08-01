@@ -1,8 +1,8 @@
-"""Logger setup module.
+"""Módulo de configuração do logger.
 
-Provides a shared `logger` instance (from Loguru) to be imported across jobs
-for consistent logging. Additional sinks or formatting can be configured
-centrally here in the future if needed.
+Fornece uma instância compartilhada de `logger` (do Loguru) para ser importada
+em diferentes partes do projeto, garantindo logging consistente. Novos sinks
+ou formatos podem ser configurados centralmente aqui no futuro, se necessário.
 """
 
 from loguru import logger

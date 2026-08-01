@@ -1,4 +1,4 @@
-"""Strategy-based composition of LossTerm instances."""
+"""Composição baseada em estratégia de instâncias de LossTerm."""
 
 from typing import Dict, List, Tuple
 
@@ -9,17 +9,17 @@ from .loss_term import LossTerm
 
 
 class LossComposer(nn.Module):
-    """Composes an arbitrary list of :class:`LossTerm` instances into a single loss.
+    """Compõe uma lista arbitrária de instâncias de :class:`LossTerm` em uma única perda.
 
-    Terms are registered as PyTorch submodules via ``nn.ModuleList``, so their
-    parameters and buffers are properly tracked.  The active set is entirely
-    determined at construction time — swap the list to run a different
-    experiment without touching source code.
+    Os termos são registrados como submódulos do PyTorch via ``nn.ModuleList``,
+    então seus parâmetros e buffers são rastreados corretamente. O conjunto
+    ativo é determinado inteiramente no momento da construção — basta trocar a
+    lista para executar um experimento diferente sem alterar o código-fonte.
 
-    Term names must be unique within a composer; duplicate names cause the
-    earlier entry to be overwritten in the log.
+    Os nomes dos termos devem ser únicos dentro do compositor; nomes duplicados
+    sobrescrevem a entrada anterior no log.
 
-    Example::
+    Exemplo::
 
         composer = LossComposer([SizeTerm(0.1), TVTerm(0.05)])
         total, log = composer(markers, distance_maps, gt_masks)
@@ -27,10 +27,10 @@ class LossComposer(nn.Module):
     """
 
     def __init__(self, terms: List[LossTerm]) -> None:
-        """Initializes LossComposer.
+        """Inicializa LossComposer.
 
         Args:
-            terms: List of :class:`LossTerm` instances to compose.
+            terms: Lista de instâncias de :class:`LossTerm` para compor.
         """
         super().__init__()
         self._terms = nn.ModuleList(terms)
@@ -45,16 +45,16 @@ class LossComposer(nn.Module):
         distance_maps: torch.Tensor,
         gt_masks: torch.Tensor,
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
-        """Computes the total loss and a per-term log.
+        """Calcula a perda total e um log por termo.
 
         Args:
-            markers: Predicted marker tensor of shape ``(N, C, H, W)``.
-            distance_maps: Distance map tensor of shape ``(N, C, H, W)``.
-            gt_masks: Ground truth mask tensor of shape ``(N, C, H, W)``.
+            markers: Tensor de marcadores previstos com formato ``(N, C, H, W)``.
+            distance_maps: Tensor do mapa de distância com formato ``(N, C, H, W)``.
+            gt_masks: Tensor da máscara de ground truth com formato ``(N, C, H, W)``.
 
         Returns:
-            A tuple ``(total_loss, loss_log)`` where ``loss_log`` maps each
-            term's :attr:`~LossTerm.name` to its individual scalar tensor.
+            Uma tupla ``(total_loss, loss_log)`` em que ``loss_log`` associa o
+            :attr:`~LossTerm.name` de cada termo ao seu tensor escalar individual.
         """
         ctx: Dict[str, torch.Tensor] = {
             "markers": markers,

@@ -1,4 +1,4 @@
-"""Concrete LossTerm wrappers for all available loss functions."""
+"""Wrappers concretos de LossTerm para todas as funções de perda disponíveis."""
 
 from typing import Dict
 
@@ -15,7 +15,7 @@ from .total_variation_loss import TotalVariationLoss
 
 
 class SizeTerm(LossTerm):
-    """Wraps :class:`ObjectSizeLoss`. Uses ``markers`` and ``gt_masks``."""
+    """Envolve :class:`ObjectSizeLoss`. Usa ``markers`` e ``gt_masks``."""
 
     def __init__(self, weight: float = 0.1) -> None:
         super().__init__()
@@ -30,7 +30,7 @@ class SizeTerm(LossTerm):
 
 
 class TVTerm(LossTerm):
-    """Wraps :class:`TotalVariationLoss`. Uses ``markers`` and ``gt_masks``."""
+    """Envolve :class:`TotalVariationLoss`. Usa ``markers`` e ``gt_masks``."""
 
     def __init__(self, weight: float = 0.1, power: int = 1) -> None:
         super().__init__()
@@ -45,7 +45,7 @@ class TVTerm(LossTerm):
 
 
 class DMapTerm(LossTerm):
-    """Wraps :class:`DistanceMapLoss`. Uses ``markers``, ``distance_maps``, ``gt_masks``."""
+    """Envolve :class:`DistanceMapLoss`. Usa ``markers``, ``distance_maps`` e ``gt_masks``."""
 
     def __init__(self, weight: float = 0.1) -> None:
         super().__init__()
@@ -59,7 +59,7 @@ class DMapTerm(LossTerm):
         return self._loss(ctx["markers"], ctx["distance_maps"], ctx["gt_masks"])
 
 class BorderTerm(LossTerm):
-    """Wraps :class:`BorderLoss`. Uses ``markers`` only."""
+    """Envolve :class:`BorderLoss`. Usa apenas ``markers``."""
 
     def __init__(self, weight: float = 1.0, border_size: int = 50) -> None:
         super().__init__()
@@ -74,7 +74,7 @@ class BorderTerm(LossTerm):
 
 
 class DiceTerm(LossTerm):
-    """Wraps :class:`SoftDiceLoss`. Uses ``markers`` and ``gt_masks``."""
+    """Envolve :class:`SoftDiceLoss`. Usa ``markers`` e ``gt_masks``."""
 
     def __init__(self, epsilon: float = 1e-9) -> None:
         super().__init__()
@@ -89,7 +89,7 @@ class DiceTerm(LossTerm):
 
 
 class RMSETerm(LossTerm):
-    """Wraps :class:`RMSELoss`. Uses ``markers`` and ``gt_masks``."""
+    """Envolve :class:`RMSELoss`. Usa ``markers`` e ``gt_masks``."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -104,10 +104,10 @@ class RMSETerm(LossTerm):
 
 
 class NotTooThinTerm(LossTerm):
-    """Wraps :class:`NotTooThinLoss`. Uses ``markers`` only.
+    """Envolve :class:`NotTooThinLoss`. Usa apenas ``markers``.
 
-    Applies the loss to each ``(H, W)`` slice in the ``(N, C, H, W)`` batch
-    and returns the mean across all slices.
+    Aplica a perda a cada fatia ``(H, W)`` no batch ``(N, C, H, W)`` e retorna
+    a média sobre todas as fatias.
     """
 
     def __init__(self, kernel: torch.Tensor, weight: float = 0.5) -> None:

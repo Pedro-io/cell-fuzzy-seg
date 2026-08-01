@@ -1,24 +1,25 @@
-"""Distance map regularization loss module."""
+"""Módulo de perda de regularização por mapa de distância."""
 
 import torch
 import torch.nn as nn
 
 
 class DistanceMapLoss(nn.Module):
-    """Penalizes predictions in high-distance-map regions.
+    """Penaliza previsões em regiões de alto valor no mapa de distância.
 
-    Computes a weighted element-wise product between the prediction and a
-    precomputed distance map, normalized by the total ground truth mass. This
-    pushes predictions away from inter-object boundaries encoded in the map.
+    Calcula um produto elementwise ponderado entre a previsão e um mapa de
+    distância pré-computado, normalizado pela massa total do ground truth.
+    Isso empurra as previsões para longe das fronteiras entre objetos codificadas
+    no mapa.
 
-    Expected input shape: ``(N, C, H, W)``.
+    Formato esperado de entrada: ``(N, C, H, W)``.
     """
 
     def __init__(self, weight: float = 0.1) -> None:
-        """Initializes DistanceMapLoss.
+        """Inicializa DistanceMapLoss.
 
         Args:
-            weight: Scalar multiplier applied to the loss.
+            weight: Multiplicador escalar aplicado à perda.
         """
         super().__init__()
         self.weight = weight
@@ -29,18 +30,18 @@ class DistanceMapLoss(nn.Module):
         distance_map: torch.Tensor,
         y_true: torch.Tensor,
     ) -> torch.Tensor:
-        """Computes the distance map loss.
+        """Calcula a perda do mapa de distância.
 
         Args:
-            y_pred: Predicted tensor of shape ``(N, C, H, W)``.
-            distance_map: Distance map tensor with the same shape as ``y_pred``.
-            y_true: Ground truth tensor used as a normalization reference.
+            y_pred: Tensor previsto com formato ``(N, C, H, W)``.
+            distance_map: Tensor do mapa de distância com o mesmo formato de ``y_pred``.
+            y_true: Tensor de ground truth usado como referência de normalização.
 
         Returns:
-            Scalar weighted distance map loss.
+            Perda do mapa de distância ponderada e escalar.
 
         Raises:
-            AssertionError: If ``y_pred`` and ``distance_map`` shapes differ.
+            AssertionError: Se os formatos de ``y_pred`` e ``distance_map`` forem diferentes.
         """
         assert y_pred.size() == distance_map.size(), (
             f"y_pred {y_pred.size()} and distance_map {distance_map.size()} must have the same shape."

@@ -8,18 +8,18 @@ from ..base_step import PipelineStep
 
 
 class CellposeStep(PipelineStep):
-    """Pipeline step that applies Cellpose segmentation to an input image.
+    """Passo do pipeline que aplica a segmentação do Cellpose a uma imagem de entrada.
 
-    This step initializes a single CellposeModel on the GPU and reuses it for
-    all subsequent calls to ``forward``.
+    Este passo inicializa um único CellposeModel na GPU e reutiliza-o para todas
+    as chamadas subsequentes a ``forward``.
 
-    Attributes:
-        model: Loaded ``CellposeModel`` instance using GPU inference.
-        batch_size: Number of images processed per inference batch.
-        diam_mean: Estimated object diameter passed to Cellpose.
-        cellprob_threshold: Cell probability threshold for mask selection.
-        flow_threshold: Flow threshold for Cellpose tracking.
-        min_size: Minimum object size to keep in the final mask.
+    Atributos:
+        model: Instância carregada de ``CellposeModel`` usando inferência na GPU.
+        batch_size: Número de imagens processadas por batch de inferência.
+        diam_mean: Diâmetro estimado dos objetos passado ao Cellpose.
+        cellprob_threshold: Limiar de probabilidade celular para seleção da máscara.
+        flow_threshold: Limiar de fluxo para rastreamento do Cellpose.
+        min_size: Tamanho mínimo de objeto a ser mantido na máscara final.
     """
 
     def __init__(
@@ -31,19 +31,19 @@ class CellposeStep(PipelineStep):
         flow_threshold: float = 0.2,
         min_size: int = 4
         ) -> None:
-        """Create a CellposeStep and verify GPU availability.
+        """Cria um CellposeStep e verifica a disponibilidade da GPU.
 
         Args:
-            batch_size: Number of images per inference batch.
-            name: Identifier for this step in the pipeline.
-            pretreined_model: Name of the pretrained Cellpose model to load.
-            diam_mean: Mean diameter of cells for segmentation.
-            cellprob_threshold: Threshold applied to Cellpose cell probability.
-            flow_threshold: Threshold applied to Cellpose flow outputs.
-            min_size: Minimum instance size to keep in the segmentation mask.
+            batch_size: Número de imagens por batch de inferência.
+            name: Identificador deste passo no pipeline.
+            pretreined_model: Nome do modelo pré-treinado do Cellpose a carregar.
+            diam_mean: Diâmetro médio das células para segmentação.
+            cellprob_threshold: Limiar aplicado à probabilidade celular do Cellpose.
+            flow_threshold: Limiar aplicado às saídas de fluxo do Cellpose.
+            min_size: Tamanho mínimo de instância a ser mantido na máscara de segmentação.
 
         Raises:
-            RuntimeError: If a CUDA-capable GPU is not available.
+            RuntimeError: Se uma GPU compatível com CUDA não estiver disponível.
         """
         super().__init__(name=name)
         if not core.use_gpu():
@@ -58,20 +58,20 @@ class CellposeStep(PipelineStep):
         logger.info("[CellposeStep] Running on GPU")
 
     def forward(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Run Cellpose segmentation and attach results to the input data.
+        """Executa a segmentação do Cellpose e anexa os resultados aos dados de entrada.
 
         Args:
-            data: Dictionary containing at least the ``"image"`` key with a
-                NumPy array of shape ``(H, W)`` or ``(H, W, C)``.
+            data: Dicionário contendo pelo menos a chave ``"image"`` com um array
+                NumPy de formato ``(H, W)`` ou ``(H, W, C)``.
 
         Returns:
-            The same ``data`` dictionary with added keys:
-                - ``"segmentation"``: instance mask array of shape ``(H, W)``.
-                - ``"flows"``: Cellpose flow field outputs.
-                - ``"styles"``: Cellpose style vectors.
+            O mesmo dicionário ``data`` com chaves adicionadas:
+                - ``"segmentation"``: array da máscara de instâncias com formato ``(H, W)``.
+                - ``"flows"``: saídas do campo de fluxo do Cellpose.
+                - ``"styles"``: vetores de estilo do Cellpose.
 
         Raises:
-            KeyError: If the ``"image"`` key is missing from ``data``.
+            KeyError: Se a chave ``"image"`` estiver ausente em ``data``.
         """
         if "image" not in data:
             raise KeyError("Input data must contain 'image'")

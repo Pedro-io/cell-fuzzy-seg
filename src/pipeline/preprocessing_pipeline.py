@@ -1,11 +1,11 @@
-"""Preprocessing pipeline: executes a sequence of non-trainable steps once per sample.
+"""Pipeline de pré-processamento: executa uma sequência de passos não treináveis uma vez por amostra.
 
-This module provides :class:`PreprocessingPipeline`, the canonical orchestrator
-for preprocessing steps (e.g. Cellpose, RGBA conversion) that are run **once**
-per image, outside the training loop.  Results are typically persisted by a
-:class:`SaveResultsStep` and later consumed by :class:`MonusegPreprocessedDataset`
-during training, avoiding recomputation of expensive steps (e.g. Cellpose) on
-every epoch.
+Este módulo fornece :class:`PreprocessingPipeline`, o orquestrador canônico
+para passos de pré-processamento (por exemplo, Cellpose e conversão para RGBA)
+que são executados **uma vez** por imagem, fora do loop de treino. Os resultados
+são normalmente persistidos por um :class:`SaveResultsStep` e consumidos depois por
+:class:`MonusegPreprocessedDataset` durante o treino, evitando recomputação de
+passos caros (como o Cellpose) a cada época.
 """
 
 from typing import Any, Dict, List
@@ -15,16 +15,15 @@ from src.utils.logger import logger
 
 
 class PreprocessingPipeline:
-    """Orchestrates a sequence of non-trainable preprocessing steps.
+    """Orquestra uma sequência de passos de pré-processamento não treináveis.
 
-    Each step is executed in order, passing the same data dictionary through
-    the chain.  Steps should **add** keys to the dictionary, never remove
-    them.
+    Cada passo é executado em ordem, passando o mesmo dicionário de dados pela cadeia.
+    Os passos devem **adicionar** chaves ao dicionário, nunca removê-las.
 
-    The canonical entry point is :meth:`run`, which matches the interface
-    expected by :class:`~src.data.load.monuseg_preprocessed_dataset.MonusegPreprocessedDataset`.
+    O ponto de entrada canônico é :meth:`run`, que corresponde à interface esperada por
+    :class:`~src.data.load.monuseg_preprocessed_dataset.MonusegPreprocessedDataset`.
 
-    Typical usage::
+    Uso típico::
 
         pipeline = PreprocessingPipeline([
             CellposeStep(),
@@ -34,32 +33,32 @@ class PreprocessingPipeline:
         data = pipeline.run({"image": image, "ground_truth": mask})
 
     Args:
-        steps: Ordered list of preprocessing :class:`PipelineStep` instances.
+        steps: Lista ordenada de instâncias de :class:`PipelineStep` de pré-processamento.
 
     Raises:
-        TypeError: If ``data`` passed to :meth:`run` is not a ``dict``.
+        TypeError: Se ``data`` passado para :meth:`run` não for um ``dict``.
     """
 
     def __init__(self, steps: List[PipelineStep]) -> None:
         self.steps = steps
 
     def run(self, data: Dict[str, Any], verbose: bool = True) -> Dict[str, Any]:
-        """Execute all steps sequentially on the data dictionary.
+        """Executa todos os passos sequencialmente no dicionário de dados.
 
-        Each step receives the current data dictionary and returns an updated
-        version.  The output of step *i* becomes the input of step *i+1*.
+        Cada passo recebe o dicionário atual e retorna uma versão atualizada.
+        A saída do passo *i* torna-se a entrada do passo *i+1*.
 
         Args:
-            data: Input data dictionary.  Must be a ``dict``.
-            verbose: If ``True``, log each step's name before execution.
+            data: Dicionário de dados de entrada. Deve ser um ``dict``.
+            verbose: Se ``True``, registra o nome de cada passo antes da execução.
 
         Returns:
-            Updated data dictionary after all steps have been applied.
+            Dicionário de dados atualizado após a aplicação de todos os passos.
 
         Raises:
-            TypeError: If ``data`` is not a ``dict``.
-            Exception: Re-raises any exception raised by a step, after logging
-                the failing step name.
+            TypeError: Se ``data`` não for um ``dict``.
+            Exception: Repassa qualquer exceção lançada por um passo, após registrar
+                o nome do passo que falhou.
         """
         if not isinstance(data, dict):
             raise TypeError(f"Pipeline input must be a dict, got {type(data).__name__}.")
@@ -76,10 +75,10 @@ class PreprocessingPipeline:
         return data
 
     def __call__(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Convenience alias for :meth:`run` (non-verbose).
+        """Alias conveniente para :meth:`run` (sem verbosidade).
 
-        Allows the pipeline to be passed as a callable to
+        Permite passar o pipeline como objeto chamável para
         :class:`~src.data.load.monuseg_preprocessed_dataset.MonusegPreprocessedDataset`
-        without requiring ``.run()`` or ``.forward()`` explicitly.
+        sem exigir ``.run()`` ou ``.forward()`` explicitamente.
         """
         return self.run(data, verbose=False)

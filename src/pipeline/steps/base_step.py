@@ -3,27 +3,24 @@ from typing import Any, Dict
 
 
 class PipelineStep(ABC):
-    """
-    Base class for all pipeline steps.
+    """Classe base para todos os passos do pipeline.
 
-    Each step:
-    - Receives a data dictionary
-    - Processes it
-    - Returns the updated dictionary
+    Cada passo:
+    - Recebe um dicionário de dados
+    - Processa esse dicionário
+    - Retorna o dicionário atualizado
     """
     def __init__(self, name: str = "PipelineStep"):
         self.name = name
 
     def __call__(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Allows the step to be called like a function.
-        """
+        """Permite que o passo seja chamado como uma função."""
         return self.forward(data)
 
     @abstractmethod
     def forward(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Main logic of the step.
-        Must be implemented by subclasses.
+        """Lógica principal do passo.
+
+        Deve ser implementada pelas subclasses.
         """
         pass

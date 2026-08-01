@@ -1,4 +1,4 @@
-"""Abstract base class for composable loss terms."""
+"""Classe base abstrata para termos de perda composáveis."""
 
 from abc import ABC, abstractmethod
 from typing import Dict
@@ -8,36 +8,37 @@ import torch.nn as nn
 
 
 class LossTerm(nn.Module, ABC):
-    """Interface for a single composable loss term.
+    """Interface para um único termo de perda composável.
 
-    Each concrete term wraps one loss function and exposes a uniform
-    ``compute(ctx)`` signature. The shared context dict carries all tensors
-    that any term might need; each term pulls only what it requires.
+    Cada termo concreto envolve uma função de perda e expõe uma assinatura
+    uniforme ``compute(ctx)``. O dicionário compartilhado de contexto carrega
+    todos os tensores que um termo pode precisar; cada termo usa apenas o que
+    necessita.
 
-    Expected context keys:
-        - ``"markers"``: predicted marker tensor ``(N, C, H, W)``.
-        - ``"distance_maps"``: distance map tensor ``(N, C, H, W)``.
-        - ``"gt_masks"``: ground truth mask tensor ``(N, C, H, W)``.
+    Chaves esperadas no contexto:
+        - ``"markers"``: tensor de marcadores previstos ``(N, C, H, W)``.
+        - ``"distance_maps"``: tensor do mapa de distância ``(N, C, H, W)``.
+        - ``"gt_masks"``: tensor da máscara de ground truth ``(N, C, H, W)``.
 
-    Subclasses must implement :attr:`name` and :meth:`compute`.
+    As subclasses devem implementar :attr:`name` e :meth:`compute`.
     """
 
     @property
     @abstractmethod
     def name(self) -> str:
-        """Unique key used in the loss log returned by :class:`LossComposer`."""
+        """Chave única usada no log de perdas retornado por :class:`LossComposer`."""
         ...
 
     @abstractmethod
     def compute(self, ctx: Dict[str, torch.Tensor]) -> torch.Tensor:
-        """Computes the loss from the shared context.
+        """Calcula a perda a partir do contexto compartilhado.
 
         Args:
-            ctx: Shared tensor context. Required keys depend on the concrete
-                term — see each subclass for details.
+            ctx: Contexto compartilhado com tensores. As chaves obrigatórias
+                dependem do termo concreto — veja cada subclasse para detalhes.
 
         Returns:
-            Scalar loss tensor.
+            Tensor escalar da perda.
         """
         ...
 

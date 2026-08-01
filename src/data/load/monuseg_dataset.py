@@ -25,11 +25,11 @@ class MonusegDataset(BaseDataset):
         self.file_pairs = self._get_file_pairs()
 
     def __len__(self) -> int:
-        """Returns the number of samples in the dataset."""
+        """Retorna o número de amostras no dataset."""
         return len(self.file_pairs)
 
     def __getitem__(self, idx: int) -> Dict[str, Any]:
-        """Returns the sample (image and mask) at the specified index."""
+        """Retorna a amostra (imagem e máscara) no índice especificado."""
         image_path, mask_path = self.file_pairs[idx]
         image = self._load_image(image_path)
         mask = self._load_mask(mask_path, image_shape=image.shape[:2])
@@ -50,7 +50,7 @@ class MonusegDataset(BaseDataset):
         return sample
 
     def _load_image(self, image_path: str) -> np.ndarray:
-        """Loads an image from the path using the same reader as Cellpose."""
+        """Carrega uma imagem a partir do caminho usando o mesmo leitor do Cellpose."""
         logger.debug(f"Loading image: {image_path}")
         image = io.imread(image_path)
         if image is None:
@@ -72,7 +72,7 @@ class MonusegDataset(BaseDataset):
         return mask
 
     def _load_mask(self, mask_path: str, image_shape: Optional[Tuple[int, int]] = None) -> np.ndarray:
-        """Loads a mask from disk. Supports .xml, .npy and image-based formats."""
+        """Carrega uma máscara do disco. Suporta formatos .xml, .npy e baseados em imagem."""
         logger.debug(f"Loading mask: {mask_path}")
         extension = os.path.splitext(mask_path)[1].lower()
 
@@ -95,7 +95,7 @@ class MonusegDataset(BaseDataset):
         return mask
 
     def _get_file_pairs(self) -> List[Tuple[str, str]]:
-        """Returns the list of (image, mask) pairs from the configured folders."""
+        """Retorna a lista de pares (imagem, máscara) a partir das pastas configuradas."""
         logger.debug(f"Getting file pairs from: image_dir={self.image_dir}, mask_dir={self.mask_dir}")
         image_ext = self.config['image_extension'].lower()
         mask_ext = self.config['mask_extension'].lower()
