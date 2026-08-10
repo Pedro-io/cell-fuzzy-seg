@@ -14,8 +14,8 @@ monuseg:
     name: "MoNuSeg_Test"
     root_dir: "data_source/MoNuSegTestData"
     split: "test"
-    image_dir: "."
-    mask_dir: "."
+    image_dir: "Tissue_Images"
+    mask_dir: "Annotations" 
     image_extension: ".tif"
     mask_extension: ".xml"
 
