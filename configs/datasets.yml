@@ -14,10 +14,10 @@ monuseg:
     name: "MoNuSeg_Test"
     root_dir: "data_source/MoNuSegTestData"
     split: "test"
-    image_dir: "Tissue_Images"
-    mask_dir: "Annotations"
-    image_extension: ".png"
-    mask_extension: ".npy"
+    image_dir: "."
+    mask_dir: "."
+    image_extension: ".tif"
+    mask_extension: ".xml"
 
   # Configurações de carregamento
   loader_config:
