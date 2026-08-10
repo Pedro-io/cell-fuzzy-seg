@@ -88,7 +88,7 @@ Loss
 | Camada | Papel |
 |---|---|
 | **Dataset** | Fornece imagens e ground truth brutos, ou já enriquecidos com resultados de pré-processamento persistidos. Nunca executa modelos diretamente. |
-| **Preprocessing Pipeline** | Executa, uma única vez por imagem, as transformações que não fazem parte do grafo treinável (ex.: Cellpose, conversão RGBA) e persiste os resultados. |
+| **Preprocessing Pipeline** | Executa, uma única vez por imagem, as transformações que não fazem parte do grafo treinável (ex.: Cellpose, conversão RGBA, mapa de distância) e persiste os resultados. |
 | **Training Pipeline** | Executa o *forward* das redes treináveis (MarkerNet e rede final) durante o treinamento. Não treina nada — apenas encadeia inferências diferenciáveis. |
 | **Loss** | Calcula o valor de perda a partir da segmentação produzida e do ground truth, combinando múltiplas funções de perda via `LossComposer`. |
 | **Trainer** | Orquestra o ciclo de treinamento: forward (via Training Pipeline), cálculo da loss, backward, otimização, scheduler e callbacks. |
@@ -139,6 +139,7 @@ src/
 │       ├── base_step.py
 │       ├── preprocessing/
 │       │   ├── cellpose_step.py
+│       │   ├── distance_map_step.py
 │       │   └── rgba_step.py
 │       ├── inference/
 │       │   ├── marker_step.py
@@ -194,7 +195,7 @@ src/
 - **Dependências permitidas:** `models/` (Steps de inferência instanciam e executam redes), `io/` (Steps de persistência gravam resultados), `utils/`.
 - **Dependências proibidas:** `training/` (o pipeline nunca conhece o Trainer — a relação de dependência é sempre `training/` → `pipeline/`, nunca o contrário).
 - **Exemplos do que deve existir aqui:** `preprocessing_pipeline.py`, `training_pipeline.py`, e o subpacote `steps/`, organizado em três categorias:
-  - `steps/preprocessing/` — Steps não treináveis, executados uma vez (`cellpose_step.py`, `rgba_step.py`).
+  - `steps/preprocessing/` — Steps não treináveis, executados uma vez (`cellpose_step.py`, `distance_map_step.py`, `rgba_step.py`).
   - `steps/inference/` — Steps que executam forward de redes treináveis (`marker_step.py`, `frozen_segmentation_step.py`).
   - `steps/persistence/` — Steps que gravam resultados em disco (`save_results_step.py`).
 
@@ -285,6 +286,7 @@ pipeline = PreprocessingPipeline(
     steps=[
         CellposeStep(),
         RGBAStep(),
+        DistanceMapStep(),
     ]
 )
 
@@ -294,7 +296,7 @@ dataset = MonusegPreprocessedDataset(
 )
 
 sample = dataset[0]
-# sample == {"image": ..., "ground_truth": ..., "cellpose_segmentation": ..., "rgba_image": ...}
+# sample == {"image": ..., "ground_truth": ..., "segmentation": ..., "rgba": ..., "distance_map": ...}
 ```
 
 ---
@@ -314,6 +316,7 @@ pipeline = PreprocessingPipeline(
     steps=[
         CellposeStep(),
         RGBAStep(),
+        DistanceMapStep(),
     ]
 )
 
@@ -448,7 +451,7 @@ class MyNewFinalNetwork(BaseFinalSegmentation):
 
 ```python
 marker_net = MarkerUNet(**config)
-markers = marker_net(image, cellpose_segmentation)
+markers = marker_net(image, segmentation)
 ```
 
 ---
@@ -485,10 +488,37 @@ pipeline = PreprocessingPipeline(
     steps=[
         CellposeStep(),
         RGBAStep(),
+        DistanceMapStep(),
         SaveResultsStep(output_dir="data/preprocessed"),
     ]
 )
 ```
+
+---
+
+### `distance_map_step.py`
+
+**Objetivo:** calcular, durante o pré-processamento, o mapa de distância consumido pelas losses no treinamento (ex.: `DistanceMapLoss`).
+
+**O que deve fazer:** ler a máscara na chave `mask_key` (padrão `ground_truth`) do dicionário de dados e adicionar o mapa de distância na chave `output_key` (padrão `distance_map`). O mapa é calculado com `scipy.ndimage.distance_transform_edt` sobre o primeiro plano da máscara, normalizado pelo valor máximo e invertido (`1.0 - dt`), resultando em valores em `[0, 1]` — próximo de `0` no interior das células e próximo de `1` nas fronteiras entre objetos e no fundo.
+
+**O que NÃO deve fazer:** não participa do treinamento — nunca é adicionado ao `TrainingPipeline`; é um cálculo NumPy puro, executado uma única vez por imagem dentro do `PreprocessingPipeline`, sem criar grafo computacional diferenciável.
+
+**Como deve ser utilizado:**
+
+```python
+pipeline = PreprocessingPipeline(
+    steps=[
+        CellposeStep(),
+        RGBAStep(),
+        DistanceMapStep(),
+        SaveResultsStep(output_dir="data/preprocessed"),
+    ]
+)
+# data["distance_map"] é consumido pelo Trainer via distance_map_key="distance_map"
+```
+
+> **Observação:** o passo também pode ser aplicado por amostra após redimensionamentos (como nos notebooks de treino), desde que a máscara em `mask_key` esteja na mesma resolução do batch. O mapa deve ser calculado sobre a máscara **já redimensionada** — redimensionar o mapa calculado na resolução original não produz os mesmos valores.
 
 ---
 
@@ -532,8 +562,9 @@ MonusegDataset                       → { image, ground_truth }
     │
     ▼
 PreprocessingPipeline
-    ├── CellposeStep                 → adiciona { cellpose_segmentation }
-    └── RGBAStep                     → adiciona { rgba_image }
+    ├── CellposeStep                 → adiciona { segmentation }
+    ├── RGBAStep                     → adiciona { rgba }
+    └── DistanceMapStep              → adiciona { distance_map }
     │
     ▼
 SaveResultsStep                      → persiste em disco (io/output_writer.py)
@@ -544,7 +575,7 @@ Este fluxo roda uma única vez por imagem (ou sempre que o pré-processamento pr
 ### Fase 2 — Treinamento (execução repetida, por batch/época)
 
 ```text
-MonusegPreprocessedDataset            → { image, ground_truth, cellpose_segmentation, rgba_image }
+MonusegPreprocessedDataset            → { image, ground_truth, segmentation, rgba, distance_map }
     │
     ▼
 TrainingPipeline
@@ -576,10 +607,11 @@ Toda a comunicação entre Datasets, Pipelines e Trainer ocorre através de um *
 {
     "image": ...,                     # adicionado por MonusegDataset
     "ground_truth": ...,              # adicionado por MonusegDataset
-    "cellpose_segmentation": ...,     # adicionado por CellposeStep
-    "rgba_image": ...,                # adicionado por RGBAStep
+    "segmentation": ...,              # adicionado por CellposeStep
+    "rgba": ...,                      # adicionado por RGBAStep
+    "distance_map": ...,              # adicionado por DistanceMapStep
     "markers": ...,                   # adicionado por MarkerStep
-    "segmentation": ...,              # adicionado por FrozenSegmentationStep
+    "segmentation": ...,              # adicionado por FrozenSegmentationStep (substitui a máscara inicial do Cellpose)
 }
 ```
 
@@ -618,6 +650,7 @@ Toda a comunicação entre Datasets, Pipelines e Trainer ocorre através de um *
 21. Novos Steps de pré-processamento ou de inferência devem ser adicionados às listas de Steps dos respectivos Pipelines, sem exigir modificação nas classes `PreprocessingPipeline` ou `TrainingPipeline`.
 22. Nenhum Step remove chaves do dicionário de dados compartilhado — Steps apenas adicionam informação.
 23. O `Trainer` é a única classe do sistema autorizada a chamar `backward()` e `optimizer.step()`.
+24. O mapa de distância consumido pelas losses é produzido exclusivamente por um Step de pré-processamento (ex.: `DistanceMapStep`) — nunca dentro do `TrainingPipeline`, do `Trainer` ou nos notebooks de treinamento.
 
 ---
 
@@ -634,6 +667,7 @@ preprocessing = PreprocessingPipeline(
     steps=[
         CellposeStep(),
         RGBAStep(),
+        DistanceMapStep(),
         SaveResultsStep(output_dir="data/preprocessed"),
     ]
 )
@@ -686,7 +720,7 @@ training_loop.run()
 **Explicação de cada etapa:**
 
 1. **`MonusegDataset`** entrega apenas dados brutos — imagem e ground truth.
-2. **`PreprocessingPipeline`** aplica Cellpose e conversão RGBA uma única vez, e `SaveResultsStep` persiste os resultados em disco.
+2. **`PreprocessingPipeline`** aplica Cellpose, conversão RGBA e o mapa de distância uma única vez, e `SaveResultsStep` persiste os resultados em disco.
 3. **`MonusegPreprocessedDataset`** entrega, a partir daí, amostras já enriquecidas com os resultados persistidos, sem nunca reexecutar o Cellpose.
 4. **`TrainingPipeline`** encadeia apenas as redes treináveis (`MarkerNet` e a rede final), mantendo o grafo diferenciável.
 5. **`LossComposer`** combina as funções de perda relevantes para o problema.
