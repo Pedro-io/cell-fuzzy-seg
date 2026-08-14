@@ -52,7 +52,7 @@ class BaseNetwork(nn.Module, ABC):
             Previsões processadas (por exemplo, classes previstas ou máscaras segmentadas).
         """
         pass
-    
+
     def get_config(self):
         """Retorna a configuração da rede.
 

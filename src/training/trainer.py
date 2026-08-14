@@ -106,6 +106,10 @@ class Trainer:
         callbacks: Lista opcional de :class:`TrainerCallback`.
         device: Device usado para mover os tensores do batch. Se ``None``, usa
             GPU quando disponível.
+        grad_clip: Valor máximo da norma L2 dos gradientes (``clip_grad_norm_``)
+            aplicado após ``backward()`` e antes de ``optimizer.step()``.
+            ``None`` (padrão) desabilita o clipping. Recomendado em pipelines com
+            cadeia de backprop profunda (investigação, P5).
         prediction_key: Chave do dicionário com a predição usada na loss.
             Padrão ``"segmentation"`` (adicionada pelo ``FrozenSegmentationStep``).
         distance_map_key: Chave com o mapa de distância. Padrão ``"distance_map"``.
@@ -120,6 +124,7 @@ class Trainer:
         scheduler: Optional[Any] = None,
         callbacks: Optional[List[TrainerCallback]] = None,
         device: Optional[str] = None,
+        grad_clip: Optional[float] = None,
         prediction_key: str = "segmentation",
         distance_map_key: str = "distance_map",
         ground_truth_key: str = "ground_truth",
@@ -129,7 +134,7 @@ class Trainer:
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.callbacks = list(callbacks or [])
-
+        self.grad_clip = grad_clip
         if device is None:
             self.device = "cuda" if torch.cuda.is_available() else "cpu"
         else:
@@ -170,6 +175,9 @@ class Trainer:
 
         loss, loss_log = self._compute_loss(data)
         loss.backward()
+        if self.grad_clip is not None:
+            params = [p for group in self.optimizer.param_groups for p in group["params"]]
+            torch.nn.utils.clip_grad_norm_(params, self.grad_clip)
         self.optimizer.step()
 
         if self.scheduler is not None:
@@ -211,7 +219,10 @@ class Trainer:
         """Delega o cálculo da loss ao ``loss_composer``.
 
         Extrai do dicionário de dados as chaves de predição, mapa de distância e
-        ground truth configuradas no construtor e repassa ao compositor.
+        ground truth configuradas no construtor e repassa ao compositor. Se a
+        MarkerNet produziu marcadores (chave ``"markers"``), eles também são
+        repassados para permitir a supervisão direta da MarkerNet pelos termos
+        (ex.: ``DMapTerm`` — investigação, C3/C4).
 
         Args:
             data: Dicionário produzido pelo pipeline após o forward.
@@ -225,7 +236,8 @@ class Trainer:
         prediction = data[self.prediction_key]
         distance_maps = data[self.distance_map_key]
         gt_masks = data[self.ground_truth_key]
-        return self.loss_composer(prediction, distance_maps, gt_masks)
+        markers = data.get("markers")
+        return self.loss_composer(prediction, distance_maps, gt_masks, markers=markers)
 
     def _to_device(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Move tensores do dicionário para o device configurado.

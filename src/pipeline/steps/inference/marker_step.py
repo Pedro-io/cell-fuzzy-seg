@@ -69,10 +69,19 @@ class MarkerStep(PipelineStep):
 
         if self.model is not None:
             self.model.model.to(self.device)
-            # Mantém eval() em ambos os modos: a diferenciabilidade não depende de
-            # train/eval, e eval() evita instabilidade de BatchNorm com batches
-            # pequenos (típicos de teste com 1 imagem).
-            self.model.model.eval()
+            # O modo train()/eval() é gerenciado por este step conforme o modo de
+            # uso, à semelhança do FrozenSegmentationStep:
+            #   - differentiable=True (treinamento): train() para que BatchNorms
+            #     sejam atualizadas com as estatísticas do lote corrente;
+            #   - differentiable=False (inferência): eval() para usar running
+            #     stats estáveis.
+            # Antes, o modelo era forçado a eval() mesmo no treinamento, o que
+            # impedia as BatchNorms do decoder recém-inicializado de se adaptar
+            # (investigação, P3).
+            if differentiable:
+                self.model.model.train()
+            else:
+                self.model.model.eval()
 
         logger.info(
             f"[{self.name}] Initialized on {self.device} (differentiable={differentiable})"
@@ -96,17 +105,21 @@ class MarkerStep(PipelineStep):
             KeyError: Se as chaves obrigatórias estiverem ausentes e o modelo estiver carregado.
             RuntimeError: Se a inferência do modelo falhar.
         """
-        if "rgba" not in data:
-            raise KeyError("Missing 'rgba' in data. Ensure RGBAStep runs before MarkerStep.")
-
-        # Skip if model is not provided
+        # Skip if model is not provided (antes da checagem de "rgba", para que o
+        # fallback funcione mesmo sem a chave rgba — investigação, robustez).
         if self.model is None:
             logger.warning(f"[{self.name}] Model not provided. Markers will be computed from segmentation.")
             # Fallback: use segmentation as binary markers
             if "segmentation" not in data:
                 raise KeyError("Fallback requires 'segmentation' key")
-            data["markers"] = (data["segmentation"] > 0).astype(np.float32)
+            segmentation = data["segmentation"]
+            if isinstance(segmentation, torch.Tensor):
+                segmentation = segmentation.detach().cpu().numpy()
+            data["markers"] = (segmentation > 0).astype(np.float32)
             return data
+
+        if "rgba" not in data:
+            raise KeyError("Missing 'rgba' in data. Ensure RGBAStep runs before MarkerStep.")
 
         try:
             if self.differentiable:
@@ -124,15 +137,20 @@ class MarkerStep(PipelineStep):
 
         return data
 
-    def _forward_inference(self, rgba: np.ndarray) -> np.ndarray:
+    def _forward_inference(self, rgba: Any) -> np.ndarray:
         """Caminho de inferência: no_grad, resize não diferenciável e binarização.
 
+        Aceita array NumPy ``(H, W, 4)`` ou tensor ``(N, 4, H, W)``/``(4, H, W)``
+        (o tensor é convertido para NumPy antes do pré-processamento).
+
         Args:
-            rgba: array uint8 com formato ``(H, W, 4)``.
+            rgba: array uint8 ``(H, W, 4)`` ou tensor.
 
         Returns:
             array float32 com formato ``(H, W)`` binarizado com ``threshold``.
         """
+        if isinstance(rgba, torch.Tensor):
+            rgba = self._to_tensor_bchw(rgba)[0].permute(1, 2, 0).detach().cpu().numpy()
         original_shape = rgba.shape[:2]
 
         # Preprocess: resize and normalize

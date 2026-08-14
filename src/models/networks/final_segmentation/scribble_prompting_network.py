@@ -52,6 +52,16 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
         resize_output: Se ``True`` (padrão), redimensiona a máscara de volta
             para o tamanho espacial da imagem de entrada, alinhando com o
             ground truth para o cálculo da loss.
+        scribble_mode: Como converter os marcadores (1 canal) da MarkerNet nos
+            2 canais de scribbles esperados pela rede. ``"sharpened"`` (padrão)
+            aplica ``sigmoid(T * (s - 0.5))`` / ``sigmoid(T * (0.5 - s))``,
+            produzindo canais complementares quase binários — mais próximos da
+            distribuição de treino do ScribblePrompt (traços 0/1 exclusivos) do
+            que ``[s, 1-s]`` com s suave em toda a imagem (investigação, C2).
+            ``"dense_soft"`` mantém o comportamento legado ``[s, 1-s]``.
+        scribble_temperature: Temperatura ``T`` do sharpening (padrão ``10.0``).
+            Valores maiores aproximam os scribbles de 0/1; valores menores
+            preservam mais a suavidade (e o gradiente) dos marcadores.
         unet: UNet interna congelada (registrada como submódulo).
         input_size: Tamanho espacial esperado pelo modelo (``(128, 128)``).
     """
@@ -69,6 +79,8 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
         checkpoint: Optional[str] = None,
         device: Optional[str] = None,
         resize_output: bool = True,
+        scribble_mode: Literal["sharpened", "dense_soft"] = "sharpened",
+        scribble_temperature: float = 10.0,
         config: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Inicializa a rede congelada do ScribblePrompt.
@@ -80,6 +92,9 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
             device: Dispositivo PyTorch. Se ``None``, usa GPU se disponível.
             resize_output: Redimensiona a saída para o tamanho da imagem de
                 entrada (padrão ``True``).
+            scribble_mode: Conversão dos marcadores em scribbles — veja a
+                descrição da classe (padrão ``"sharpened"``).
+            scribble_temperature: Temperatura do sharpening (padrão ``10.0``).
             config: Configuração extra armazenada na rede.
 
         Raises:
@@ -91,11 +106,15 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
                 "version": version,
                 "checkpoint": checkpoint,
                 "resize_output": resize_output,
+                "scribble_mode": scribble_mode,
+                "scribble_temperature": scribble_temperature,
             }
         super().__init__(config=config)
 
         self.version = version
         self.resize_output = resize_output
+        self.scribble_mode = scribble_mode
+        self.scribble_temperature = scribble_temperature
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
 
         try:
@@ -260,9 +279,19 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
         """Converte os marcadores em scribbles ``(N, 2, H, W)``.
 
         O ScribblePrompt espera 2 canais de scribbles (positivo/negativo). Se a
-        entrada tiver 1 canal (marcadores da MarkerNet), expande para
-        ``[s, 1 - s]``. Tensores preservam o grafo computacional (sem detach)
-        para permitir a backpropagation até a MarkerNet.
+        entrada tiver 1 canal (marcadores da MarkerNet), converte conforme
+        ``scribble_mode``:
+
+        - ``"sharpened"`` (padrão): aplica um sharpening sigmoide com
+          temperatura configurável, produzindo canais complementares quase
+          binários — ``pos = sigmoid(T*(s-0.5))`` e ``neg = sigmoid(T*(0.5-s))``.
+          Isso aproxima a distribuição de treino do ScribblePrompt (traços 0/1
+          mutuamente exclusivos) e evita a entrada degenerada ``[s, 1-s]`` com
+          s suave em todos os pixels (investigação, C2).
+        - ``"dense_soft"``: comportamento legado ``[s, 1 - s]``.
+
+        Tensores preservam o grafo computacional (sem detach) para permitir a
+        backpropagation até a MarkerNet.
 
         Args:
             scribbles: Marcadores numpy ou tensor.
@@ -281,10 +310,7 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
                 pass
             else:
                 raise ValueError(f"Dimensões de scribbles não suportadas: {s.shape}")
-            if s.shape[1] == 1:
-                s = torch.cat([s, 1.0 - s], dim=1)
-            elif s.shape[1] != 2:
-                raise ValueError(f"Esperado 1 ou 2 canais de scribbles, obtido {s.shape[1]}")
+            s = self._expand_scribble_channels(s)
         else:
             arr = np.asarray(scribbles, dtype=np.float32)
             if arr.ndim == 2:
@@ -298,12 +324,37 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
             else:
                 raise ValueError(f"Dimensões de scribbles não suportadas: {arr.shape}")
             s = torch.from_numpy(np.ascontiguousarray(arr))
-            if s.shape[1] == 1:
-                s = torch.cat([s, 1.0 - s], dim=1)
-            elif s.shape[1] != 2:
-                raise ValueError(f"Esperado 1 ou 2 canais de scribbles, obtido {s.shape[1]}")
+            s = self._expand_scribble_channels(s)
 
         return s.to(device)
+
+    def _expand_scribble_channels(self, s: torch.Tensor) -> torch.Tensor:
+        """Expande 1 canal de scribbles para 2 canais conforme ``scribble_mode``.
+
+        Args:
+            s: Tensor ``(N, 1, H, W)`` ou ``(N, 2, H, W)``.
+
+        Returns:
+            Tensor ``(N, 2, H, W)`` em ``[0, 1]``.
+        """
+        if s.shape[1] == 2:
+            return s
+        if s.shape[1] != 1:
+            raise ValueError(f"Esperado 1 ou 2 canais de scribbles, obtido {s.shape[1]}")
+
+        if self.scribble_mode == "dense_soft":
+            return torch.cat([s, 1.0 - s], dim=1)
+
+        if self.scribble_mode == "sharpened":
+            t = self.scribble_temperature
+            pos = torch.sigmoid(t * (s - 0.5))
+            neg = torch.sigmoid(t * (0.5 - s))
+            return torch.cat([pos, neg], dim=1)
+
+        raise ValueError(
+            f"scribble_mode desconhecido: {self.scribble_mode!r}. "
+            "Use 'sharpened' ou 'dense_soft'."
+        )
 
     @classmethod
     def download_checkpoint(cls, dest_dir: str, version: Literal["v1"] = "v1") -> str:
