@@ -1,7 +1,7 @@
 # Investigação — Resultados ruins no `experiment_1`
 
 **Data:** 2026-08-10
-**Escopo:** `notebooks/experiment_1.ipynb` (treinamento da MarkerNet via ScribblePrompt congelado)
+**Escopo:** `notebooks/experiments/experiment_1.ipynb` (treinamento da MarkerNet via ScribblePrompt congelado)
 **Objetivo deste documento:** consolidar **tudo** que pode estar contribuindo para os resultados ruins — desde problemas práticos de engenharia até problemas conceituais de método — para servir de guia na investigação. Não é um laudo definitivo: é um catálogo de suspeitas, ordenado por plausibilidade, com evidências e passos de verificação.
 
 ---
@@ -232,7 +232,7 @@ Em ordem de custo-benefício:
 
 ## 9. Referências (arquivos e células)
 
-**Notebook `notebooks/experiment_1.ipynb`:**
+**Notebook `notebooks/experiments/experiment_1.ipynb`:**
 - cél. 8 — carregamento (44 amostras); cél. 10 — pré-processamento (aviso do Cellpose default); cél. 12 — `build_batch`; cél. 14 — redes (ScribblePrompt carregado); cél. 16 — ranges de markers/seg; cél. 18 — checagem de gradiente; cél. 20 — treino + termos; cél. 22 — curvas; cél. 26 — visualização; cél. 28 — checkpoint comentado.
 
 **Código:**
@@ -262,15 +262,15 @@ Em ordem de custo-benefício:
 | **P1** — gradiente efetivamente nulo (CRÍTICO) | Novo `GradNormCallback` (norma L2 total, média, máximo e fração de parâmetros com gradiente não-`None`) para confirmar/descartar gradiente morto em tempo real; notebook agora mede a **magnitude** do gradiente (não só existência) na checagem de gradiente. | `src/training/callbacks/grad_norm_callback.py`; notebook cél. 7/8/9 |
 | **P2/C2** — scribbles fora de distribuição (CRÍTICO) | `ScribblePromptingNetwork` agora converte os marcadores em canais **quase binários e complementares** (modo padrão `sharpened`, `sigmoid(T·(s−0.5))` / `sigmoid(T·(0.5−s))`), em vez de `[s, 1−s]` suave em todos os pixels. O modo legado `dense_soft` continua disponível para ablação. | `src/models/networks/final_segmentation/scribble_prompting_network.py` |
 | **P3** — MarkerNet em `eval()` no treino | `MarkerStep` agora coloca a rede em `train()` quando `differentiable=True` e em `eval()` quando `differentiable=False`. | `src/pipeline/steps/inference/marker_step.py` |
-| **P4** — batch size 1 | Notebook usa **batch size 4** (empilhamento de amostras 256²), estabilizando BatchNorm e reduzindo ruído do gradiente. | `notebooks/experiment_1.ipynb` (cél. 4) |
+| **P4** — batch size 1 | Notebook usa **batch size 4** (empilhamento de amostras 256²), estabilizando BatchNorm e reduzindo ruído do gradiente. | `notebooks/experiments/experiment_1.ipynb` (cél. 4) |
 | **P5** — sem scheduler/clipping | `Trainer` ganhou `grad_clip` (`clip_grad_norm_` após `backward`); notebook usa lr 1e-4 + `CosineAnnealingLR` + grad clip 1.0. | `src/training/trainer.py`; notebook cél. 8 |
-| **P6** — sem augmentação | Notebook aplica rotação 90° e flips aleatórios (imagem, rgba, GT e dmap em conjunto) nos batches de treino. | `notebooks/experiment_1.ipynb` (cél. 4) |
-| **P7** — resolução 1000→256→128→1000 | Notebook trabalha em **256²** (loss medida no output upsampled apenas 128→256, não 128→1000), e o mapa de distância é calculado sobre o GT **já redimensionado** (conforme a arquitetura). | `notebooks/experiment_1.ipynb` (cél. 3/4) |
+| **P6** — sem augmentação | Notebook aplica rotação 90° e flips aleatórios (imagem, rgba, GT e dmap em conjunto) nos batches de treino. | `notebooks/experiments/experiment_1.ipynb` (cél. 4) |
+| **P7** — resolução 1000→256→128→1000 | Notebook trabalha em **256²** (loss medida no output upsampled apenas 128→256, não 128→1000), e o mapa de distância é calculado sobre o GT **já redimensionado** (conforme a arquitetura). | `notebooks/experiments/experiment_1.ipynb` (cél. 3/4) |
 | **P9** — Cellpose modelo default | Corrigido o typo `pretreined_model` → `pretrained_model`; modelo default alterado de `cpsam_v2` (inexistente) para `cpsam`; aviso explícito quando o modelo solicitado não está na lista conhecida. | `src/pipeline/steps/preprocessing/cellpose_step.py` |
 | **P10** — `SizeTerm` assimétrico | `ObjectSizeLoss` agora é **simétrico** em torno de 1.0 (`weight·|ratio−1|`): penaliza tanto superestimar quanto subestimar, com ótimo em `pred.sum() == gt.sum()` e gradiente que se anula no ótimo (antes, `weight·ratio` empurrava a massa para zero). | `src/losses/object_size_loss.py` |
 | **P11/C3/C4** — mapa de distância ignorado / supervisão indireta | O `LossComposer` agora recebe `prediction` (segmentação final) e `markers` (saída da MarkerNet) **separados**; o `DMapTerm` supervisiona os **marcadores diretamente** (penaliza ativação em bordas/fundo, empurrando para o interior das células) e foi adicionado ao compositor do notebook. | `src/losses/loss_composer.py`, `src/losses/terms.py`, `src/training/trainer.py`; notebook cél. 8 |
-| **P12** — higiene | Checkpoint descomentado (salva `state_dict`, config, épocas, resolução, batch size, melhor val loss e grad-norm médio); `NUM_EPOCHS=50` consistente com a documentação e as asserções. | `notebooks/experiment_1.ipynb` (cél. 12) |
-| **C6** — vazamento do teste oficial | Split corrigido: treino = **30 imagens oficiais de treino**, validação = **14 oficiais de teste** (sem misturar conjuntos). | `notebooks/experiment_1.ipynb` (cél. 2/4) |
+| **P12** — higiene | Checkpoint descomentado (salva `state_dict`, config, épocas, resolução, batch size, melhor val loss e grad-norm médio); `NUM_EPOCHS=50` consistente com a documentação e as asserções. | `notebooks/experiments/experiment_1.ipynb` (cél. 12) |
+| **C6** — vazamento do teste oficial | Split corrigido: treino = **30 imagens oficiais de treino**, validação = **14 oficiais de teste** (sem misturar conjuntos). | `notebooks/experiments/experiment_1.ipynb` (cél. 2/4) |
 | **Robustez do MarkerStep** | Fallback sem modelo não exige mais a chave `rgba`; modo inferência aceita tensor (não só NumPy). | `src/pipeline/steps/inference/marker_step.py` |
 
 **Observações (não corrigidas nesta rodada, por serem decisões de método/experimento):**
@@ -280,3 +280,6 @@ Em ordem de custo-benefício:
 - **P8** — o desbalanceamento (77,6% fundo) é mitigado pelo Dice (invariante à escala) e pelo `DMapTerm` (que penaliza ativação no fundo), mas nenhum `pos_weight`/focal foi adicionado nesta rodada.
 
 Mudanças de arquitetura correspondentes documentadas em `docs/ARCHITECTURE.md` (novo `training/callbacks/grad_norm_callback.py`, `grad_clip` no `Trainer`, contrato `prediction`/`markers` do `LossComposer`, modos de scribble, gerenciamento train/eval do `MarkerStep`).
+
+> **Estudo detalhado, mudança a mudança** (o que foi feito, por que e como validar cada item,
+> com diffs e ordem sugerida de estudo): [`docs/estudo_das_mudancas_experimento_1.md`](estudo_das_mudancas_experimento_1.md).

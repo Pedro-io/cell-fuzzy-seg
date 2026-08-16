@@ -529,11 +529,13 @@ data = step.run(data)  # data["markers"] é adicionado (N, 1, H, W)
 
 ### `save_results_step.py`
 
-**Objetivo:** persistir resultados do pipeline de pré-processamento em disco.
+**Objetivo:** persistir resultados do pipeline de pré-processamento em disco, para que os notebooks de treino carreguem os dados **já processados** sem recomputar o Cellpose a cada experimento.
 
-**O que deve fazer:** receber o dicionário de dados já enriquecido pelos Steps anteriores (ex. Cellpose, RGBA) e delegar ao `io/output_writer.py` a gravação em disco.
+**O que deve fazer:** receber o dicionário de dados já enriquecido pelos Steps anteriores (ex. Cellpose, RGBA, DistanceMap) e delegar ao `io/output_writer.py` (via `OutputWriter.save_preprocessed`) a gravação em disco. O passo grava cada chave configurada como `output_dir/<chave>/<id>.npy` — formato NumPy, que **preserva a precisão `float32`** de `rgba` e `distance_map` (uma conversão para PNG/uint8 degradaria esses arrays). As chaves persistidas têm nomes **idênticos** aos usados em memória (regra 5 do contrato), permitindo reconstruir o dicionário ao carregar. O passo exige a chave `"id"` no dicionário para nomear os arquivos.
 
-**O que NÃO deve fazer:** **nunca participa do treinamento.** Pertence exclusivamente ao `PreprocessingPipeline` e nunca deve ser adicionado à lista de Steps do `TrainingPipeline`. Não implementa a lógica de serialização em si — apenas invoca `io/`.
+Chaves padrão persistidas (`DEFAULT_KEYS`): `image`, `segmentation`, `rgba`, `ground_truth`, `distance_map` — exatamente as produzidas pelos Steps de pré-processamento do projeto. A lista pode ser customizada via parâmetro `keys`.
+
+**O que NÃO deve fazer:** **nunca participa do treinamento.** Pertence exclusivamente ao `PreprocessingPipeline` e nunca deve ser adicionado à lista de Steps do `TrainingPipeline`. Não implementa a lógica de serialização em si — apenas invoca `io/` (regra 12).
 
 **Como deve ser utilizado:**
 
@@ -543,10 +545,24 @@ pipeline = PreprocessingPipeline(
         CellposeStep(),
         RGBAStep(),
         DistanceMapStep(),
-        SaveResultsStep(output_dir="data/preprocessed"),
+        SaveResultsStep(output_dir="data_source/MoNuSegPreprocessed/train"),
     ]
 )
 ```
+
+**Uso canônico no projeto:** o notebook `notebooks/preprocessing/preprocessamento_monuseg_persistido.ipynb` executa o pré-processamento **uma única vez** para os splits de treino (30) e teste (14), persistindo em `data_source/MoNuSegPreprocessed/{train,test}/` e gravando um `meta.json` com a configuração do run (resolução de trabalho, splits, fonte da segmentação). Os notebooks de experimento (ex.: `notebooks/experiments/experiment_3.ipynb`) então apenas **carregam** esses dados do disco (lendo `meta.json` para `WORK_SIZE`) e montam os batches — sem reprocessar nada.
+
+---
+
+### `io/output_writer.py`
+
+**Objetivo:** executar a gravação em disco de arrays de pré-processamento e de saídas de segmentação/marcadores/overlays.
+
+**O que deve fazer:** expor `OutputWriter` com métodos de gravação (`save_preprocessed`, `save_segmentation`, `save_markers`, `save_overlay`, `save_rgba`). `save_preprocessed` grava cada chave como `output_dir/<chave>/<id>.npy` (precisão `float32` preservada); os demais métodos gravam PNGs uint8 em subpastas `segmentations/`, `markers/` e `overlays/`. Os diretórios são criados de forma **preguiçosa** — usar apenas `save_preprocessed` não gera pastas vazias de segmentações/marcadores/overlays.
+
+**O que NÃO deve fazer:** nunca decide *quando* ou *o quê* persistir — essa decisão pertence a um Step de `pipeline/steps/persistence/` (regra 12); não conhece `models/`, `training/` nem `pipeline/`.
+
+**Como deve ser utilizado:** sempre via `SaveResultsStep`, que delega a este módulo — nunca diretamente a partir dos notebooks de treinamento.
 
 ---
 
@@ -647,7 +663,7 @@ PreprocessingPipeline
 SaveResultsStep                      → persiste em disco (io/output_writer.py)
 ```
 
-Este fluxo roda uma única vez por imagem (ou sempre que o pré-processamento precisar ser refeito), e seu resultado fica disponível em disco para todas as épocas de treinamento seguintes, evitando recomputação do Cellpose a cada batch.
+Este fluxo roda uma única vez por imagem (ou sempre que o pré-processamento precisar ser refeito), e seu resultado fica disponível em disco para todas as épocas de treinamento seguintes, evitando recomputação do Cellpose a cada batch. **No projeto, esta fase é executada pelo notebook `notebooks/preprocessing/preprocessamento_monuseg_persistido.ipynb`**, que persiste em `data_source/MoNuSegPreprocessed/{train,test}/<chave>/<id>.npy` (mais `meta.json`). A Fase 2 (treinamento) então **carrega** esses dados persistidos — os notebooks de experimento não refazem o pré-processamento.
 
 ### Fase 2 — Treinamento (execução repetida, por batch/época)
 
