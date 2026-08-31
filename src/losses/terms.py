@@ -15,7 +15,7 @@ from .total_variation_loss import TotalVariationLoss
 
 
 class SizeTerm(LossTerm):
-    """Envolve :class:`ObjectSizeLoss`. Usa ``prediction`` e ``gt_masks``."""
+    """Envolve :class:`ObjectSizeLoss`. Usa ``markers`` e ``gt_masks``."""
 
     def __init__(self, weight: float = 0.1) -> None:
         super().__init__()
@@ -26,7 +26,7 @@ class SizeTerm(LossTerm):
         return "size"
 
     def compute(self, ctx: Dict[str, torch.Tensor]) -> torch.Tensor:
-        return self._loss(ctx["prediction"], ctx["gt_masks"])
+        return self._loss(ctx["markers"], ctx["gt_masks"])
 
 
 class TVTerm(LossTerm):
