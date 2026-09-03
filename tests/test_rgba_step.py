@@ -1,6 +1,6 @@
 import numpy as np
 
-from src.pipeline.steps.rgba_step import RGBAStep
+from src.pipeline.steps.preprocessing.rgba_step import RGBAStep
 
 
 def test_rgba_step_returns_float32_rgba_in_zero_one_range():

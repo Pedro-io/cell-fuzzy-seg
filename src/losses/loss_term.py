@@ -16,7 +16,12 @@ class LossTerm(nn.Module, ABC):
     necessita.
 
     Chaves esperadas no contexto:
-        - ``"markers"``: tensor de marcadores previstos ``(N, C, H, W)``.
+        - ``"prediction"``: tensor da predição principal supervisionada
+          ``(N, C, H, W)`` — por padrão a segmentação final produzida pela
+          rede congelada (``Trainer.prediction_key``).
+        - ``"markers"``: tensor dos marcadores produzidos pela MarkerNet
+          ``(N, C, H, W)``. Quando a MarkerNet não está no pipeline, assume o
+          valor de ``"prediction"``.
         - ``"distance_maps"``: tensor do mapa de distância ``(N, C, H, W)``.
         - ``"gt_masks"``: tensor da máscara de ground truth ``(N, C, H, W)``.
 

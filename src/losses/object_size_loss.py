@@ -5,11 +5,7 @@ import torch.nn as nn
 
 
 class ObjectSizeLoss(nn.Module):
-    """Penaliza o tamanho da máscara prevista em relação à massa do ground truth.
-
-    Calcula a razão entre a ativação prevista total e a ativação total do
-    ground truth, ponderada por um escalar. Incentiva as previsões a corresponderem
-    ao tamanho geral dos objetos anotados.
+    """Penaliza o desvio de tamanho entre a máscara prevista e o ground truth.
 
     Formato esperado de entrada: ``(N, C, H, W)``.
     """
@@ -33,5 +29,9 @@ class ObjectSizeLoss(nn.Module):
         Returns:
             Perda de razão de tamanho ponderada e escalar.
         """
-        ratio = y_pred.sum() / y_true.sum()
+        gt_sum = y_true.sum()
+        if gt_sum == 0:
+            # GT vazio: a massa prevista deve ser (idealmente) zero também.
+            return self.weight * y_pred.sum().abs()
+        ratio = y_pred.sum() / gt_sum
         return self.weight * ratio

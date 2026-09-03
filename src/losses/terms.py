@@ -45,7 +45,12 @@ class TVTerm(LossTerm):
 
 
 class DMapTerm(LossTerm):
-    """Envolve :class:`DistanceMapLoss`. Usa ``markers``, ``distance_maps`` e ``gt_masks``."""
+    """Envolve :class:`DistanceMapLoss`. Usa ``markers``, ``distance_maps`` e ``gt_masks``.
+
+    Supervisiona os **marcadores da MarkerNet** diretamente: penaliza ativação
+    dos marcadores em regiões de alto valor no mapa de distância (bordas/fundo),
+    empurrando os marcadores para o interior das células (investigação, C3/C4).
+    """
 
     def __init__(self, weight: float = 0.1) -> None:
         super().__init__()
@@ -57,6 +62,7 @@ class DMapTerm(LossTerm):
 
     def compute(self, ctx: Dict[str, torch.Tensor]) -> torch.Tensor:
         return self._loss(ctx["markers"], ctx["distance_maps"], ctx["gt_masks"])
+
 
 class BorderTerm(LossTerm):
     """Envolve :class:`BorderLoss`. Usa apenas ``markers``."""
@@ -74,7 +80,7 @@ class BorderTerm(LossTerm):
 
 
 class DiceTerm(LossTerm):
-    """Envolve :class:`SoftDiceLoss`. Usa ``markers`` e ``gt_masks``."""
+    """Envolve :class:`SoftDiceLoss`. Usa ``prediction`` e ``gt_masks``."""
 
     def __init__(self, epsilon: float = 1e-9) -> None:
         super().__init__()
@@ -85,11 +91,11 @@ class DiceTerm(LossTerm):
         return "dice"
 
     def compute(self, ctx: Dict[str, torch.Tensor]) -> torch.Tensor:
-        return self._loss(ctx["markers"], ctx["gt_masks"])
+        return self._loss(ctx["prediction"], ctx["gt_masks"])
 
 
 class RMSETerm(LossTerm):
-    """Envolve :class:`RMSELoss`. Usa ``markers`` e ``gt_masks``."""
+    """Envolve :class:`RMSELoss`. Usa ``prediction`` e ``gt_masks``."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -100,7 +106,7 @@ class RMSETerm(LossTerm):
         return "rmse"
 
     def compute(self, ctx: Dict[str, torch.Tensor]) -> torch.Tensor:
-        return self._loss(ctx["markers"], ctx["gt_masks"])
+        return self._loss(ctx["prediction"], ctx["gt_masks"])
 
 
 class NotTooThinTerm(LossTerm):

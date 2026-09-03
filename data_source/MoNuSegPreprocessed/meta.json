@@ -1,0 +1,16 @@
+{
+  "work_size": 1000,
+  "segmentation_source": "cellpose",
+  "splits": {
+    "train": 30,
+    "test": 14
+  },
+  "keys": [
+    "image",
+    "segmentation",
+    "rgba",
+    "ground_truth",
+    "distance_map"
+  ],
+  "created_at": "2026-08-16 20:03:16"
+}

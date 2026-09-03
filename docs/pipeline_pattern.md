@@ -104,6 +104,8 @@ Esse pipeline é usado para executar etapas que não fazem parte do treinamento 
 
 Esse tipo de pipeline é particularmente útil quando uma etapa é cara computacionalmente, como a geração de segmentações. Em vez de recalcular tudo sempre, os resultados podem ser reutilizados em outros pontos do fluxo.
 
+No projeto, isso é feito de forma concreta com o `SaveResultsStep`: o pré-processamento roda **uma única vez** (pelo notebook `notebooks/preprocessing/preprocessamento_monuseg_persistido.ipynb`), persiste os resultados em `data_source/MoNuSegPreprocessed/` e os notebooks de experimento (ex.: `notebooks/experiments/experiment_3.ipynb`) apenas **carregam** os dados já processados — sem reprocessar o Cellpose a cada novo experimento.
+
 ## As steps concretas do projeto
 
 ### CellposeStep
@@ -130,6 +132,22 @@ Essa representação é útil porque ela junta:
 Em outras palavras, a imagem ganha uma camada de transparência que indica onde há objeto segmentado e onde há fundo.
 
 Essa etapa prepara os dados para a próxima fase de processamento, especialmente para inferência visual e geração de marcadores.
+
+### SaveResultsStep
+
+A step SaveResultsStep persiste o resultado do pré-processamento em disco, delegando a gravação ao `src/io/output_writer.py`.
+
+Ela recebe o dicionário já enriquecido pelas steps anteriores e grava cada chave configurada como `output_dir/<chave>/<id>.npy`:
+
+- `image` — a imagem RGB
+- `segmentation` — a máscara do Cellpose
+- `rgba` — a imagem RGBA de 4 canais
+- `ground_truth` — a máscara de referência
+- `distance_map` — o mapa de distância
+
+O formato `.npy` preserva a precisão `float32` de `rgba` e `distance_map`. Como o Cellpose é caro, essa step é o que permite rodar vários experimentos **sem reprocessar os dados**: o pré-processamento roda uma vez, fica em disco (`data_source/MoNuSegPreprocessed/`) e os notebooks de treino carregam o resultado.
+
+> **Importante:** o `SaveResultsStep` pertence exclusivamente ao `PreprocessingPipeline` — ele nunca participa do `TrainingPipeline` (que encadeia as redes treináveis).
 
 ### MarkerStep
 
@@ -162,6 +180,7 @@ A estrutura atual reflete isso em arquivos como:
 - src/pipeline/steps/base_step.py
 - src/pipeline/steps/preprocessing/cellpose_step.py
 - src/pipeline/steps/preprocessing/rgba_step.py
+- src/pipeline/steps/persistence/save_results_step.py
 - src/pipeline/steps/inference/marker_step.py
 
 Cada um desses módulos representa um pedaço do modelo geral:

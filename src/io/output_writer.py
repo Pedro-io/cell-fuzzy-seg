@@ -13,6 +13,11 @@ class OutputWriter:
     def __init__(self, output_dir: str):
         """Inicializa os diretórios de saída.
 
+        Os diretórios são criados de forma preguiçosa, apenas quando um método
+        de gravação é chamado — assim, usar o ``OutputWriter`` apenas para
+        persistir pré-processamento (``save_preprocessed``) não gera pastas
+        vazias de segmentações/marcadores/overlays.
+
         Args:
             output_dir: Diretório base onde os arquivos de saída serão salvos.
         """
@@ -21,9 +26,35 @@ class OutputWriter:
         self.marker_dir = os.path.join(output_dir, "markers")
         self.overlay_dir = os.path.join(output_dir, "overlays")
 
-        os.makedirs(self.seg_dir, exist_ok=True)
-        os.makedirs(self.marker_dir, exist_ok=True)
-        os.makedirs(self.overlay_dir, exist_ok=True)
+    def save_preprocessed(self, image_id: str, data: dict, keys: list) -> None:
+        """Persiste arrays do pré-processamento como ``.npy`` preservando a precisão.
+
+        Para cada chave em ``keys``, salva ``<output_dir>/<key>/<image_id>.npy``.
+        Os nomes das chaves são idênticos aos usados em memória (contrato do
+        ``SaveResultsStep``), permitindo reconstruir o dicionário completo ao
+        carregar os dados persistidos.
+
+        O formato ``.npy`` é usado em vez de PNG porque ``rgba`` e
+        ``distance_map`` são arrays ``float32`` em ``[0, 1]`` — a conversão para
+        uint8 degradaria a precisão consumida pelas losses.
+
+        Args:
+            image_id: Identificador da amostra usado no nome do arquivo.
+            data: Dicionário contendo os arrays a persistir.
+            keys: Chaves de ``data`` a persistir.
+
+        Raises:
+            KeyError: Se alguma chave de ``keys`` não estiver presente em ``data``.
+        """
+        for key in keys:
+            if key not in data:
+                raise KeyError(
+                    f"Key '{key}' requested for persistence but missing from data."
+                )
+            key_dir = os.path.join(self.output_dir, key)
+            os.makedirs(key_dir, exist_ok=True)
+            path = os.path.join(key_dir, f"{image_id}.npy")
+            np.save(path, data[key])
 
     def save_all(self, data: dict) -> None:
         """Salva todas as saídas disponíveis a partir de um dicionário de dados.
@@ -59,6 +90,7 @@ class OutputWriter:
 
         seg = self._to_uint8(seg)
 
+        os.makedirs(self.seg_dir, exist_ok=True)
         cv2.imwrite(path, seg)
 
     def save_markers(self, image_id: str, markers: np.ndarray) -> None:
@@ -72,6 +104,7 @@ class OutputWriter:
 
         markers = self._to_uint8(markers)
 
+        os.makedirs(self.marker_dir, exist_ok=True)
         cv2.imwrite(path, markers)
 
     def save_overlay(
@@ -82,6 +115,8 @@ class OutputWriter:
         ground_truth: Optional[np.ndarray] = None,
     ) -> None:
         path = os.path.join(self.overlay_dir, f"{image_id}_overlay.png")
+
+        os.makedirs(self.overlay_dir, exist_ok=True)
 
         image = self._to_rgb(image)
 

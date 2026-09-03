@@ -151,6 +151,7 @@ src/
 │   ├── trainer.py
 │   ├── training_loop.py
 │   └── callbacks/
+│       └── grad_norm_callback.py
 │
 ├── registry/
 │
@@ -355,7 +356,7 @@ data = training_pipeline.run(data)
 
 **Objetivo:** controlar o ciclo de otimização de uma etapa de treinamento (um passo de treino).
 
-**O que deve fazer:** orquestrar, para cada batch, o forward (delegando ao `TrainingPipeline`), o cálculo da loss (delegando ao `LossComposer`), o `backward()`, o passo do otimizador (`optimizer.step()`), o passo do scheduler e a execução de callbacks.
+**O que deve fazer:** orquestrar, para cada batch, o forward (delegando ao `TrainingPipeline`), o cálculo da loss (delegando ao `LossComposer`), o `backward()`, o passo do otimizador (`optimizer.step()`), o passo do scheduler e a execução de callbacks. Se `grad_clip` for fornecido, aplica `clip_grad_norm_` após o `backward()` e antes do `optimizer.step()`.
 
 **O que NÃO deve fazer:** **nunca implementa redes neurais.** Não define arquiteturas, não conhece detalhes internos de `MarkerNet` ou da rede final — recebe o `TrainingPipeline` já configurado com essas redes e o trata como uma caixa-preta diferenciável.
 
@@ -456,6 +457,28 @@ markers = marker_net(image, segmentation)
 
 ---
 
+### `scribble_prompting_network.py`
+
+**Objetivo:** implementar a rede final de segmentação congelada baseada no ScribblePrompt, seguindo a
+interface `BaseFinalSegmentation`.
+
+**O que deve fazer:** receber `{"image": ..., "scribbles": ...}` (os scribbles são os marcadores
+produzidos pela MarkerNet) e devolver a máscara de segmentação `(N, 1, H, W)` em `[0, 1]`. Os pesos da
+UNet interna são congelados (`requires_grad_(False)`) e a rede permanece em `eval()` mesmo quando o
+`FrozenSegmentationStep` chama `train()` — o grafo permanece diferenciável **em relação aos scribbles**
+para que a loss alcance a MarkerNet.
+
+**Normalização dos scribbles (`scribble_mode`):** o ScribblePrompt foi treinado com traços esparsos e
+binários (canais positivo/negativo mutuamente exclusivos). Entregar `[s, 1-s]` com s suave em todos os
+pixels (modo legado `"dense_soft"`) é uma entrada fora da distribuição de treino e leva a saídas
+saturadas. Por isso, o modo padrão `"sharpened"` aplica um sharpening sigmoide com temperatura
+configurável (`scribble_temperature`), produzindo canais complementares quase binários —
+`pos = sigmoid(T·(s−0.5))` e `neg = sigmoid(T·(0.5−s))` — mantendo a diferenciabilidade.
+
+**O que NÃO deve fazer:** não é treinada; não executa `backward`; não conhece o `Trainer`.
+
+---
+
 ### `frozen_segmentation_step.py`
 
 **Objetivo:** encapsular, dentro do `TrainingPipeline`, a execução da rede final de segmentação.
@@ -473,13 +496,46 @@ data = step.run(data)  # data["segmentation"] é adicionado
 
 ---
 
+### `marker_step.py`
+
+**Objetivo:** executar o forward da MarkerNet (1ª rede treinável) dentro do `TrainingPipeline`.
+
+**O que deve fazer:** receber a imagem RGBA (imagem RGB + canal alpha da segmentação inicial do
+Cellpose) e produzir os marcadores nebulosos (*fuzzy markers*). Possui dois modos:
+
+- `differentiable=False` (inferência): executa sob `torch.no_grad()`, redimensiona a saída para o
+tamanho original e binariza com um limiar, retornando um array NumPy `(H, W)`.
+- `differentiable=True` (treinamento): preserva o grafo computacional (interpolação diferenciável via
+`F.interpolate`, sem binarização), retornando um tensor `(N, 1, H, W)` com probabilidades em `[0, 1]`
+para permitir a backpropagation da loss até a MarkerNet.
+
+**Modo `train()`/`eval()`:** o gerenciamento do modo da rede é feito por este Step, à semelhança do
+`FrozenSegmentationStep`: em `differentiable=True` a MarkerNet é colocada em `train()` (para que as
+BatchNorms se adaptem às estatísticas do lote corrente durante o treinamento); em `differentiable=False`
+ela é colocada em `eval()` (running stats estáveis). Antes, a rede era forçada a `eval()` também no
+treinamento, o que impedia o decoder recém-inicializado de aprender as estatísticas das BatchNorms.
+
+**O que NÃO deve fazer:** não implementa a arquitetura da MarkerNet; não calcula loss; não realiza
+backward nem otimização (regra 9).
+
+**Como deve ser utilizado:**
+
+```python
+step = MarkerStep(model=marker_net, differentiable=True)
+data = step.run(data)  # data["markers"] é adicionado (N, 1, H, W)
+```
+
+---
+
 ### `save_results_step.py`
 
-**Objetivo:** persistir resultados do pipeline de pré-processamento em disco.
+**Objetivo:** persistir resultados do pipeline de pré-processamento em disco, para que os notebooks de treino carreguem os dados **já processados** sem recomputar o Cellpose a cada experimento.
 
-**O que deve fazer:** receber o dicionário de dados já enriquecido pelos Steps anteriores (ex. Cellpose, RGBA) e delegar ao `io/output_writer.py` a gravação em disco.
+**O que deve fazer:** receber o dicionário de dados já enriquecido pelos Steps anteriores (ex. Cellpose, RGBA, DistanceMap) e delegar ao `io/output_writer.py` (via `OutputWriter.save_preprocessed`) a gravação em disco. O passo grava cada chave configurada como `output_dir/<chave>/<id>.npy` — formato NumPy, que **preserva a precisão `float32`** de `rgba` e `distance_map` (uma conversão para PNG/uint8 degradaria esses arrays). As chaves persistidas têm nomes **idênticos** aos usados em memória (regra 5 do contrato), permitindo reconstruir o dicionário ao carregar. O passo exige a chave `"id"` no dicionário para nomear os arquivos.
 
-**O que NÃO deve fazer:** **nunca participa do treinamento.** Pertence exclusivamente ao `PreprocessingPipeline` e nunca deve ser adicionado à lista de Steps do `TrainingPipeline`. Não implementa a lógica de serialização em si — apenas invoca `io/`.
+Chaves padrão persistidas (`DEFAULT_KEYS`): `image`, `segmentation`, `rgba`, `ground_truth`, `distance_map` — exatamente as produzidas pelos Steps de pré-processamento do projeto. A lista pode ser customizada via parâmetro `keys`.
+
+**O que NÃO deve fazer:** **nunca participa do treinamento.** Pertence exclusivamente ao `PreprocessingPipeline` e nunca deve ser adicionado à lista de Steps do `TrainingPipeline`. Não implementa a lógica de serialização em si — apenas invoca `io/` (regra 12).
 
 **Como deve ser utilizado:**
 
@@ -489,10 +545,24 @@ pipeline = PreprocessingPipeline(
         CellposeStep(),
         RGBAStep(),
         DistanceMapStep(),
-        SaveResultsStep(output_dir="data/preprocessed"),
+        SaveResultsStep(output_dir="data_source/MoNuSegPreprocessed/train"),
     ]
 )
 ```
+
+**Uso canônico no projeto:** o notebook `notebooks/preprocessing/preprocessamento_monuseg_persistido.ipynb` executa o pré-processamento **uma única vez** para os splits de treino (30) e teste (14), persistindo em `data_source/MoNuSegPreprocessed/{train,test}/` e gravando um `meta.json` com a configuração do run (resolução de trabalho, splits, fonte da segmentação). Os notebooks de experimento (ex.: `notebooks/experiments/experiment_3.ipynb`) então apenas **carregam** esses dados do disco (lendo `meta.json` para `WORK_SIZE`) e montam os batches — sem reprocessar nada.
+
+---
+
+### `io/output_writer.py`
+
+**Objetivo:** executar a gravação em disco de arrays de pré-processamento e de saídas de segmentação/marcadores/overlays.
+
+**O que deve fazer:** expor `OutputWriter` com métodos de gravação (`save_preprocessed`, `save_segmentation`, `save_markers`, `save_overlay`, `save_rgba`). `save_preprocessed` grava cada chave como `output_dir/<chave>/<id>.npy` (precisão `float32` preservada); os demais métodos gravam PNGs uint8 em subpastas `segmentations/`, `markers/` e `overlays/`. Os diretórios são criados de forma **preguiçosa** — usar apenas `save_preprocessed` não gera pastas vazias de segmentações/marcadores/overlays.
+
+**O que NÃO deve fazer:** nunca decide *quando* ou *o quê* persistir — essa decisão pertence a um Step de `pipeline/steps/persistence/` (regra 12); não conhece `models/`, `training/` nem `pipeline/`.
+
+**Como deve ser utilizado:** sempre via `SaveResultsStep`, que delega a este módulo — nunca diretamente a partir dos notebooks de treinamento.
 
 ---
 
@@ -526,7 +596,10 @@ pipeline = PreprocessingPipeline(
 
 **Objetivo:** centralizar a composição de múltiplas funções de perda em um único valor escalar utilizado pelo `Trainer`.
 
-**O que deve fazer:** receber uma lista (ou dicionário) de losses individuais, com seus respectivos pesos, e calcular a soma ponderada a partir da segmentação predita e do ground truth.
+**O que deve fazer:** receber uma lista (ou dicionário) de losses individuais, com seus respectivos pesos, e calcular a soma ponderada. O contexto compartilhado entregue aos termos contém **dois tensores de predição distintos**:
+
+- `ctx["prediction"]` — a predição principal supervisionada (por padrão a **segmentação final** produzida pela rede congelada, `Trainer.prediction_key`); é o alvo dos termos que medem a qualidade da segmentação (Dice/RMSE/Size);
+- `ctx["markers"]` — os **marcadores produzidos pela MarkerNet** (chave `"markers"` do dicionário de dados, repassada pelo `Trainer` quando disponível); é o alvo da supervisão direta da MarkerNet (ex.: `DMapTerm`, que penaliza ativação dos marcadores em bordas/fundo, empurrando-os para o interior das células). Se a MarkerNet não estiver no pipeline, `ctx["markers"]` assume o valor de `prediction`.
 
 **O que NÃO deve fazer:** não executa inferência de nenhum modelo; não conhece a arquitetura das redes; não decide quando o backward é chamado (isso é papel do `Trainer`).
 
@@ -534,17 +607,37 @@ pipeline = PreprocessingPipeline(
 
 ```python
 loss_composer = LossComposer(
-    losses=[
-        (SoftDiceLoss(), 1.0),
-        (BorderLoss(), 0.5),
-        (TotalVariationLoss(), 0.1),
+    terms=[
+        DiceTerm(),
+        SizeTerm(weight=0.05),
+        DMapTerm(weight=0.1),
     ]
 )
 
-loss_value = loss_composer.compute(prediction=data["segmentation"], target=data["ground_truth"])
+total, log = loss_composer(prediction=data["segmentation"], distance_maps=data["distance_map"], gt_masks=data["ground_truth"], markers=data["markers"])
 ```
 
 > Para adicionar uma nova loss ao treinamento, basta criar uma nova classe em `losses/` e incluí-la na lista passada ao `LossComposer` — nenhuma outra camada precisa ser alterada.
+
+---
+
+### `grad_norm_callback.py`
+
+**Objetivo:** monitorar a magnitude dos gradientes das redes treináveis durante o treinamento (diagnóstico de gradiente morto).
+
+**O que deve fazer:** implementar `TrainerCallback` e, ao final de cada passo de treinamento (`on_train_step_end`), percorrer os steps do `TrainingPipeline` coletando os parâmetros com `requires_grad=True` (na prática, os da MarkerNet — redes congeladas são naturalmente excluídas) e registrar: norma L2 total, média e máximo absolutos e a fração de parâmetros com gradiente não-`None`. Os valores são acumulados em `history` (para plotagem) e registrados no logger a cada `log_every` passos.
+
+**O que NÃO deve fazer:** não altera gradientes, pesos ou otimizador — é somente observação.
+
+**Como deve ser utilizado:**
+
+```python
+from src.training.callbacks import GradNormCallback
+
+grad_norm_cb = GradNormCallback(log_every=1)
+trainer = Trainer(..., callbacks=[grad_norm_cb])
+# após o treino: grad_norm_cb.history["total"] contém a norma por passo
+```
 
 ---
 
@@ -570,7 +663,7 @@ PreprocessingPipeline
 SaveResultsStep                      → persiste em disco (io/output_writer.py)
 ```
 
-Este fluxo roda uma única vez por imagem (ou sempre que o pré-processamento precisar ser refeito), e seu resultado fica disponível em disco para todas as épocas de treinamento seguintes, evitando recomputação do Cellpose a cada batch.
+Este fluxo roda uma única vez por imagem (ou sempre que o pré-processamento precisar ser refeito), e seu resultado fica disponível em disco para todas as épocas de treinamento seguintes, evitando recomputação do Cellpose a cada batch. **No projeto, esta fase é executada pelo notebook `notebooks/preprocessing/preprocessamento_monuseg_persistido.ipynb`**, que persiste em `data_source/MoNuSegPreprocessed/{train,test}/<chave>/<id>.npy` (mais `meta.json`). A Fase 2 (treinamento) então **carrega** esses dados persistidos — os notebooks de experimento não refazem o pré-processamento.
 
 ### Fase 2 — Treinamento (execução repetida, por batch/época)
 
@@ -689,11 +782,11 @@ training_pipeline = TrainingPipeline(
     ]
 )
 
-# 5. Definir a composição de losses
+# 5. Definir a composição de losses (termos concretos de LossTerm)
 loss_composer = LossComposer(
-    losses=[
-        (SoftDiceLoss(), 1.0),
-        (BorderLoss(), 0.5),
+    terms=[
+        DiceTerm(),
+        DMapTerm(weight=0.1),
     ]
 )
 
@@ -703,6 +796,7 @@ trainer = Trainer(
     loss_composer=loss_composer,
     optimizer=torch.optim.Adam(marker_net.parameters()),
     scheduler=None,
+    grad_clip=1.0,
     callbacks=[EarlyStoppingCallback(), CheckpointCallback()],
 )
 
@@ -723,7 +817,7 @@ training_loop.run()
 2. **`PreprocessingPipeline`** aplica Cellpose, conversão RGBA e o mapa de distância uma única vez, e `SaveResultsStep` persiste os resultados em disco.
 3. **`MonusegPreprocessedDataset`** entrega, a partir daí, amostras já enriquecidas com os resultados persistidos, sem nunca reexecutar o Cellpose.
 4. **`TrainingPipeline`** encadeia apenas as redes treináveis (`MarkerNet` e a rede final), mantendo o grafo diferenciável.
-5. **`LossComposer`** combina as funções de perda relevantes para o problema.
+5. **`LossComposer`** combina as funções de perda relevantes para o problema, supervisionando a segmentação final (`prediction`) e, quando disponíveis, os marcadores da MarkerNet (`markers`) via termos como `DMapTerm`.
 6. **`Trainer`** orquestra forward, cálculo de loss, backward e otimização para um único batch.
 7. **`TrainingLoop`** repete esse processo por todas as épocas, intercalando validação e checkpoints.
 

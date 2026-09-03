@@ -206,3 +206,43 @@ def test_missing_checkpoint_raises_runtime_error(fake_scribbleprompt, monkeypatc
 
     with pytest.raises(RuntimeError, match="download_checkpoint"):
         ScribblePromptingNetwork()
+
+
+def test_sharpened_scribbles_are_complementary_and_near_binary(fake_scribbleprompt):
+    """C2: no modo padrão (sharpened), os 2 canais são complementares e quase binários."""
+    net = ScribblePromptingNetwork(scribble_mode="sharpened", scribble_temperature=10.0)
+    scribbles = torch.tensor([[[[0.43, 0.6, 0.79]]]], dtype=torch.float32)  # (1,1,1,3)
+
+    s = net._prepare_scribbles(scribbles, torch.device("cpu"))
+
+    assert s.shape == (1, 2, 1, 3)
+    # pos + neg = 1 em todos os pixels (sigmoid(x) + sigmoid(-x) == 1).
+    assert torch.allclose(s[:, 0] + s[:, 1], torch.ones_like(s[:, 0]), atol=1e-5)
+    # Marcador alto (0.79) → canal positivo próximo de 1; marcador baixo (0.43) → positivo baixo.
+    assert s[0, 0, 0, 2].item() > 0.9
+    assert s[0, 0, 0, 0].item() < 0.4
+
+
+def test_dense_soft_mode_keeps_legacy_behavior(fake_scribbleprompt):
+    """O modo legado dense_soft mantém [s, 1-s]."""
+    net = ScribblePromptingNetwork(scribble_mode="dense_soft")
+    scribbles = torch.tensor([[[[0.6]]]], dtype=torch.float32)
+
+    s = net._prepare_scribbles(scribbles, torch.device("cpu"))
+
+    assert s.shape == (1, 2, 1, 1)
+    assert torch.allclose(s[0, 0, 0, 0], torch.tensor(0.6))
+    assert torch.allclose(s[0, 1, 0, 0], torch.tensor(0.4))
+
+
+def test_gradient_flows_through_sharpened_scribbles(fake_scribbleprompt):
+    """C2: o sharpening preserva o fluxo de gradiente até os marcadores."""
+    net = ScribblePromptingNetwork(scribble_mode="sharpened", scribble_temperature=10.0)
+    image = torch.rand(1, 1, 32, 32)
+    scribbles = torch.rand(1, 1, 32, 32, requires_grad=True)
+
+    mask = net({"image": image, "scribbles": scribbles})
+    mask.sum().backward()
+
+    assert scribbles.grad is not None
+    assert scribbles.grad.abs().sum() > 0

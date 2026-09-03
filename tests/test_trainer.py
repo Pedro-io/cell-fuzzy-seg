@@ -36,7 +36,7 @@ class IdentityStep:
 class DummyLossComposer(nn.Module):
     """Compositor de perda dummy: MSE entre predição e ground truth."""
 
-    def forward(self, prediction, distance_maps, gt_masks):
+    def forward(self, prediction, distance_maps, gt_masks, markers=None):
         loss = ((prediction - gt_masks) ** 2).mean()
         return loss, {"mse": loss}
 
@@ -67,11 +67,11 @@ def make_batch(device="cpu"):
     }
 
 
-def make_trainer(net=None, scheduler=None, callbacks=None):
+def make_trainer(net=None, scheduler=None, callbacks=None, optimizer=None):
     net = net or DummyNetwork()
     pipeline = TrainingPipeline([IdentityStep(net)])
     composer = DummyLossComposer()
-    optimizer = torch.optim.SGD(net.parameters(), lr=0.1)
+    optimizer = optimizer or torch.optim.SGD(net.parameters(), lr=0.1)
     return Trainer(
         training_pipeline=pipeline,
         loss_composer=composer,
@@ -138,7 +138,9 @@ def test_scheduler_is_called():
     net = DummyNetwork()
     optimizer = torch.optim.SGD(net.parameters(), lr=0.1)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.5)
-    trainer = make_trainer(net=net, scheduler=scheduler)
+    # O scheduler deve usar o MESMO otimizador do Trainer (senão o passo do
+    # scheduler não tem efeito no treinamento e o torch emite warning).
+    trainer = make_trainer(net=net, scheduler=scheduler, optimizer=optimizer)
     lr_before = optimizer.param_groups[0]["lr"]
 
     trainer.train_step(make_batch())
