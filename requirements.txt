@@ -1,0 +1,36 @@
+# =============================================================================
+# Dependências do projeto
+# -----------------------------------------------------------------------------
+# torch/torchvision ficam com >= para preservar a build GPU pré-instalada do
+# Colab (instalar a versão exata via pip faria downgrade para a build CPU).
+# Todas as demais dependências são fixadas em versões exatas (==) para
+# reprodutibilidade nos experimentos (o Colab não tem um gerenciador como
+# poetry, então requirements.txt é a fonte da verdade).
+# =============================================================================
+
+# --- Base / treino da MarkerNet ----------------------------------------------
+torch>=2.1.0
+torchvision>=0.16.0
+cellpose==4.1.1
+numpy==2.0.2
+# scipy é usado pelo DistanceMapStep (transformada de distância euclidiana) no
+# pré-processamento. Versão fixada como compatível com numpy 2.0.2.
+scipy==1.14.1
+loguru==0.7.3
+segmentation-models-pytorch==0.5.0
+
+# --- Rede final de segmentação: ScribblePrompt ------------------------------
+# O pacote "scribbleprompt" NÃO está no PyPI; é instalado a partir do git no
+# commit pinado abaixo (setup.py do repositório). Seu requirements.txt declara
+# torch/torchvision/numpy/opencv-python como install_requires.
+scribbleprompt @ git+https://github.com/halleewong/ScribblePrompt@182c44975f77749b559974ce8db558c8bde57788
+
+# O __init__.py do scribbleprompt importa ScribblePromptSAM (segment-anything)
+# de forma eager — sem este pacote, "import scribbleprompt" falha.
+segment-anything==1.0
+
+# Conflito de opencv: cellpose exige opencv-python-headless, enquanto o
+# scribbleprompt puxa opencv-python. Para evitar cv2 inconsistente, fixamos
+# as duas na MESMA versão (coexistência verificada empiricamente).
+opencv-python==4.10.0.84
+opencv-python-headless==4.10.0.84

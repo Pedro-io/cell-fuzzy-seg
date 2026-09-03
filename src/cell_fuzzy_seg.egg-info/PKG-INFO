@@ -1,0 +1,30 @@
+Metadata-Version: 2.4
+Name: cell-fuzzy-seg
+Version: 0.1.0
+Summary: Cell Fuzzy Segmentation using Deep Learning
+Author-email: Pedro <pedro@example.com>
+License: MIT
+Keywords: segmentation,fuzzy,deep-learning,cellpose,unet
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: torch>=2.0.0
+Requires-Dist: torchvision>=0.15.0
+Requires-Dist: numpy>=1.21.0
+Requires-Dist: Pillow>=9.0.0
+Requires-Dist: PyYAML>=6.0
+Requires-Dist: cellpose>=3.0.0
+Provides-Extra: dev
+Requires-Dist: ruff>=0.1.0; extra == "dev"
+Requires-Dist: black>=23.0.0; extra == "dev"
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
+Dynamic: license-file

@@ -1,1 +1,7 @@
 notes.txt
+.venv
+IMPLEMENTATION_SUMMARY.md
+INTEGRATION_GUIDE.md
+docs/PIPELINE_ARCHITECTURE.md
+__pycache__/
+nul
