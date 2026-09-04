@@ -1,403 +1,366 @@
-# Losses
+# Perdas do módulo de segmentação celular
 
-> 🇧🇷 [Português](#português) · 🇺🇸 [English](#english)
+Este documento descreve a implementação atual do módulo de perdas em `src/losses` e reflete a versão que está ativa no pipeline. Algumas variantes antigas foram ajustadas, reorganizadas ou removidas para manter a base consistente com o código que hoje realmente é usado.
 
----
-
-## Português
-
-### Visão geral
-
-Este módulo contém todas as funções de perda e regularização utilizadas no treinamento dos modelos de segmentação celular. As perdas estão organizadas em dois grupos: **segmentação** e **regularização**.
+> Observação importante: a documentação foi reduzida para o português e para o conjunto real de perdas implementadas no repositório. Itens obsoletos ou versões antigas não presentes na estrutura atual foram omitidos.
 
 ---
 
-### Estrutura
+## 1. Visão geral
 
-```
-losses/
-├── __init__.py                       # Exporta todos os símbolos públicos
-│
-├── loss_term.py                      # LossTerm (ABC — interface do padrão Strategy)
-├── terms.py                          # Termos concretos: SizeTerm, TVTerm, DMapTerm…
-├── loss_composer.py                  # LossComposer (composição livre de termos)
-│
-├── rmse_loss.py                      # RMSELoss
-├── rmse_accuracy.py                  # RMSEAccuracy
-├── soft_dice_loss.py                 # SoftDiceLoss
-│
-├── object_size_loss.py               # ObjectSizeLoss
-├── total_variation_loss.py           # TotalVariationLoss
-├── distance_map_loss.py              # DistanceMapLoss
-├── border_loss.py                    # BorderLoss
-├── not_too_thin_loss.py              # NotTooThinLoss
-```
+O módulo reúne funções de perda e regularização usadas para treinar modelos de segmentação celular. Em geral, as perdas se dividem em duas categorias:
 
----
+- Perdas de segmentação: medem a aderência da previsão ao ground truth.
+- Perdas de regularização: controlam propriedades geométricas e espaciais da predição, como suavidade, tamanho e presença de artefatos.
 
-### Perdas de Segmentação
+A estrutura atual inclui os seguintes arquivos:
 
-Medem a qualidade da predição em relação ao ground truth.
-
-#### `RMSELoss`
-**Arquivo:** `rmse_loss.py`
-
-Calcula o *Root Mean Square Error* como `sqrt(MSE(pred, gt))`. Utilizada como função de perda principal quando se deseja penalizar erros grandes de forma quadrática.
-
-#### `RMSEAccuracy`
-**Arquivo:** `rmse_accuracy.py`
-
-Métrica derivada do RMSE calculada como `1 - RMSE(pred, gt)`. Quanto mais próximo de 1, melhor a predição. Útil para monitoramento durante o treinamento.
-
-#### `SoftDiceLoss`
-**Arquivo:** `soft_dice_loss.py`
-
-Versão diferenciável do coeficiente de Dice. Lida bem com desbalanceamento de classes (células pequenas em fundo dominante). Recebe tensores de forma `(B, C, H, W)` e retorna a perda média sobre o batch e canais.
-
-```python
-loss_fn = SoftDiceLoss(epsilon=1e-9)
-loss = loss_fn(y_pred, y_true)
+```text
+src/losses/
+├── __init__.py
+├── border_loss.py
+├── distance_map_loss.py
+├── loss_composer.py
+├── loss_term.py
+├── not_too_thin_loss.py
+├── object_size_loss.py
+├── rmse_accuracy.py
+├── rmse_loss.py
+├── soft_dice_loss.py
+├── terms.py
+├── total_variation_loss.py
+└── README.md
 ```
 
 ---
 
-### Perdas de Regularização
+## 2. Implementações ativas e mudanças recentes
 
-Penalizam comportamentos indesejados na predição, independentemente do ground truth de segmentação.
+A base atual foi simplificada para manter apenas as perdas que fazem sentido para a arquitetura do projeto:
 
-#### `ObjectSizeLoss`
-**Arquivo:** `object_size_loss.py`
+- `SoftDiceLoss`: perda principal de similaridade entre previsão e máscara.
+- `RMSELoss`: penalização de erros grandes, útil como termo complementar.
+- `ObjectSizeLoss`: preserva a massa total da segmentação.
+- `TotalVariationLoss`: melhora suavidade espacial.
+- `DistanceMapLoss`: orienta os marcadores para o interior das células.
+- `BorderLoss`: reduz falsos positivos nas bordas da imagem.
+- `NotTooThinLoss`: elimina estruturas finas e filamentosas.
 
-Penaliza desvios no tamanho total da predição em relação ao ground truth. Calcula a razão `sum(pred) / sum(gt)` ponderada por um escalar. Evita que o modelo preveja marcadores excessivamente grandes ou pequenos.
+Além disso, o módulo expõe o padrão de composição `LossComposer` e os wrappers `LossTerm`, `SizeTerm`, `TVTerm`, `DMapTerm`, `BorderTerm`, `DiceTerm`, `RMSETerm` e `NotTooThinTerm` para combinar termos sem alterar a lógica central do treino.
 
-#### `TotalVariationLoss`
-**Arquivo:** `total_variation_loss.py`
-
-Penaliza variações abruptas entre pixels vizinhos nas direções horizontal e vertical. Incentiva predições espacialmente suaves. Normalizada pela raiz da massa total do ground truth para ser invariante à densidade de objetos.
-
-#### `DistanceMapLoss`
-**Arquivo:** `distance_map_loss.py`
-
-Penaliza ativações em regiões de alta distância a partir de um mapa de distâncias pré-calculado. Empurra os marcadores preditos para o interior das células, longe das bordas entre objetos.
-
-#### `BorderLoss`
-**Arquivo:** `border_loss.py`
-
-Penaliza ativações nas bordas da imagem dentro de uma margem configurável (em pixels). Suprime falsos positivos nas extremidades do campo de visão, onde a informação é frequentemente incompleta.
-
-#### `NotTooThinLoss`
-**Arquivo:** `not_too_thin_loss.py`
-
-Penaliza estruturas muito finas (filamentos) na predição. Aplica uma abertura morfológica (erosão seguida de dilatação) para identificar regiões que seriam eliminadas por serem finas demais e penaliza sua presença. Requer um kernel morfológico como parâmetro.
-
-```python
-kernel = torch.ones(5, 5)
-loss_fn = NotTooThinLoss(kernel=kernel, weight=0.5)
-loss = loss_fn(image)
-```
-
+> Algumas implementações antigas ou variantes experimentais foram removidas da documentação porque não fazem parte da API atual do módulo. Isso evita confusão com componentes que não estão mais presentes no código do pipeline.
 
 ---
 
-### Padrão Strategy — Composição Livre de Losses
+## 3. Explicação teórica das perdas implementadas
 
-O padrão Strategy permite montar qualquer combinação de funções de perda sem alterar o código-fonte, bastando trocar a lista de termos passada ao `LossComposer`.
+### 3.1 `SoftDiceLoss`
 
-#### `LossTerm`
-**Arquivo:** `loss_term.py`
+Arquivo: `soft_dice_loss.py`
 
-Classe base abstrata (`nn.Module` + `ABC`) que define a interface comum a todos os termos. Subclasses devem implementar a propriedade `name` e o método `compute(ctx)`.
+A perda de Dice é baseada na similaridade entre a previsão e o alvo. O coeficiente clássico de Dice é dado por:
 
-O argumento `ctx` é um dicionário com as chaves:
+$$
+\mathrm{Dice} = \frac{2 \sum p_i g_i + \epsilon}{\sum p_i^2 + \sum g_i^2 + \epsilon}
+$$
 
-| Chave | Forma | Descrição |
-|-------|-------|-----------|
-| `"markers"` | `(N, C, H, W)` | Marcadores preditos |
-| `"distance_maps"` | `(N, C, H, W)` | Mapas de distância |
-| `"gt_masks"` | `(N, C, H, W)` | Máscaras ground truth |
+A perda usada no código é a forma diferenciável:
 
-Cada termo extrai do contexto apenas as chaves que precisa.
+$$
+\mathcal{L}_{dice} = 1 - \mathrm{Dice}
+$$
 
-#### `LossComposer`
-**Arquivo:** `loss_composer.py`
+#### Por que é usada?
 
-Recebe uma lista de `LossTerm` no construtor e os registra como submódulos PyTorch (`nn.ModuleList`). Retorna o loss total e um log por termo.
+Ela é robusta em cenários de desbalanceamento, muito comuns em segmentação celular, onde o fundo ocupa grande parte da imagem e as células são pequenas e esparsas. Em vez de focar no erro absoluto, a perda compara a sobreposição estrutural entre previsão e máscara.
 
-```python
-from src.losses import LossComposer, SizeTerm, TVTerm, DMapTerm
+#### Nível de peso recomendado
 
-# Experimento A
-composer = LossComposer([SizeTerm(0.1), TVTerm(0.05)])
+- Como perda principal: 1.0
+- Em combinação com termos de regularização: 0.5 a 1.0
 
-# Experimento B — mesma classe, outra composição, zero mudança no fonte
-composer = LossComposer([SizeTerm(0.2), DMapTerm(0.1)])
+#### Observação da implementação atual
 
-total_loss, log = composer(markers, distance_maps, gt_masks)
-# log = {"size": tensor, "dmap": tensor}
-```
-
-#### Termos disponíveis
-**Arquivo:** `terms.py`
-
-| Classe | `name` | Entradas do contexto |
-|--------|--------|----------------------|
-| `SizeTerm(weight)` | `"size"` | `markers`, `gt_masks` |
-| `TVTerm(weight, power)` | `"tv"` | `markers`, `gt_masks` |
-| `DMapTerm(weight)` | `"dmap"` | `markers`, `distance_maps`, `gt_masks` |
-| `BorderTerm(weight, border_size)` | `"border"` | `markers` |
-| `DiceTerm(epsilon)` | `"dice"` | `markers`, `gt_masks` |
-| `RMSETerm()` | `"rmse"` | `markers`, `gt_masks` |
-| `NotTooThinTerm(kernel, weight)` | `"not_too_thin"` | `markers` |
-
-#### `TrainingStep`
-**Arquivo:** `src/pipeline/steps/training_step.py`
-
-Passo de pipeline que injeta o `LossComposer` no fluxo de dados. Consome `"markers"`, `"distance_maps"` e `"gt_masks"` do dicionário e adiciona `"loss"` e `"loss_log"`. O laço de treinamento chama `loss.backward()` e `optimizer.step()` após o step.
-
-```python
-from src.losses import LossComposer, SizeTerm, TVTerm
-from src.pipeline.steps.training_step import TrainingStep
-
-step = TrainingStep(LossComposer([SizeTerm(0.1), TVTerm(0.05)]))
-data = step(data)
-data["loss"].backward()
-optimizer.step()
-```
-
-#### Criando um termo customizado
-
-```python
-from src.losses import LossTerm
-import torch
-from typing import Dict
-
-class MyTerm(LossTerm):
-    @property
-    def name(self) -> str:
-        return "my_term"
-
-    def compute(self, ctx: Dict[str, torch.Tensor]) -> torch.Tensor:
-        markers = ctx["markers"]
-        # ... lógica customizada ...
-        return loss_value
-```
+A classe não recebe um parâmetro de peso interno; o peso real fica no conjunto de termos ou na composição do treino. Em geral, ela deve ficar como termo dominante quando a qualidade estrutural da segmentação é o objetivo principal.
 
 ---
 
-### Como importar
+### 3.2 `RMSELoss`
 
-Todos os símbolos públicos são exportados pelo `__init__.py` do pacote:
+Arquivo: `rmse_loss.py`
 
-```python
-# Primitivos
-from src.losses import (
-    RMSELoss, RMSEAccuracy, SoftDiceLoss,
-    ObjectSizeLoss, TotalVariationLoss, DistanceMapLoss,
-    BorderLoss, NotTooThinLoss,
-)
+A perda RMSE é calculada como:
 
-# Padrão Strategy
-from src.losses import (
-    LossTerm,       # interface base
-    LossComposer,   # composição
-    SizeTerm, TVTerm, DMapTerm,
-    BorderTerm, DiceTerm, RMSETerm, NotTooThinTerm,
-)
-```
+$$
+\mathrm{RMSE} = \sqrt{\frac{1}{N}\sum_i (p_i - g_i)^2}
+$$
 
----
----
+#### Por que é usada?
 
-## English
+Ela penaliza de forma forte erros grandes. Isso é útil quando a rede precisa produzir valores mais calibrados e a diferença de magnitude entre predição e alvo importa. Em segmentação, costuma ser mais útil como termo complementar do que como perda principal, porque ela não favorece diretamente a sobreposição geométrica da mesma maneira que Dice.
 
-### Overview
+#### Nível de peso recomendado
 
-This module contains all loss functions and regularization terms used during training of the cell segmentation models. Losses are organized into two groups: **segmentation** and **regularization**.
+- Como termo auxiliar: 0.05 a 0.5
+- Como perda principal: só se houver necessidade de controlar a escala do erro com muita força, e ainda assim com cautela
+
+#### Observação da implementação atual
+
+A classe não possui parâmetro de peso embutido; quando usada no `LossComposer`, o efeito de peso deve ser controlado pela composição do termo ou por uma camada externa de escala.
 
 ---
 
-### Structure
+### 3.3 `ObjectSizeLoss`
 
-```
-losses/
-├── __init__.py                       # Exports all public symbols
-│
-├── loss_term.py                      # LossTerm (ABC — Strategy pattern interface)
-├── terms.py                          # Concrete terms: SizeTerm, TVTerm, DMapTerm…
-├── loss_composer.py                  # LossComposer (free composition of terms)
-│
-├── rmse_loss.py                      # RMSELoss
-├── rmse_accuracy.py                  # RMSEAccuracy
-├── soft_dice_loss.py                 # SoftDiceLoss
-│
-├── object_size_loss.py               # ObjectSizeLoss
-├── total_variation_loss.py           # TotalVariationLoss
-├── distance_map_loss.py              # DistanceMapLoss
-├── border_loss.py                    # BorderLoss
-├── not_too_thin_loss.py              # NotTooThinLoss
-```
+Arquivo: `object_size_loss.py`
 
----
+A ideia da perda é comparar a massa total da previsão com a massa total do ground truth:
 
-### Segmentation Losses
+$$
+\mathcal{L}_{size} = w \cdot \frac{\sum p_i}{\sum g_i}
+$$
 
-Measure prediction quality against the ground truth mask.
+Quando o ground truth é vazio, a implementação retorna a soma absoluta da predição para evitar que a rede produza massa residual inútil.
 
-#### `RMSELoss`
-**File:** `rmse_loss.py`
+#### Por que é usada?
 
-Computes the *Root Mean Square Error* as `sqrt(MSE(pred, gt))`. Used as a primary training loss when large errors should be penalized quadratically.
+Em segmentações celulares, a rede pode gerar marcadores excessivamente pequenos, demasiadamente grandes ou mal distribuídos. Essa perda atua como uma regularização de massa, incentivando que a previsão tenha uma área total compatível com a referência.
 
-#### `RMSEAccuracy`
-**File:** `rmse_accuracy.py`
+#### Nível de peso recomendado
 
-A monitoring metric computed as `1 - RMSE(pred, gt)`. Values closer to 1 indicate better predictions. Not a loss — intended for tracking during training.
+- Valor típico: 0.05 a 0.2
+- Se o problema é subsegmentação persistente: 0.1 a 0.2
+- Se a segmentação já está estável: 0.02 a 0.08
 
-#### `SoftDiceLoss`
-**File:** `soft_dice_loss.py`
+#### Observação da implementação atual
 
-Differentiable Dice coefficient loss. Handles class imbalance well (small cells against a dominant background). Accepts tensors of shape `(B, C, H, W)` and returns the mean loss over the batch and channels.
-
-```python
-loss_fn = SoftDiceLoss(epsilon=1e-9)
-loss = loss_fn(y_pred, y_true)
-```
+Essa perda é muito útil como correção de escala durante o treinamento, especialmente quando a rede aprende a produzir objetos de forma muito pouco densa ou muito dispersa.
 
 ---
 
-### Regularization Losses
+### 3.4 `TotalVariationLoss`
 
-Penalize undesirable prediction behaviours independently of the segmentation ground truth.
+Arquivo: `total_variation_loss.py`
 
-#### `ObjectSizeLoss`
-**File:** `object_size_loss.py`
+A variação total penaliza diferenças abruptas entre vizinhos na imagem:
 
-Penalizes deviations in the total predicted activation relative to the ground truth mass. Computes the weighted ratio `sum(pred) / sum(gt)`. Prevents the model from producing markers that are systematically too large or too small.
+$$
+\mathcal{L}_{TV} = w \cdot \frac{\sum |p_{i,j} - p_{i,j-1}| + \sum |p_{i,j} - p_{i-1,j}|}{\sqrt{\sum g_i}}
+$$
 
-#### `TotalVariationLoss`
-**File:** `total_variation_loss.py`
+A normalização pela raiz da massa do ground truth evita que a perda dependa apenas da densidade global dos objetos.
 
-Penalizes abrupt changes between neighboring pixels in both spatial directions. Encourages spatially smooth predictions. Normalized by the square root of the ground truth total mass to remain invariant to object density.
+#### Por que é usada?
 
-#### `DistanceMapLoss`
-**File:** `distance_map_loss.py`
+Ela reduz saltos bruscos e ruído espacial, incentivando mapas mais suaves. Em segmentação, isso ajuda a evitar padrões granulares ou regiões irregulares e fragmentadas.
 
-Penalizes activations in high-distance regions using a precomputed distance map. Pushes predicted markers towards cell interiors and away from inter-object boundaries.
+#### Nível de peso recomendado
 
-#### `BorderLoss`
-**File:** `border_loss.py`
+- Valor típico: 0.01 a 0.1
+- Em imagens com ruído espacial forte: 0.05 a 0.1
+- Em segmentações já muito suaves: 0.01 a 0.03
 
-Penalizes activations within a configurable pixel margin at image borders. Suppresses false positives at image edges where contextual information is often incomplete.
+#### Observação da implementação atual
 
-#### `NotTooThinLoss`
-**File:** `not_too_thin_loss.py`
+É uma regularização leve e geralmente segura; o principal risco é “apagar” detalhes se o peso for alto demais.
 
-Penalizes thin, filament-like structures in the prediction. Applies a morphological opening (erosion followed by dilation) to identify regions that would be removed for being too thin, then penalizes their presence. Requires a morphological kernel as a constructor parameter.
+---
 
-```python
-kernel = torch.ones(5, 5)
-loss_fn = NotTooThinLoss(kernel=kernel, weight=0.5)
-loss = loss_fn(image)
-```
+### 3.5 `DistanceMapLoss`
 
-### Strategy Pattern — Free Loss Composition
+Arquivo: `distance_map_loss.py`
 
-The Strategy pattern lets you assemble any combination of loss functions without modifying source code — just swap the list of terms passed to `LossComposer`.
+A perda do mapa de distância envolve a multiplicação da previsão por um mapa de distância pré-calculado:
 
-#### `LossTerm`
-**File:** `loss_term.py`
+$$
+\mathcal{L}_{dmap} = w \cdot \frac{\sum p_i \cdot d_i}{\sum g_i}
+$$
 
-Abstract base class (`nn.Module` + `ABC`) defining the common interface for all terms. Subclasses must implement the `name` property and the `compute(ctx)` method.
+Onde `d_i` representa a distância do pixel a bordas ou a regiões de menor confiança.
 
-The `ctx` argument is a dictionary with the following keys:
+#### Por que é usada?
 
-| Key | Shape | Description |
-|-----|-------|-------------|
-| `"markers"` | `(N, C, H, W)` | Predicted markers |
-| `"distance_maps"` | `(N, C, H, W)` | Precomputed distance maps |
-| `"gt_masks"` | `(N, C, H, W)` | Ground truth masks |
+Ela empurra os marcadores para o interior das estruturas, diminuindo a resposta nas fronteiras entre células. Esse tipo de sinal é especialmente útil em segmentação celular, onde a borda costuma ser o local com maior ambiguidade e maior chance de falso positivo.
 
-Each term reads only the keys it needs from the context.
+#### Nível de peso recomendado
 
-#### `LossComposer`
-**File:** `loss_composer.py`
+- Valor típico: 0.05 a 0.2
+- Se o problema principal for bordas mal posicionadas: 0.1 a 0.2
+- Se a rede já está estável: 0.02 a 0.08
 
-Accepts a list of `LossTerm` at construction and registers them as PyTorch submodules (`nn.ModuleList`). Returns the total loss and a per-term log.
+#### Observação da implementação atual
+
+Essa é uma boa perda complementar para supervisão direta de marcadores, especialmente quando se trabalha com uma MarkerNet e mapas de distância bem calibrados.
+
+---
+
+### 3.6 `BorderLoss`
+
+Arquivo: `border_loss.py`
+
+A perda penaliza as ativações próximas às bordas da imagem via uma máscara de borda com largura configurável. A operação básica é:
+
+$$
+\mathcal{L}_{border} = w \cdot \frac{\sum p_i \cdot m_i}{N \cdot C \cdot H \cdot W}
+$$
+
+Onde `m_i = 1` para pixels localizados na região de borda e `m_i = 0` no restante da imagem.
+
+#### Por que é usada?
+
+A borda da imagem normalmente contém menos contexto e mais artefatos de aquisição. Em segmentações celulares, é comum haver falsos positivos ou respostas fracas perto das extremidades da imagem. A perda de borda reduz esse problema.
+
+#### Nível de peso recomendado
+
+- Valor típico: 0.01 a 0.1
+- Se há muitos falsos positivos nas bordas: 0.05 a 0.1
+- Em imagens bem centradas e sem artefatos: 0.01 a 0.03
+
+#### Observação da implementação atual
+
+A largura da borda é controlada por `border_size`. Quanto maior esse valor, mais agressiva a penalização executa nas extremidades.
+
+---
+
+### 3.7 `NotTooThinLoss`
+
+Arquivo: `not_too_thin_loss.py`
+
+Esse termo usa uma abertura morfológica (erosão seguida de dilatação) para identificar partes finas da predição que seriam removidas por um filtro estrutural. Em termos práticos, a perda tenta reconhecer estruturas que são muito finas e penaliza a presença delas.
+
+#### Por que é usada?
+
+Predições finas e filamentares são frequentes em imagens com ruído ou com estruturas muito elongadas. Em segmentação celular, isso pode produzir artefatos tipo linha, ramificações espúrias ou regiões incompletas. A perda força a rede a preferir objetos mais robustos e menos “finos”.
+
+#### Nível de peso recomendado
+
+- Valor típico: 0.05 a 0.5
+- Se os artefatos finos forem frequentes: 0.2 a 0.5
+- Se a predição já está bem estável: 0.05 a 0.1
+
+#### Observação da implementação atual
+
+A perda depende fortemente do kernel morfológico. Kernels maiores aumentam a sensibilidade à presença de estruturas finas, enquanto kernels menores são mais suaves.
+
+---
+
+## 4. Padrão de composição das perdas
+
+O módulo também expõe a interface `LossTerm` e o `LossComposer`, que permitem combinar múltiplas perdas sem trocar a lógica principal do treino.
+
+### `LossTerm`
+
+Arquivo: `loss_term.py`
+
+Classe base para qualquer termo que será composto no treinamento. Ela define a interface:
+
+- `name`: identificador do termo no log
+- `compute(ctx)`: calcula o valor da perda a partir do contexto do batch
+
+### `LossComposer`
+
+Arquivo: `loss_composer.py`
+
+O `LossComposer` acumula diversos termos em um único valor total:
 
 ```python
 from src.losses import LossComposer, SizeTerm, TVTerm, DMapTerm
 
-# Experiment A
-composer = LossComposer([SizeTerm(0.1), TVTerm(0.05)])
+composer = LossComposer([
+    SizeTerm(weight=0.1),
+    TVTerm(weight=0.05),
+    DMapTerm(weight=0.1),
+])
 
-# Experiment B — same class, different composition, zero source changes
-composer = LossComposer([SizeTerm(0.2), DMapTerm(0.1)])
-
-total_loss, log = composer(markers, distance_maps, gt_masks)
-# log = {"size": tensor, "dmap": tensor}
+total_loss, loss_log = composer(prediction, distance_maps, gt_masks, markers=markers)
 ```
 
-#### Available terms
-**File:** `terms.py`
+O retorno inclui:
 
-| Class | `name` | Required context keys |
-|-------|--------|-----------------------|
-| `SizeTerm(weight)` | `"size"` | `markers`, `gt_masks` |
-| `TVTerm(weight, power)` | `"tv"` | `markers`, `gt_masks` |
-| `DMapTerm(weight)` | `"dmap"` | `markers`, `distance_maps`, `gt_masks` |
-| `BorderTerm(weight, border_size)` | `"border"` | `markers` |
-| `DiceTerm(epsilon)` | `"dice"` | `markers`, `gt_masks` |
-| `RMSETerm()` | `"rmse"` | `markers`, `gt_masks` |
-| `NotTooThinTerm(kernel, weight)` | `"not_too_thin"` | `markers` |
+- `total_loss`: soma dos termos ativos
+- `loss_log`: dicionário com cada termo e o valor correspondente
 
-#### `TrainingStep`
-**File:** `src/pipeline/steps/training_step.py`
+### Termos wrappers disponíveis
 
-Pipeline step that injects a `LossComposer` into the data flow. Consumes `"markers"`, `"distance_maps"`, and `"gt_masks"` from the data dict and adds `"loss"` and `"loss_log"`. The training loop calls `loss.backward()` and `optimizer.step()` after the step.
+Arquivo: `terms.py`
 
-```python
-from src.losses import LossComposer, SizeTerm, TVTerm
-from src.pipeline.steps.training_step import TrainingStep
+Os termos ativos atualmente incluem:
 
-step = TrainingStep(LossComposer([SizeTerm(0.1), TVTerm(0.05)]))
-data = step(data)
-data["loss"].backward()
-optimizer.step()
-```
-
-#### Writing a custom term
-
-```python
-from src.losses import LossTerm
-import torch
-from typing import Dict
-
-class MyTerm(LossTerm):
-    @property
-    def name(self) -> str:
-        return "my_term"
-
-    def compute(self, ctx: Dict[str, torch.Tensor]) -> torch.Tensor:
-        markers = ctx["markers"]
-        # ... custom logic ...
-        return loss_value
-```
+- `SizeTerm(weight)`
+- `TVTerm(weight, power)`
+- `DMapTerm(weight)`
+- `BorderTerm(weight, border_size)`
+- `DiceTerm(epsilon)`
+- `RMSETerm()`
+- `NotTooThinTerm(kernel, weight)`
 
 ---
 
-### Importing
+## 5. Combinações recomendadas
 
-All public symbols are exported from the package `__init__.py`:
+A escolha da combinação depende da fase do treinamento e do tipo de artefato que aparece na predição.
+
+### Configuração conservadora para segmentação estável
 
 ```python
-# Primitives
-from src.losses import (
-    RMSELoss, RMSEAccuracy, SoftDiceLoss,
-    ObjectSizeLoss, TotalVariationLoss, DistanceMapLoss,
-    BorderLoss, NotTooThinLoss,
-)
+LossComposer([
+    SizeTerm(0.1),
+    TVTerm(0.05),
+    DMapTerm(0.1),
+])
+```
 
-# Strategy pattern
+Use quando a rede já está relativamente estável e o objetivo é refinar a segmentação sem exagerar na regularização.
+
+### Configuração para bordas e falsas detecções
+
+```python
+LossComposer([
+    SoftDiceLoss(),
+    ObjectSizeLoss(0.1),
+    BorderLoss(weight=0.05, border_size=30),
+])
+```
+
+Use quando há excesso de respostas nas bordas da imagem.
+
+### Configuração para estruturas finas ou filamentosas
+
+```python
+LossComposer([
+    SoftDiceLoss(),
+    ObjectSizeLoss(0.08),
+    NotTooThinLoss(kernel=torch.ones(5, 5), weight=0.2),
+])
+```
+
+Use quando a rede produz linhas finas ou artefatos morfológicos desnecessários.
+
+---
+
+## 6. Resumo prático
+
+Em geral, a estratégia mais segura é:
+
+1. usar `SoftDiceLoss` como base estrutural;
+2. combinar com `ObjectSizeLoss` para controlar a massa total;
+3. adicionar `TotalVariationLoss` para suavizar a predição;
+4. incluir `DistanceMapLoss`, `BorderLoss` ou `NotTooThinLoss` somente quando houver artefatos típicos do problema específico.
+
+Essa combinação mantém a perda principal focada na segmentação correta e usa regularizações para controlar fenômenos geométricos e de ruído.
+
+---
+
+## 7. Observação final sobre a base atual
+
+A implementação atual foi organizada para refletir somente aquilo que está efetivamente presente em `src/losses`. Isso significa que:
+
+- perdas experimentais ou versões antigas foram removidas da documentação;
+- o foco está em um conjunto coerente de perdas de segmentação e regularização;
+- os pesos recomendados são valores de referência empírica, e não regras absolutas.
+
+Em treinamento real, os melhores valores costumam depender do conjunto de dados, da resolução da imagem, da densidade de células e da intensidade do ruído.
+
 from src.losses import (
     LossTerm,       # base interface
     LossComposer,   # composition
