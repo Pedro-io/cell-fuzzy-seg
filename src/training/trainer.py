@@ -170,6 +170,7 @@ class Trainer:
         """
         data = self._to_device(batch)
 
+        self._set_pipeline_training_mode(True)
         self.optimizer.zero_grad()
         data = self.training_pipeline.run(data, verbose=False)
 
@@ -206,6 +207,7 @@ class Trainer:
             KeyError: Se alguma chave esperada pelo cálculo da loss estiver ausente.
         """
         data = self._to_device(batch)
+        self._set_pipeline_training_mode(False)
         data = self.training_pipeline.run(data, verbose=False)
 
         loss, loss_log = self._compute_loss(data)
@@ -238,6 +240,13 @@ class Trainer:
         gt_masks = data[self.ground_truth_key]
         markers = data.get("markers")
         return self.loss_composer(prediction, distance_maps, gt_masks, markers=markers)
+
+    def _set_pipeline_training_mode(self, training: bool) -> None:
+        """Propaga o modo treino/avaliação aos passos que o suportam."""
+        for step in self.training_pipeline.steps:
+            set_training = getattr(step, "set_training", None)
+            if set_training is not None:
+                set_training(training)
 
     def _to_device(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Move tensores do dicionário para o device configurado.

@@ -87,6 +87,11 @@ class MarkerStep(PipelineStep):
             f"[{self.name}] Initialized on {self.device} (differentiable={differentiable})"
         )
 
+    def set_training(self, training: bool) -> None:
+        """Alterna o modo da MarkerNet entre treino e avaliação."""
+        if self.model is not None:
+            self.model.model.train(training)
+
     def forward(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Gera marcadores a partir de uma imagem RGBA usando MarkerNet.
 
