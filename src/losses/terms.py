@@ -82,9 +82,9 @@ class BorderTerm(LossTerm):
 class DiceTerm(LossTerm):
     """Envolve :class:`SoftDiceLoss`. Usa ``prediction`` e ``gt_masks``."""
 
-    def __init__(self, epsilon: float = 1e-9) -> None:
+    def __init__(self, epsilon: float = 1e-9, weight: float = 1.0) -> None:
         super().__init__()
-        self._loss = SoftDiceLoss(epsilon=epsilon)
+        self._loss = SoftDiceLoss(epsilon=epsilon, weight=weight)
 
     @property
     def name(self) -> str:
@@ -97,9 +97,9 @@ class DiceTerm(LossTerm):
 class RMSETerm(LossTerm):
     """Envolve :class:`RMSELoss`. Usa ``prediction`` e ``gt_masks``."""
 
-    def __init__(self) -> None:
+    def __init__(self, weight: float = 1.0) -> None:
         super().__init__()
-        self._loss = RMSELoss()
+        self._loss = RMSELoss(weight=weight)
 
     @property
     def name(self) -> str:

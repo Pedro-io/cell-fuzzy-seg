@@ -10,10 +10,11 @@ class RMSELoss(nn.Module):
     Calcula o RMSE como ``sqrt(MSE(y_pred, y_true))``.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, weight: float = 1.0) -> None:
         """Inicializa RMSELoss com um MSELoss interno."""
         super().__init__()
         self._mse = nn.MSELoss()
+        self.weight = weight
 
     def forward(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         """Calcula o RMSE entre a previsão e o alvo.
@@ -25,4 +26,4 @@ class RMSELoss(nn.Module):
         Returns:
             Valor escalar da perda RMSE.
         """
-        return torch.sqrt(self._mse(y_pred, y_true))
+        return torch.sqrt(self._mse(y_pred, y_true)) * self.weight

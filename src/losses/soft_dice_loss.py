@@ -12,7 +12,7 @@ class SoftDiceLoss(nn.Module):
     Formato esperado de entrada: ``(B, C, H, W)``.
     """
 
-    def __init__(self, epsilon: float = 1e-9) -> None:
+    def __init__(self, epsilon: float = 1e-9, weight: float = 1.0 ) -> None:
         """Inicializa SoftDiceLoss.
 
         Args:
@@ -21,6 +21,7 @@ class SoftDiceLoss(nn.Module):
         """
         super().__init__()
         self.epsilon = epsilon
+        self.weight = weight
 
     def forward(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         """Calcula a perda soft Dice.
@@ -36,4 +37,4 @@ class SoftDiceLoss(nn.Module):
         numerator = 2.0 * torch.sum(y_pred * y_true, dim=axes)
         denominator = torch.sum(y_pred**2 + y_true**2, dim=axes)
         dice_per_channel = (numerator + self.epsilon) / (denominator + self.epsilon)
-        return 1 - torch.mean(dice_per_channel)
+        return (1 - torch.mean(dice_per_channel)) * self.weight
