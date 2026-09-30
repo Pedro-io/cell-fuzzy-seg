@@ -6,7 +6,8 @@ Esta pasta contém o dataset **MoNuSeg** (Multi-Organ Nucleus Segmentation, desa
 
 - **Fonte:** [MoNuSeg Grand Challenge](https://monuseg.grand-challenge.org/Data/). As imagens vêm do arquivo TCGA
   (The Cancer Genome Atlas): lâminas H&E, ampliação 40× (3 imagens de treino estão em 20×; ver PD-24 em
-  `docs/estudo/08-pendencias.md`). Baixado de novo em 2026-09-29 (PD-23). ❓ Falta registrar a URL exata do arquivo baixado.
+  `docs/estudo/08-pendencias.md`). Baixado de novo em 2026-09-29 pela página oficial de dados do desafio,
+  <https://monuseg.grand-challenge.org/Data/> (arquivos "MoNuSeg 2018 Training Data" e de teste; PD-23).
 - **Licença:** [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 (CC BY-NC-SA 4.0)](https://creativecommons.org/licenses/by-nc-sa/4.0/).
   Os dados desta pasta, **incluindo os derivados**, são distribuídos sob a mesma licença e **não podem ser usados para fins
   comerciais**. A licença do código deste repositório é independente e não se aplica aos dados.

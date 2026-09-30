@@ -334,12 +334,14 @@ contagem de `<Region ` por XML com a tabela da §4 de [01-dados.md](01-dados.md#
 3. restaurar o `data_source/README.md` e registrar a origem do novo download;
 4. deixar `Binary_masks*/` apagadas (não são oficiais; continuam no histórico do git).
 
-**Feito (2026-09-29)** ✅: arquivos movidos para as pastas antigas, sem mudar o conteúdo. A permissão de execução que veio do zip
+**Feito (2026-09-29, `f263379`)** ✅: arquivos movidos para as pastas antigas, sem mudar o conteúdo. A permissão de execução que veio do zip
 foi tirada, para o git não registrar mudanças falsas nos 30 arquivos antigos. Os arquivos do macOS foram apagados, e o README foi
 restaurado e atualizado (37 imagens, 24.140 regiões, alterações em relação ao original). O `MonusegDataset` real, rodado com o
 `datasets.yml` sem mudanças (com dublês de `torch` e `cellpose.io`), acha **37 pares no treino e 14 no teste**. Nenhum código mudou.
-**Continua aberto:** ❓ a URL exata do download (vai para o README, PD-27); regerar o `MoNuSegPreprocessed/train` com as 37
-imagens (etapa 5 do plano); refazer os números do treino (01-dados §4) na etapa 1.
+**Origem do download (informada pelo autor, 2026-09-29):** página oficial de dados do desafio,
+<https://monuseg.grand-challenge.org/Data/>. Registrada no `data_source/README.md`.
+**Continua aberto:** regerar o `MoNuSegPreprocessed/train` com as 37 imagens (etapa 5 do plano) e refazer os números do treino
+(01-dados §4) na etapa 1.
 
 ### PD-24
 **🟡 Três imagens de treino têm outra escala.** ✅
@@ -379,9 +381,13 @@ Como não existem para o teste, gerá-las a partir dos XMLs pode ser mais consis
 **Novo download (2026-09-29)** ✅: o pacote baixado de novo **não tem** `Binary_masks/` nem `Binary_masks_instance/`, só
 `Annotations/` e `Tissue Images/`. Então essas máscaras **não vêm do download oficial**, ao contrário do que se lembrava. ❓ A origem
 continua desconhecida, e elas cobrem só 30 das 37 imagens de treino. Reforça a proposta de gerar as instâncias a partir dos XMLs (PD-07).
-**✅ Resolvida (2026-09-29):** por decisão do autor, as duas pastas foram **removidas** do repositório (continuam no histórico do
+**✅ Resolvida (2026-09-29, `f263379`):** por decisão do autor, as duas pastas foram **removidas** do repositório (continuam no histórico do
 git, por exemplo `git show b865652:data_source/MoNuSegTrainingData/Binary_masks_instance/<id>.npy`). As máscaras por instância,
 se forem necessárias, serão geradas dos XMLs (PD-07).
+**Elas afetaram algum treino? Não** ✅ (conferido em 2026-09-29, a pedido do autor). Nenhuma célula de código de nenhum notebook,
+nem nada em `src/`, `tests/` ou `configs/`, lê `Binary_masks`. No histórico, o nome só aparece no markdown de um tutorial
+(`45bdc4b`). Nos dados, o `ground_truth` persistido que os exp. 3 a 6 usaram é **idêntico** à máscara gerada dos XMLs em 30/30
+imagens, e difere do PNG em 2,24% dos pixels em média (máx. 4,81%). Portanto o GT de treino sempre veio dos XMLs oficiais.
 
 ### PD-27
 **🟡 Licença e atribuição do MoNuSeg.** ✅
@@ -392,6 +398,9 @@ licença** para os dados. Hoje `LICENSE`, `README.md` e `CITATION.cff` estão va
 **Feito (2026-09-27, não commitado):** [data_source/README.md](../../data_source/README.md) com fonte, citação, licença e o
 aviso de que `MoNuSegPreprocessed/` é derivado e herda a CC BY-NC-SA. **Falta:** escolher a licença do **código** e preencher
 `LICENSE`, `README.md` e `CITATION.cff`, que continuam vazios.
+**Atualização (2026-09-29, `f263379` e seguinte):** o `data_source/README.md`, apagado sem querer na troca dos dados, foi restaurado
+e agora registra a origem do novo download (<https://monuseg.grand-challenge.org/Data/>), o conteúdo (37 + 14 imagens) e as
+alterações em relação ao original. Continua faltando a licença do **código**.
 
 ### PD-28
 **⚪ Trechos errados no `ARCHITECTURE.md`.** ✅

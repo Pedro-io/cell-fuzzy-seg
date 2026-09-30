@@ -421,7 +421,7 @@ seção. No fim de cada etapa, rodar a suíte inteira e registrar o resultado no
 
 | Correção | Commit | Testes depois | Observações |
 |---|---|---|---|
-| Etapa 0 (PD-23, PD-26) | ver `git log -- data_source/` (2026-09-29) | nenhum código mudou | 37 + 14 pares achados pelo `MonusegDataset` real |
+| Etapa 0 (PD-23, PD-26) | `f263379` | nenhum código mudou | 37 + 14 pares achados pelo `MonusegDataset` real |
 | C1 | — | — | — |
 | C2 | — | — | — |
 | C3 | — | — | — |
