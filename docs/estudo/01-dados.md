@@ -88,6 +88,10 @@ Cada `Region` também traz `Area` e `Length` calculados pelo software; o código
 
 ## 4. Números medidos ✅
 
+> ⚠️ **Desatualizado para o treino (2026-09-29).** O download novo do MoNuSeg tem **37** imagens de treino (24.140 núcleos), e
+> não 30. As 30 abaixo continuam idênticas, e a coluna do teste continua valendo. A tabela do treino será refeita com as 37 na
+> etapa 1 do plano (XML → máscara). Ver PD-23.
+
 | | Treino (30) | Teste (14) |
 |---|---|---|
 | Núcleos anotados (regiões nos XMLs) | **16.966** | **6.697** |
@@ -110,6 +114,7 @@ Cada `Region` também traz `Area` e `Length` calculados pelo software; o código
 - **Em que escala o modelo vê um núcleo:** a MarkerUNet trabalha em 256² (fator 3,9), e o núcleo mediano fica com ~6 px; o
   ScribblePrompt trabalha em 128² (fator 7,8), e ele fica com **~3 px** (PD-05).
 - **A contagem de núcleos não bate com a oficial** (16.966 contra ~22.000 no treino). Ver PD-23 antes de citar.
+  **Causa (2026-09-29):** faltavam 7 das 37 imagens de treino. Com elas, o treino tem 24.140 núcleos.
 
 ---
 

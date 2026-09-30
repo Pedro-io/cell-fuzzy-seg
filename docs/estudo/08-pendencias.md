@@ -11,7 +11,7 @@
 >
 > **Origem:** ✅ verificado · 📖 tese/artigo · ❓ hipótese a confirmar.
 
-Última atualização: 2026-09-27.
+Última atualização: 2026-09-29 (PD-23 e PD-26: novo download do MoNuSeg).
 
 ---
 
@@ -41,10 +41,10 @@
 | [PD-20](#pd-20) | ⚪ | Git | `.pyc` e `egg-info` versionados | Aberta |
 | [PD-21](#pd-21) | 🟡 | Git | 1,6 GB de dados no git, incluindo 1,1 GB de `.npy` derivados | Adiada (decisão do autor) |
 | [PD-22](#pd-22) | ⚪ | Referências | Falta o artigo do Cellpose-SAM | Aberta |
-| [PD-23](#pd-23) | 🟡 | Dados | 16.966 núcleos anotados no treino × "~22.000" oficiais | Aberta: baixar de novo da fonte (autor) |
+| [PD-23](#pd-23) | 🟠 | Dados | 16.966 núcleos anotados no treino × "~22.000" oficiais | Parcial (2026-09-29): faltavam 7 das 37 imagens de treino; dados reorganizados; falta regerar os `.npy` do treino |
 | [PD-24](#pd-24) | 🟡 | Dados | 3 imagens de treino em 20× (0,5 µm/px): núcleos com metade do tamanho | Aberta |
 | [PD-25](#pd-25) | ⚪ | Dados | Vértices truncados com `int()`; 5 polígonos com < 3 vértices | Aberta |
-| [PD-26](#pd-26) | ⚪ | Dados | `Binary_masks`/`Binary_masks_instance` vêm do download original e não são usados | Aberta (origem respondida) |
+| [PD-26](#pd-26) | ⚪ | Dados | `Binary_masks`/`Binary_masks_instance` não vêm do download oficial e não são usadas | ✅ Resolvida (2026-09-29): removidas |
 | [PD-27](#pd-27) | 🟡 | Licença | Repositório público redistribui o MoNuSeg sem atribuição; `LICENSE` vazio | Parcial: atribuição feita; falta a licença do código |
 | [PD-28](#pd-28) | ⚪ | Docs | `ARCHITECTURE.md` tem trechos errados (`registry/`, rede final "treinável") | ✅ Resolvida (2026-09-27) |
 | [PD-29](#pd-29) | 🟡 | Pré-proc. | A proteção contra nome de modelo do Cellpose nunca executa (`MODEL_LIST` não existe) | Aberta |
@@ -67,6 +67,7 @@
 | [PD-46](#pd-46) | 🟡 | Treino | Não há seleção do melhor modelo nem early stopping; avalia-se a última época | Decidida: melhor Dice + early stopping |
 | [PD-47](#pd-47) | 🟡 | Publicação | Resultados (oráculo e próximos experimentos) precisam ser salvos e reproduzíveis para o artigo | Aberta |
 | [PD-48](#pd-48) | 🟡 | Testes | Testes cobrem a "tubulação" com dummies; nada de redes reais, dados, métricas ou valores das losses; sem execução automática | Aberta |
+| [PD-49](#pd-49) | 🟠 | Modelo/Experimento | Só positivo: um fundo ≥ 1e-3 no canal positivo faz o ScribblePrompt marcar a imagem inteira; a sigmoid da MarkerUNet nunca dá 0 | Aberta (decisão do autor, 09 §9) |
 
 ---
 
@@ -296,6 +297,50 @@ versão do release ou de anotações incompletas nos XMLs baixados. Confirmar an
 contagem de `<Region ` por XML com a tabela da §4 de [01-dados.md](01-dados.md#4-números-medidos). Um comando para comparar:
 `grep -c '<Region ' Annotations/*.xml`.
 
+**Novo download (2026-09-29, feito pelo autor e comparado com o commit `b865652`)** ✅
+- **Teste:** os 14 `.tif` e os 14 `.xml` são **idênticos, byte a byte** (SHA-256), aos que estão no git. Continuam com 6.697 regiões.
+  Todos os resultados no teste (Cellpose 0,810, exp. 4 0,648, oráculo) continuam valendo.
+- **Treino:** o download tem **37 imagens, e não 30**. As 30 antigas são idênticas às do git (`.tif` e `.xml`), e as 7 que faltavam
+  somam **7.174 regiões**:
+
+  | Imagem nova | Regiões | µm/px |
+  |---|---|---|
+  | TCGA-BC-A217-01Z-00-DX1 | 757 | 0,2472 |
+  | TCGA-F9-A8NY-01Z-00-DX1 | 1.361 | 0,2525 |
+  | TCGA-FG-A87N-01Z-00-DX1 | 742 | 0,2527 |
+  | TCGA-MH-A561-01Z-00-DX1 | 720 | 0,2527 |
+  | TCGA-UZ-A9PJ-01Z-00-DX1 | 1.078 | 0,2527 |
+  | TCGA-UZ-A9PN-01Z-00-DX1 | 1.207 | 0,2525 |
+  | TCGA-XS-A8TJ-01Z-00-DX1 | 1.309 | 0,2525 |
+
+  Total do treino: **24.140 regiões** (16.966 + 7.174). As 7 são 1000×1000 e estão em 40×; ao contrário das outras 30, não usam
+  compressão LZW. Nenhum id coincide com o teste (a `FG-A87N` é do mesmo centro que a `FG-A4MU` do teste, mas de outro paciente).
+- **Causa da diferença:** o download antigo tinha só 30 das 37 imagens de treino. ❓ Os 24.140 ainda não batem com os "~22.000"
+  do site, mas o número do site é aproximado. Falta registrar a URL exata de onde o download foi feito (PD-27).
+- **O que muda:** tudo o que foi medido no **treino** com 30 imagens: as contagens do [01-dados.md §4](01-dados.md#4-números-medidos),
+  o Cellpose no treino (0,802), o oráculo no treino, o k-fold planejado (PD-02) e o `MoNuSegPreprocessed/train`, que só tem as 30.
+- **A organização das pastas mudou** (não mexi em nada; decisão pendente):
+  - treino em `MoNuSegTrainingData/MoNuSeg 2018 Training Data/{Annotations,Tissue Images}/`, com espaços no nome, além de
+    `__MACOSX/` e `.DS_Store` (arquivos do macOS, 77 no total);
+  - teste solto em `MoNuSegTestData/`, sem as subpastas;
+  - o [datasets.yml](../../configs/datasets.yml) espera `Tissue_Images/` e `Annotations/` nos dois, então o `MonusegDataset`
+    não acha mais os arquivos;
+  - o `data_source/README.md` (atribuição do MoNuSeg, PD-27) foi **apagado** na substituição, e `Binary_masks/` e
+    `Binary_masks_instance/` também sumiram (ver PD-26).
+
+**Decisões do autor (2026-09-29), todas conforme a recomendação:**
+1. treinar com as **37** imagens;
+2. voltar à organização antiga (`Tissue_Images/` + `Annotations/` no treino e no teste) e descartar `__MACOSX/` e `.DS_Store`;
+3. restaurar o `data_source/README.md` e registrar a origem do novo download;
+4. deixar `Binary_masks*/` apagadas (não são oficiais; continuam no histórico do git).
+
+**Feito (2026-09-29)** ✅: arquivos movidos para as pastas antigas, sem mudar o conteúdo. A permissão de execução que veio do zip
+foi tirada, para o git não registrar mudanças falsas nos 30 arquivos antigos. Os arquivos do macOS foram apagados, e o README foi
+restaurado e atualizado (37 imagens, 24.140 regiões, alterações em relação ao original). O `MonusegDataset` real, rodado com o
+`datasets.yml` sem mudanças (com dublês de `torch` e `cellpose.io`), acha **37 pares no treino e 14 no teste**. Nenhum código mudou.
+**Continua aberto:** ❓ a URL exata do download (vai para o README, PD-27); regerar o `MoNuSegPreprocessed/train` com as 37
+imagens (etapa 5 do plano); refazer os números do treino (01-dados §4) na etapa 1.
+
 ### PD-24
 **🟡 Três imagens de treino têm outra escala.** ✅
 `TCGA-HE-7128`, `-7129` e `-7130` têm `MicronsPerPixel = 0,5005` (≈ 20×). Das outras 41, 37 têm entre 0,2456 e 0,2527 (≈ 40×)
@@ -331,6 +376,12 @@ para o texto.
 a página oficial menciona só XML + código MATLAB de conversão, e `Binary_masks_instance/` só entrou no git em 10/08 (`6a4801d`).
 **O que falta:** decidir se as máscaras por instância serão usadas (por exemplo, para o mapa de distância por núcleo, PD-06).
 Como não existem para o teste, gerá-las a partir dos XMLs pode ser mais consistente.
+**Novo download (2026-09-29)** ✅: o pacote baixado de novo **não tem** `Binary_masks/` nem `Binary_masks_instance/`, só
+`Annotations/` e `Tissue Images/`. Então essas máscaras **não vêm do download oficial**, ao contrário do que se lembrava. ❓ A origem
+continua desconhecida, e elas cobrem só 30 das 37 imagens de treino. Reforça a proposta de gerar as instâncias a partir dos XMLs (PD-07).
+**✅ Resolvida (2026-09-29):** por decisão do autor, as duas pastas foram **removidas** do repositório (continuam no histórico do
+git, por exemplo `git show b865652:data_source/MoNuSegTrainingData/Binary_masks_instance/<id>.npy`). As máscaras por instância,
+se forem necessárias, serão geradas dos XMLs (PD-07).
 
 ### PD-27
 **🟡 Licença e atribuição do MoNuSeg.** ✅
@@ -651,3 +702,14 @@ arquivos importados.
 - **Infraestrutura:** `pytest` fora do `requirements.txt`, sem CI e sem ambiente local. Por isso o PD-11 ficou um mês sem ser notado.
 
 Detalhes, testes que precisam mudar com as correções decididas e lista de testes a escrever em [07-testes.md](07-testes.md).
+
+### PD-49
+**🟠 No modo só positivo, qualquer fundo no canal positivo faz o ScribblePrompt segmentar a imagem inteira.** ✅ (medido em 2026-09-28)
+No oráculo, o positivo era o marcador binário **cru** (0 fora dele). Com o *sharpening* atual (`sigmoid(10·(s − 0,5))`), o fundo
+vale 0,0067 em todo pixel, e o Dice cai para **0,387 com qualquer marcador**: GT inteiro, miolo ou centros (30 imagens de treino,
+256²; massa 4,7× a do GT). Esse valor é o Dice de marcar a imagem toda. Com um fundo constante `c`, até 1e-4 nada muda, 1e-3 já faz
+vazar (massa 1,3–2,5×) e ≥ 3e-3 inunda. No modo atual isso não aparece, porque o negativo denso (0,993) compensa.
+**Por que importa:** a PD-44 (experimento-base só positivo) usa a saída sigmoid da MarkerUNet, que nunca é exatamente 0. Sem
+tratar isso, o experimento-base tende a inundar.
+**Opções** (detalhe e tabela em [09-correcoes-pontuais.md §9](09-correcoes-pontuais.md)): (a) limiar suave
+`relu(s − τ)/(1 − τ)`; (b) binário com *straight-through*; (c) cru, com risco de inundar. Recomendação: (a).
