@@ -95,6 +95,7 @@ Funciona, mas quem renomear esses atributos quebra o treino sem erro de import (
 | `id` | `MonusegDataset` | str | `SaveResultsStep` (nome do arquivo) |
 | `image` | `MonusegDataset` | (H,W,3) uint8 → no batch, (B,3,H,W) float [0,255] | `CellposeStep`, `RGBAStep`, `ScribblePromptingNetwork` |
 | `ground_truth` | `MonusegDataset` | (H,W) uint8 0/1 → (B,1,H,W) | `DistanceMapStep`, losses |
+| `ground_truth_instances` | `MonusegDataset` (desde 2026-09-29, só com XML) | (H,W) int32, um rótulo por núcleo | ninguém ainda; será usado pelo Dmap por núcleo (PD-06). Não é persistido. |
 | `meta` | `MonusegDataset` | dict de caminhos | ninguém |
 | `segmentation` ① | `CellposeStep` | (H,W) uint16, instâncias | `RGBAStep`, `SaveResultsStep` |
 | `flows`, `styles` | `CellposeStep` | listas do Cellpose | **ninguém** (não são salvos; no Cellpose 4, `styles` é só zeros) |

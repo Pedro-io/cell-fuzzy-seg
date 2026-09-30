@@ -120,16 +120,33 @@ Cada `Region` também traz `Area` e `Length` calculados pelo software; o código
 
 ## 5. Do XML à máscara ✅
 
-Código: [monuseg_dataset.py:60-72](../../src/data/load/monuseg_dataset.py#L60-L72).
+> **Atualizado em 2026-09-29 (etapa 1, PD-25/PD-07).** A rasterização mudou. A versão abaixo, com `int()` + `cv2.fillPoly`,
+> fica como histórico: é a que gerou o `MoNuSegPreprocessed/` atual e todos os números dos exp. 1 a 6 e do oráculo.
+
+**Versão atual** — [xml_to_instance_mask](../../src/data/load/monuseg_dataset.py) (base medida em
+[09-correcoes-pontuais.md §13](09-correcoes-pontuais.md)):
+
+```python
+for vertices in read_xml_regions(xml_path):               # todos os núcleos, de todos os <Annotation>
+    if len(vertices) < 3 or area == 0: descarta            # 5 cliques soltos no treino
+    pixels = skimage.draw.polygon(y - 0.5, x - 0.5)        # pixel entra se o CENTRO está dentro (convenção de canto)
+# pinta do maior para o menor → na sobreposição, o menor vence; rótulos 1..N na ordem do XML
+ground_truth_instances = rótulos (int32);  ground_truth = rótulos > 0 (uint8 0/1)
+```
+
+A área rasterizada fica a 0,995 (treino) e 1,011 (teste) da área anotada, contra ~1,10 antes. Das 24.135 regiões válidas do
+treino, 24.133 ocupam pelo menos um pixel. No teste, as 6.697 ocupam.
+
+**Versão antiga (até `9a59c29`)** — `git show 9a59c29:src/data/load/monuseg_dataset.py`, linhas 60-72:
 
 ```python
 mask = np.zeros(shape, dtype=np.uint8)
 for region in root.iter("Region"):                         # todos os núcleos, de todos os <Annotation>
-    points = [[int(x), int(y)] for cada Vertex]            # int() TRUNCA as coordenadas (PD-25)
-    cv2.fillPoly(mask, [points], 1)                        # pinta com 1 → máscara BINÁRIA
+    points = [[int(x), int(y)] for cada Vertex]            # int(): na convenção de canto, é o certo (PD-25)
+    cv2.fillPoly(mask, [points], 1)                        # pinta a borda também (~+10% de área) e com 1 → BINÁRIA
 ```
 
-Consequências:
+Consequências (da versão antiga; a 1 e a 2 continuam valendo para o `ground_truth` binário, e a versão por instância as resolve):
 
 1. **Núcleos que se tocam ou se sobrepõem viram um único objeto**, porque todos são pintados com o mesmo valor. Para Dice/IoU
    por pixel (a métrica escolhida pelo coordenador) isso não muda nada. Muda para o **mapa de distância** (PD-06) e para

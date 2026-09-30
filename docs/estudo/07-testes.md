@@ -10,6 +10,10 @@
 
 ## 1. Resumo
 
+> **Atualização (2026-09-29, etapa 1):** entrou `test_monuseg_dataset.py` (7 testes da conversão XML → máscara). A suíte passou a
+> ter **81 testes em 13 arquivos: 77 passam, as mesmas 3 falhas (PD-11) e 1 pulado**, em ~4 s (torch 2.14 CPU, scikit-image
+> 0.24.0). O resto deste documento descreve o estado de 2026-09-27.
+
 - Existem **74 testes em 12 arquivos** ([tests/](../../tests/)), escritos entre julho e agosto junto com as correções da
   investigação do exp. 1. ✅
 - **Resultado da execução: 70 passam, 3 falham e 1 é pulado, em ~3 segundos.** ✅
@@ -69,6 +73,7 @@ python -m pytest tests -q
 | `test_marker_step.py` | 8 | modo diferenciável (tensor, gradiente), inferência (binário), fallback, layouts | `DummyMarkerNet` | ✅ passa |
 | `test_frozen_segmentation_step.py` | 7 | chave `segmentation`, erros, classe abstrata | rede final dummy | ✅ passa |
 | `test_scribble_prompting_network.py` | 14 | sigmoid na saída, entrada NumPy, pesos congelados, gradiente até os scribbles, `predict` sem grad, resize, modos `sharpened`/`dense_soft` | **pacote falso** (`FakeScribblePromptUNet`, via `monkeypatch`) | ✅ 13 passam, 1 pulado |
+| `test_monuseg_dataset.py` (2026-09-29) | 7 | rasterização pelo centro do pixel (área exata), descarte de regiões degeneradas, "o menor vence" na sobreposição, rótulos consecutivos, leitura de vários `<Annotation>`, área ≈ anotada num XML real | XMLs sintéticos em `tmp_path` + 1 XML real do teste (pulado se faltar) | ✅ passa |
 | `test_object_size_loss.py` | 4 | Size **simétrico** `|ratio−1|` | tensores sintéticos | ❌ **3 falham** (PD-11) |
 | `test_training_pipeline.py` | 4 | ordem dos Steps, erros, alias `__call__` | Steps que só adicionam uma chave | ✅ passa |
 | `test_trainer.py` | 8 | o passo otimiza, o eval não otimiza, gradiente, callbacks, scheduler, chaves | rede e composer dummy | ✅ passa |
@@ -91,7 +96,7 @@ correções.
 | Rede final | `scribble_prompting_network.py` 66% (**com pacote falso**) | média |
 | Dados | `base_dataset.py` 43%; `monuseg_preprocessed_dataset.py` 79% | baixa a média |
 | I/O e utilitários | `output_writer.py` 37%; `image_utils.py` 47% | baixa |
-| **Nunca importados pelos testes (0%)** | **`monuseg_dataset.py`** (XML → máscara), **`cellpose_step.py`**, **`marker_unet.py`** (+ config), `preprocessing_pipeline.py`, `model_pipeline.py` | **nula** |
+| **Nunca importados pelos testes (0%)** | ~~`monuseg_dataset.py`~~ (coberto desde 2026-09-29; cobertura não remedida), **`cellpose_step.py`**, **`marker_unet.py`** (+ config), `preprocessing_pipeline.py`, `model_pipeline.py` | **nula** |
 | **Total** (só dos arquivos importados) | | 75% |
 
 **Ressalvas:**
@@ -105,7 +110,7 @@ correções.
 
 | Lacuna | Por que importa | Ligação |
 |---|---|---|
-| **Conversão XML → máscara** (`MonusegDataset`) | é a origem do GT; a fusão de núcleos (PD-07) e a truncagem de vértices (PD-25) passariam despercebidas | PD-07, PD-25 |
+| ~~**Conversão XML → máscara**~~ (`MonusegDataset`) | ✅ coberta desde 2026-09-29 (`test_monuseg_dataset.py`) | PD-07, PD-25 |
 | **Redes reais** (MarkerUNet do smp; ScribblePrompt real) | os testes usam fakes. A entrada de 5 canais, os 128², a falta de antialias e o canal negativo denso só foram vistos no oráculo | PD-37, PD-04 |
 | **Valores das losses** contra as fórmulas da tese | nenhuma conferência numérica de Dice, DMap, TV, Border e Size | PD-06, PD-12 |
 | **Mapa de distância com vários núcleos de tamanhos diferentes** | o teste atual usa **um** objeto 3×3. Ele passa tanto com a normalização por imagem quanto por núcleo, então **não detecta** o PD-06 | PD-06 |

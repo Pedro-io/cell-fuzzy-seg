@@ -400,7 +400,7 @@ diâmetro → Dmap), que punha o diâmetro antes.
 | Etapa | Onde | Pendências | Muda os `.npy`? | GPU? | Situação |
 |---|---|---|---|---|---|
 | 0 | Dados brutos | PD-23, PD-26, (PD-24) | sim | não | ✅ 2026-09-29: novo download, 37 + 14, reorganizado |
-| 1 | `MonusegDataset` (XML → máscara) | PD-25, PD-07 | sim | não | **próxima** |
+| 1 | `MonusegDataset` (XML → máscara) | PD-25, PD-07 | sim | não | ✅ 2026-09-29: E1-a, E1-b e E1-c aplicadas (§13.5) |
 | 2 | `CellposeStep` | PD-29 (C4), PD-30, PD-31 (C7, `flows`/`styles`), PD-16 (C6, notebook) | sim (PD-30) | sim | — |
 | 3 | `RGBAStep` | PD-34 (ideia) | — | — | — |
 | 4 | `DistanceMapStep` | PD-06 (depende da instância da etapa 1) | sim | não | — |
@@ -422,6 +422,7 @@ seção. No fim de cada etapa, rodar a suíte inteira e registrar o resultado no
 | Correção | Commit | Testes depois | Observações |
 |---|---|---|---|
 | Etapa 0 (PD-23, PD-26) | `f263379` | nenhum código mudou | 37 + 14 pares achados pelo `MonusegDataset` real |
+| Etapa 1 (PD-25, PD-07) | ver `git log -- src/data/load/monuseg_dataset.py` (2026-09-29) | 81: 77 ok, 3 falhas conhecidas (PD-11), 1 pulado | GT novo idêntico à medição da base em 37/37 e 14/14 |
 | C1 | — | — | — |
 | C2 | — | — | — |
 | C3 | — | — | — |
@@ -442,3 +443,110 @@ seção. No fim de cada etapa, rodar a suíte inteira e registrar o resultado no
 5. **C8 / PD-49:** qual forma do canal positivo: (a) limiar suave (recomendado), (b) *straight-through* ou (c) cru? E qual τ,
    depois de ver a tabela de tolerância?
 6. **C7:** confirma apagar `flows`/`styles` do `CellposeStep`, sabendo que a PD-34 usaria só `flows[2]`, numa chave própria?
+
+---
+
+## 13. Etapa 1 — XML → máscara: base (medida em 2026-09-29, 37 + 14 imagens)
+
+> Só leitura: nada no repositório mudou. Os scripts (`etapa1_xml.py`, `etapa1_raster.py` e `etapa1_inst.py`) estão no
+> scratchpad da sessão. ❓ Versioná-los faz parte da PD-47.
+
+### 13.0 Em linguagem simples (pergunta do autor: "isso nos prejudicou?")
+
+O XML guarda o **contorno** de cada núcleo. O `cv2.fillPoly` pinta o interior **e todo pixel que o contorno encosta**, como um
+contorno traçado com caneta grossa. Cada núcleo do GT ganha uma borda de ~meio pixel: ~10% a mais de área na média, ~13% no núcleo
+típico e mais de 26% nos 5% mais afetados (os pequenos, em que a borda pesa mais).
+
+| Onde | Efeito | Tamanho |
+|---|---|---|
+| Avaliação | todos os métodos foram medidos contra o mesmo GT "gordo"; a comparação entre experimentos é justa, mas o Dice absoluto sai um pouco subestimado para quem segmenta justo (o Cellpose) | Cellpose no teste 0,810 → ~0,822; o exp. 4 não foi medido ❓ |
+| Treino | a rede aprendeu a mirar em núcleos um pouco maiores | pequeno |
+| Pipeline 0,648 × Cellpose 0,810 (PD-01) | **não é explicado por isso**: ~0,01 de Dice contra uma distância de 0,16 | — |
+
+Os 5 polígonos degenerados são desprezíveis (5 em 24 mil). A fusão de núcleos (PD-07) não muda o Dice por pixel, só o que é
+calculado por núcleo (o Dmap, PD-06). **Por que corrigir mesmo assim:** o GT precisa corresponder às anotações no artigo; o Dmap
+por núcleo depende do contorno certo; e os dados já vão ser regerados na etapa 5, então corrigir agora evita uma segunda regeração.
+
+### 13.1 Como o código rasteriza hoje ✅
+[monuseg_dataset.py:60-72](../../src/data/load/monuseg_dataset.py#L60-L72) trunca cada vértice com `int()` e pinta cada
+polígono com `cv2.fillPoly(mask, [pts], 1)`, tudo com valor 1.
+
+### 13.2 O que foi medido ✅
+
+**(a) As coordenadas.** 84,3% dos vértices do treino são fracionários, mas só em 30 das 37 imagens: as 7 novas têm vértices
+inteiros. No teste, só 11,2% são fracionários. O campo `Area` de cada região no XML é exatamente a área do polígono (fórmula do
+laço, razão 1,0000). Isso dá uma referência de área.
+
+**(b) A rasterização atual "engorda" o GT.** O `fillPoly` pinta todo pixel que a borda toca. O GT tem **~10% mais pixels** que a
+área dos polígonos (1,096 no treino e 1,099 no teste), o que equivale a meia camada de pixels a mais em volta de cada núcleo.
+
+**(c) Qual rasterização bate com a imagem?** Duas referências: a área dos polígonos e a máscara do Cellpose, que é independente do
+GT (vem só da imagem). "Centro" pinta o pixel cujo centro cai dentro do polígono.
+
+| Rasterização | pixels / área dos polígonos (treino · teste) | Dice Cellpose × GT (treino 30 · teste 14) | massa Cellpose / GT (teste) |
+|---|---|---|---|
+| **atual**: `fillPoly` com `int()` | 1,096 · 1,099 | 0,8016 · 0,8103 | 0,897 |
+| `fillPoly` com `round()` | 1,096 · 1,099 | 0,7991 · 0,8097 | 0,897 |
+| centro do pixel em `(c, r)` | 1,024 · 1,083 | 0,8062 · 0,8102 | 0,911 |
+| **centro do pixel em `(c + 0,5, r + 0,5)`** | **0,995 · 1,011** | **0,8099 · 0,8218** | **0,977** |
+
+Leitura: a última linha é a única que acerta a área nos dois conjuntos, e é também a que melhor alinha com o Cellpose. Isso indica
+que o XML usa a convenção de **canto do pixel**: `X = 0` é a borda esquerda do pixel 0, e o centro dele é 0,5. ❓ É uma inferência
+a partir dos dados; o formato do Aperio ImageScope não foi conferido em documentação.
+
+**(d) A PD-25 muda de figura.** Com a convenção de canto, `int()` = `floor` = o índice do pixel que contém o ponto, que é o certo.
+Trocar por `round()` **piora** o alinhamento no treino (0,7991 contra 0,8016). O problema real não é a truncagem, e sim o
+`fillPoly`, que inclui a borda. A diferença entre `int()` e `round()` no treino (1,3% dos pixels) é dos vértices fracionários; no
+teste, quase não há diferença (0,1%).
+
+**(e) Polígonos degenerados.** São 5, todos no treino, com **2 vértices e `Area = 0`** (por exemplo, `TCGA-50-5931` região 80:
+dois pontos a 0,33 px um do outro). São cliques soltos na anotação, não núcleos. Hoje o `fillPoly` pinta 1–2 px para cada um.
+Com o centro do pixel, mais 2 regiões pequenas ficam com 0 px.
+
+**(f) Fusão e sobreposição (PD-07, agora com 37 imagens).** O GT binário tem 18.160 componentes para 24.140 regiões no treino
+(**−24,8%**) e 6.086 para 6.697 no teste (−9,1%). Com o centro do pixel, a sobreposição entre polígonos é 1,00% do primeiro plano
+no treino e 0,25% no teste. Numa máscara por instância, a regra "o último desenhado vence" apaga 2 núcleos inteiros no treino;
+a regra "o menor vence" não apaga nenhum.
+
+### 13.3 Proposta (depende da sua decisão)
+
+| # | Mudança | Base |
+|---|---|---|
+| E1-a | rasterizar pelo **centro do pixel em (c + 0,5, r + 0,5)** (`skimage.draw.polygon` sobre `X − 0,5`, `Y − 0,5`), no lugar de `int()` + `fillPoly` | (b), (c), (d) |
+| E1-b | **descartar** regiões com menos de 3 vértices ou com área 0, registrando no log quantas | (e) |
+| E1-c | gerar também a **máscara por instância** (`int32`, um rótulo por região do XML; na sobreposição, **o menor vence**); o GT binário passa a ser `instâncias > 0` | (f); pré-requisito do Dmap por núcleo (PD-06) |
+
+**O que muda nos números:** o GT de treino e de teste muda, então **todas** as linhas de base precisam ser refeitas com o GT novo
+(etapa 5). Por exemplo, o Dice do Cellpose no teste passaria de 0,810 para ~0,822 (medido acima) só por causa do GT. Os números
+antigos continuam válidos como histórico, desde que se diga com qual GT foram calculados.
+**Dependências:** o `scikit-image` não está no `requirements.txt`. A alternativa sem nova dependência é
+`matplotlib.path.Path.contains_points` (❓ o matplotlib também não está fixado) ou implementar o teste de ponto no polígono em numpy.
+**Testes a escrever junto:** um quadrado com vértices em canto de pixel dá exatamente a área esperada; um polígono com 2
+vértices é descartado; dois polígonos sobrepostos → o menor mantém os seus pixels; o número de rótulos = número de regiões válidas.
+
+### 13.4 Dúvidas para você validar
+
+1. **E1-a:** trocar o `fillPoly` pela rasterização pelo centro do pixel? (Recomendado. Muda o GT em ~10% da borda de cada núcleo.)
+2. **E1-b:** descartar os 5 polígonos de 2 vértices?
+3. **E1-c:** regra de sobreposição da máscara por instância: "o menor vence" (recomendado) ou outra?
+4. **Dependência:** aceitar `scikit-image` fixado no `requirements.txt`, ou prefere a implementação em numpy (sem dependência nova)?
+
+### 13.5 Decisões e execução (2026-09-29)
+
+| # | Pergunta | Resposta do autor | Onde ficou |
+|---|---|---|---|
+| 1 | Rasterizar pelo centro do pixel? | sim (recomendação) | `xml_to_instance_mask`; PD-25 ✅ |
+| 2 | Descartar os 5 polígonos de 2 vértices? | sim | idem, com log por arquivo |
+| 3 | Máscara por instância, "o menor vence"? | sim | chave `ground_truth_instances`; PD-07 parcial |
+| 4 | `scikit-image` ou numpy? | `scikit-image` | `requirements.txt`: `scikit-image==0.24.0` |
+
+**O que mudou no código** ✅:
+- [monuseg_dataset.py](../../src/data/load/monuseg_dataset.py): funções `read_xml_regions`, `polygon_area` e
+  `xml_to_instance_mask`; o `__getitem__` devolve `ground_truth` (binário, `uint8`) **e** `ground_truth_instances` (`int32`) quando a
+  anotação é XML; o `_xml_to_mask` passa a ser a versão binária da função nova. O `import cv2` saiu (não era usado em mais nada).
+- [tests/test_monuseg_dataset.py](../../tests/test_monuseg_dataset.py): 7 testes (§13.3).
+
+**Conferência nos dados reais:** o binário novo é idêntico, pixel a pixel, à rasterização "centro − 0,5" da medição em 37/37
+(treino) e 14/14 (teste) imagens. Área / área anotada: 0,995 e 1,011. Instâncias: 24.133 de 24.135 regiões válidas no treino (2
+ocupam 0 px) e 6.697 de 6.697 no teste. Dice do Cellpose contra o GT novo: 0,8099 (treino, 30 imagens) e 0,8218 (teste).
+**Ainda não muda nenhum resultado:** os notebooks leem o `MoNuSegPreprocessed/`, que só é regerado na etapa 5.

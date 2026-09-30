@@ -11,7 +11,7 @@
 >
 > **Origem:** ✅ verificado · 📖 tese/artigo · ❓ hipótese a confirmar.
 
-Última atualização: 2026-09-29 (PD-23 e PD-26: novo download do MoNuSeg).
+Última atualização: 2026-09-29 (PD-23/PD-26: novo download; PD-25/PD-07: medição da etapa 1).
 
 ---
 
@@ -25,7 +25,7 @@
 | [PD-04](#pd-04) | 🟠 | Modelo | O scribble negativo é o complemento denso do marcador (provável erro) | Decidida: só positivo (confirmado pelo oráculo) |
 | [PD-05](#pd-05) | 🟡 | Resolução | O ScribblePrompt trabalha em 128²: o núcleo mediano vira ~3 px | Aberta; o oráculo recomenda 256² |
 | [PD-06](#pd-06) | 🟠 | Dados/Loss | O mapa de distância é normalizado pelo máximo da imagem, não por núcleo | Aberta |
-| [PD-07](#pd-07) | 🟠 | Dados | O GT binário funde núcleos (−25% de componentes no treino) | Aberta |
+| [PD-07](#pd-07) | 🟠 | Dados | O GT binário funde núcleos (−25% de componentes no treino) | Parcial: máscara por instância gerada (2026-09-29); falta usar e persistir |
 | [PD-08](#pd-08) | 🟡 | Treino | A aumentação é estática e não há shuffle | Decidida: módulo em `src/` com aumentação por época |
 | [PD-09](#pd-09) | 🟡 | Treino | Os runs provavelmente validaram com a BatchNorm em `train()` | Aberta |
 | [PD-10](#pd-10) | 🟡 | Reprodutibilidade | Checkpoints não salvos, saídas velhas, markdowns desatualizados | Aberta |
@@ -43,7 +43,7 @@
 | [PD-22](#pd-22) | ⚪ | Referências | Falta o artigo do Cellpose-SAM | Aberta |
 | [PD-23](#pd-23) | 🟠 | Dados | 16.966 núcleos anotados no treino × "~22.000" oficiais | Parcial (2026-09-29): faltavam 7 das 37 imagens de treino; dados reorganizados; falta regerar os `.npy` do treino |
 | [PD-24](#pd-24) | 🟡 | Dados | 3 imagens de treino em 20× (0,5 µm/px): núcleos com metade do tamanho | Aberta |
-| [PD-25](#pd-25) | ⚪ | Dados | Vértices truncados com `int()`; 5 polígonos com < 3 vértices | Aberta |
+| [PD-25](#pd-25) | 🟡 | Dados | Rasterização: o `fillPoly` engorda o GT em ~10% (o `int()` não é o problema); 5 polígonos com 2 vértices e área 0 | ✅ Resolvida (2026-09-29) |
 | [PD-26](#pd-26) | ⚪ | Dados | `Binary_masks`/`Binary_masks_instance` não vêm do download oficial e não são usadas | ✅ Resolvida (2026-09-29): removidas |
 | [PD-27](#pd-27) | 🟡 | Licença | Repositório público redistribui o MoNuSeg sem atribuição; `LICENSE` vazio | Parcial: atribuição feita; falta a licença do código |
 | [PD-28](#pd-28) | ⚪ | Docs | `ARCHITECTURE.md` tem trechos errados (`registry/`, rede final "treinável") | ✅ Resolvida (2026-09-27) |
@@ -164,6 +164,15 @@ núcleo é o ideal.
 treino, 16.966 núcleos anotados viram **12.648 componentes conexos (−25,5%)**; no teste, 6.697 viram 6.086 (−9,1%). Há ainda
 128.007 px no treino cobertos por mais de um polígono. Isso afeta o mapa de distância (PD-06) e qualquer métrica ou loss por
 objeto. Existe uma máscara **por instância** do treino em `Binary_masks_instance/` (PD-26) que não é usada.
+**Com as 37 imagens (2026-09-29)** ✅: no treino, 24.140 regiões viram 18.160 componentes (**−24,8%**); no teste, −9,1% (sem
+mudança). Com a rasterização pelo centro do pixel, a sobreposição entre polígonos é 1,00% do primeiro plano no treino. Numa máscara
+por instância, "o último desenhado vence" apaga 2 núcleos inteiros, e "o menor vence" não apaga nenhum. **Proposta:** E1-c do
+[09 §13.3](09-correcoes-pontuais.md): gerar a máscara por instância a partir dos XMLs (as `Binary_masks_instance` foram removidas, PD-26).
+**Parcial (2026-09-29, commit da etapa 1):** o `MonusegDataset` devolve `ground_truth_instances` (`int32`, rótulos 1..N na ordem do
+XML, "o menor vence" na sobreposição): 24.133 instâncias no treino e 6.697 no teste. O `ground_truth` binário continua fundindo
+núcleos vizinhos, o que é intencional (a avaliação é por pixel). **Falta:** usar as instâncias no Dmap (PD-06, etapa 4) e
+persisti-las (etapa 5). ⚠️ O `resize_sample` do notebook de pré-processamento monta um dicionário novo só com `id`, `image` e
+`ground_truth`, e **descarta** a chave nova; precisa ser ajustado na etapa 4.
 
 ### PD-08
 **🟡 A aumentação é estática e não há shuffle.** ✅
@@ -363,6 +372,23 @@ texto e mostrar os resultados dessas três separadamente.
 [monuseg_dataset.py:69](../../src/data/load/monuseg_dataset.py#L69) usa `int(x)`, que **trunca** coordenadas fracionárias
 (viés de até 1 px para cima e para a esquerda). 5 polígonos do treino têm menos de 3 vértices. O impacto é pequeno; registrado
 para o texto.
+**Revisão com medição (2026-09-29, 37 + 14 imagens; severidade ⚪ → 🟡)** ✅ — base completa em
+[09-correcoes-pontuais.md §13](09-correcoes-pontuais.md):
+- **O diagnóstico acima estava errado em parte.** O XML usa, ao que tudo indica, a convenção de canto do pixel (❓ inferido dos
+  dados). Nela, `int()` é o certo, e `round()` piora o alinhamento com o Cellpose no treino (0,7991 contra 0,8016).
+- **O problema real é o `cv2.fillPoly`, que pinta todo pixel tocado pela borda:** o GT tem ~10% mais pixels que a área dos
+  polígonos (1,096 no treino e 1,099 no teste; o `Area` do XML é exatamente a área do polígono). Rasterizar pelo centro do pixel em
+  `(c + 0,5, r + 0,5)` acerta a área (0,995 e 1,011) e alinha melhor com o Cellpose (Dice 0,8099 contra 0,8016 no treino e 0,8218
+  contra 0,8103 no teste).
+- Os 5 polígonos degenerados têm 2 vértices e `Area = 0`: são cliques soltos, não núcleos.
+- **Efeito:** mudar a rasterização muda o GT de treino e de teste, e todas as linhas de base precisam ser refeitas (etapa 5).
+**Proposta:** E1-a e E1-b do 09 §13.3.
+**✅ Resolvida (2026-09-29, commit da etapa 1):** decisão do autor, conforme a recomendação. O `MonusegDataset` rasteriza pelo centro
+do pixel (`skimage.draw.polygon` sobre `X − 0,5`, `Y − 0,5`) e descarta as regiões com < 3 vértices ou área 0, com log. Conferido
+nos dados reais: o GT binário novo é idêntico à rasterização medida na base em 37/37 e 14/14 imagens; a área fica em 0,995 e
+1,011 da anotada; o Dice do Cellpose contra o GT novo é 0,8099 (treino, 30) e 0,8218 (teste). `scikit-image==0.24.0` entrou no
+`requirements.txt`. **Atenção:** o `MoNuSegPreprocessed/` ainda tem o GT antigo, até a etapa 5; os números dos exp. 1 a 6 e do
+oráculo são do GT antigo.
 
 ### PD-26
 **⚪ Máscaras extras sem origem conhecida.** ✅ · ❓
