@@ -47,7 +47,7 @@
 | [PD-26](#pd-26) | ⚪ | Dados | `Binary_masks`/`Binary_masks_instance` não vêm do download oficial e não são usadas | ✅ Resolvida (2026-09-29): removidas |
 | [PD-27](#pd-27) | 🟡 | Licença | Repositório público redistribui o MoNuSeg sem atribuição; `LICENSE` vazio | Parcial: atribuição feita; falta a licença do código |
 | [PD-28](#pd-28) | ⚪ | Docs | `ARCHITECTURE.md` tem trechos errados (`registry/`, rede final "treinável") | ✅ Resolvida (2026-09-27) |
-| [PD-29](#pd-29) | 🟡 | Pré-proc. | A proteção contra nome de modelo do Cellpose nunca executa (`MODEL_LIST` não existe) | Aberta |
+| [PD-29](#pd-29) | 🟡 | Pré-proc. | A proteção contra nome de modelo do Cellpose nunca executa (`MODEL_LIST` não existe) | ✅ Resolvida (2026-10-01): nome desconhecido → erro |
 | [PD-30](#pd-30) | 🟡 | Pré-proc. | Parâmetros do Cellpose: `diam_mean` ignorado, `diameter=30` sem reescala, `flow_threshold`/`min_size` fora do padrão | Decidida: testar no Colab |
 | [PD-31](#pd-31) | ⚪ | Código morto | `ModelPipeline`, métodos do `OutputWriter`, `to_uint8_rgb`, `RMSEAccuracy`, `flows`/`styles` | Decidida: remover |
 | [PD-32](#pd-32) | ⚪ | Arquitetura | Três classes de pipeline idênticas; separação só por convenção | Aberta |
@@ -168,7 +168,7 @@ objeto. Existe uma máscara **por instância** do treino em `Binary_masks_instan
 mudança). Com a rasterização pelo centro do pixel, a sobreposição entre polígonos é 1,00% do primeiro plano no treino. Numa máscara
 por instância, "o último desenhado vence" apaga 2 núcleos inteiros, e "o menor vence" não apaga nenhum. **Proposta:** E1-c do
 [09 §13.3](09-correcoes-pontuais.md): gerar a máscara por instância a partir dos XMLs (as `Binary_masks_instance` foram removidas, PD-26).
-**Parcial (2026-09-29, commit da etapa 1):** o `MonusegDataset` devolve `ground_truth_instances` (`int32`, rótulos 1..N na ordem do
+**Parcial (2026-09-29, `3dc9d75`):** o `MonusegDataset` devolve `ground_truth_instances` (`int32`, rótulos 1..N na ordem do
 XML, "o menor vence" na sobreposição): 24.133 instâncias no treino e 6.697 no teste. O `ground_truth` binário continua fundindo
 núcleos vizinhos, o que é intencional (a avaliação é por pixel). **Falta:** usar as instâncias no Dmap (PD-06, etapa 4) e
 persisti-las (etapa 5). ⚠️ O `resize_sample` do notebook de pré-processamento monta um dicionário novo só com `id`, `image` e
@@ -383,7 +383,7 @@ para o texto.
 - Os 5 polígonos degenerados têm 2 vértices e `Area = 0`: são cliques soltos, não núcleos.
 - **Efeito:** mudar a rasterização muda o GT de treino e de teste, e todas as linhas de base precisam ser refeitas (etapa 5).
 **Proposta:** E1-a e E1-b do 09 §13.3.
-**✅ Resolvida (2026-09-29, commit da etapa 1):** decisão do autor, conforme a recomendação. O `MonusegDataset` rasteriza pelo centro
+**✅ Resolvida (2026-09-29, `3dc9d75`):** decisão do autor, conforme a recomendação. O `MonusegDataset` rasteriza pelo centro
 do pixel (`skimage.draw.polygon` sobre `X − 0,5`, `Y − 0,5`) e descarta as regiões com < 3 vértices ou área 0, com log. Conferido
 nos dados reais: o GT binário novo é idêntico à rasterização medida na base em 37/37 e 14/14 imagens; a área fica em 0,995 e
 1,011 da anotada; o Dice do Cellpose contra o GT novo é 0,8099 (treino, 30) e 0,8218 (teste). `scikit-image==0.24.0` entrou no
@@ -445,6 +445,13 @@ esses erros na §8.
 consequência é pequena, porque o próprio Cellpose loga "pretrained model … not found, using default model" e o padrão é o
 `cpsam`. Mas o código dá uma falsa sensação de proteção.
 **Correção:** usar `MODEL_NAMES` + `get_user_models()` do Cellpose 4, ou remover a função e confiar no aviso da biblioteca.
+**Base adicional (2026-09-28)** ✅: o aviso da biblioteca mostra o caminho do modelo **padrão**, e não o nome pedido, porque a
+variável é trocada antes do log (`cellpose/models.py` v4.1.1, L130-140). Detalhe em [09 §5](09-correcoes-pontuais.md).
+**✅ Resolvida (2026-10-01, commit da C4):** o autor decidiu que um nome errado deve **levantar erro**. O `_warn_if_model_unavailable`
+virou `_validate_model_name`, que aplica a mesma regra da biblioteca (arquivo existente, ou nome em `MODEL_NAMES +
+get_user_models()`) e levanta `ValueError` **antes** de carregar o Cellpose e antes da checagem de GPU. O import é direto: se a
+API mudar de novo, o erro aparece em vez de sumir. Testes: `tests/test_cellpose_step.py` (5, com um `cellpose` falso). Efeito nos
+resultados: nenhum (`"cpsam"` passa).
 
 ### PD-30
 **🟡 Parâmetros do Cellpose.** ✅ (conferido em `cellpose/models.py` v4.1.1)

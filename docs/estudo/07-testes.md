@@ -13,6 +13,9 @@
 > **Atualização (2026-09-29, etapa 1):** entrou `test_monuseg_dataset.py` (7 testes da conversão XML → máscara). A suíte passou a
 > ter **81 testes em 13 arquivos: 77 passam, as mesmas 3 falhas (PD-11) e 1 pulado**, em ~4 s (torch 2.14 CPU, scikit-image
 > 0.24.0). O resto deste documento descreve o estado de 2026-09-27.
+>
+> **Atualização (2026-10-01, C4):** entrou `test_cellpose_step.py` (5 testes da checagem do nome do modelo, com um `cellpose` falso).
+> Agora são **86 testes em 14 arquivos: 82 passam, 3 falhas (PD-11) e 1 pulado**.
 
 - Existem **74 testes em 12 arquivos** ([tests/](../../tests/)), escritos entre julho e agosto junto com as correções da
   investigação do exp. 1. ✅
@@ -115,7 +118,7 @@ correções.
 | **Valores das losses** contra as fórmulas da tese | nenhuma conferência numérica de Dice, DMap, TV, Border e Size | PD-06, PD-12 |
 | **Mapa de distância com vários núcleos de tamanhos diferentes** | o teste atual usa **um** objeto 3×3. Ele passa tanto com a normalização por imagem quanto por núcleo, então **não detecta** o PD-06 | PD-06 |
 | **Código dos notebooks** (`load_preprocessed`, `build_batch`, aumentação, `compute_binary_metrics`) | é o código que gera os números do TCC, copiado em cada notebook e sem nenhum teste | PD-19, PD-47 |
-| **`CellposeStep`** | exige GPU; o bug do `MODEL_LIST` (PD-29) passou sem ser notado | PD-29, PD-30 |
+| **`CellposeStep`** | exige GPU; o bug do `MODEL_LIST` (PD-29) passou sem ser notado. Desde 2026-10-01 a checagem do nome tem teste (`test_cellpose_step.py`); o `forward` continua sem teste | PD-29, PD-30 |
 | **Ponta a ponta com dados reais** | nenhum teste roda uma imagem do MoNuSeg pelo pipeline | — |
 
 ---

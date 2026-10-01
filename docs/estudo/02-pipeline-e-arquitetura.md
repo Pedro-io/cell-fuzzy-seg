@@ -165,9 +165,9 @@ probabilidade. ❓ A descrição do Cellpose-SAM precisa do artigo próprio (PD-
 
 Outros comportamentos:
 - **Exige GPU**: `core.use_gpu()` falso → `RuntimeError` ([L54-55](../../src/pipeline/steps/preprocessing/cellpose_step.py#L54-L55)).
-- `_warn_if_model_unavailable` ([L67-88](../../src/pipeline/steps/preprocessing/cellpose_step.py#L67-L88)) importa
-  `MODEL_LIST` de `cellpose.models`, que **não existe** no 4.1.1. O `except ImportError` retorna em silêncio: **a proteção
-  (item P9 da investigação) nunca executa** (PD-29). Na prática, o aviso que protege é o do próprio Cellpose.
+- **Nome do modelo** (desde 2026-10-01, PD-29 ✅): o `_validate_model_name` aceita um arquivo existente ou um nome de
+  `MODEL_NAMES + get_user_models()`, a mesma regra do Cellpose 4.1.1, e levanta `ValueError` antes de carregar o modelo. Antes,
+  o `_warn_if_model_unavailable` importava `MODEL_LIST`, que não existe no 4.1.1, e a proteção (item P9 da investigação) nunca executava.
 - `forward` ([L90-124](../../src/pipeline/steps/preprocessing/cellpose_step.py#L90-L124)) grava `segmentation`, `flows` e
   `styles`. **A probabilidade contínua** (`flows[2]`) é jogada fora: a MarkerUNet recebe só a máscara binária pelo canal alpha.
   Usá-la seria uma ideia a testar (PD-34).

@@ -1,3 +1,4 @@
+import os
 from typing import Any, Dict
 
 from cellpose import core, models
@@ -36,25 +37,25 @@ class CellposeStep(PipelineStep):
         Args:
             batch_size: Número de imagens por batch de inferência.
             name: Identificador deste passo no pipeline.
-            pretrained_model: Nome do modelo pré-treinado do Cellpose a carregar
-                (ex.: ``"cyto"``, ``"cyto3"``, ``"nuclei"``, ``"cpsam"``).
-                Se o nome não estiver na lista de modelos conhecidos do Cellpose,
-                um aviso é registrado — o Cellpose cairia silenciosamente no
-                modelo default, degradando o canal alpha do RGBA (investigação,
-                P9).
+            pretrained_model: Nome de um modelo do Cellpose (no Cellpose 4, ``"cpsam"`` ou um
+                modelo registrado pelo usuário) ou caminho de um arquivo de modelo. Um nome
+                desconhecido levanta ``ValueError``: sem a checagem, o Cellpose trocaria o
+                modelo pelo ``cpsam`` só com um aviso, mudando a entrada da MarkerNet e a linha
+                de base (investigação, P9; PD-29).
             diam_mean: Diâmetro médio das células para segmentação.
             cellprob_threshold: Limiar aplicado à probabilidade celular do Cellpose.
             flow_threshold: Limiar aplicado às saídas de fluxo do Cellpose.
             min_size: Tamanho mínimo de instância a ser mantido na máscara de segmentação.
 
         Raises:
+            ValueError: Se ``pretrained_model`` não for um modelo conhecido nem um arquivo existente.
             RuntimeError: Se uma GPU compatível com CUDA não estiver disponível.
         """
         super().__init__(name=name)
+        self._validate_model_name(pretrained_model)
+
         if not core.use_gpu():
             raise RuntimeError("GPU is required but not available.")
-
-        self._warn_if_model_unavailable(pretrained_model)
 
         self.model = models.CellposeModel(gpu=True, pretrained_model=pretrained_model, diam_mean=diam_mean)
         self.batch_size = batch_size
@@ -65,26 +66,29 @@ class CellposeStep(PipelineStep):
         logger.info(f"[CellposeStep] Running on GPU (model={pretrained_model})")
 
     @staticmethod
-    def _warn_if_model_unavailable(pretrained_model: str) -> None:
-        """Registra um aviso se o modelo solicitado não for conhecido do Cellpose.
+    def _validate_model_name(pretrained_model: str) -> None:
+        """Levanta ``ValueError`` se o Cellpose não conhecer o modelo solicitado.
 
-        O Cellpose cai silenciosamente para o modelo default quando o nome
-        solicitado não é encontrado; este aviso torna a degradação explícita.
+        Segue a mesma regra do ``CellposeModel`` (``cellpose/models.py``, v4.1.1): o nome é aceito
+        se for um arquivo existente ou se estiver em ``MODEL_NAMES + get_user_models()``. Fora
+        disso, a biblioteca usaria o ``cpsam`` e só registraria um aviso, que ainda mostra o
+        caminho do modelo padrão em vez do nome pedido (PD-29).
 
         Args:
-            pretrained_model: Nome do modelo solicitado.
+            pretrained_model: Nome ou caminho do modelo solicitado.
+
+        Raises:
+            ValueError: Se o modelo não for conhecido nem existir como arquivo.
         """
-        try:
-            from cellpose.models import MODEL_LIST
-        except (ImportError, AttributeError):
+        if os.path.exists(pretrained_model):
             return
 
-        if pretrained_model not in MODEL_LIST:
-            logger.warning(
-                f"[CellposeStep] Modelo '{pretrained_model}' não está na lista "
-                f"de modelos conhecidos do Cellpose ({MODEL_LIST}). O Cellpose "
-                f"pode cair no modelo default, degradando a segmentação inicial "
-                f"(canal alpha do RGBA)."
+        known = list(models.MODEL_NAMES) + list(models.get_user_models())
+        if pretrained_model not in known:
+            raise ValueError(
+                f"[CellposeStep] Modelo do Cellpose desconhecido: {pretrained_model!r}. "
+                f"Modelos disponíveis: {known}. Informe um desses nomes ou o caminho de um "
+                f"arquivo de modelo."
             )
 
     def forward(self, data: Dict[str, Any]) -> Dict[str, Any]:

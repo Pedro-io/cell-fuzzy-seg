@@ -214,6 +214,8 @@ if pretrained_model not in MODEL_LIST:               if pretrained_model not in 
                                                              f"Disponíveis: {MODEL_NAMES + get_user_models()}.")
 ```
 
+**Decisão do autor (2026-10-01): erro.** ✅ Aplicado (§11).
+
 **Erro ou aviso?** Recomendo **erro**, pela mesma lógica da PD-16: um modelo trocado muda a entrada da MarkerUNet e a linha de
 base, e um aviso no meio do log do Colab passa despercebido. Se preferir o aviso, basta trocar o `raise` por `logger.warning`.
 O import passa a ser direto: se a API do Cellpose mudar de novo, o erro aparece em vez de sumir.
@@ -401,7 +403,7 @@ diâmetro → Dmap), que punha o diâmetro antes.
 |---|---|---|---|---|---|
 | 0 | Dados brutos | PD-23, PD-26, (PD-24) | sim | não | ✅ 2026-09-29: novo download, 37 + 14, reorganizado |
 | 1 | `MonusegDataset` (XML → máscara) | PD-25, PD-07 | sim | não | ✅ 2026-09-29: E1-a, E1-b e E1-c aplicadas (§13.5) |
-| 2 | `CellposeStep` | PD-29 (C4), PD-30, PD-31 (C7, `flows`/`styles`), PD-16 (C6, notebook) | sim (PD-30) | sim | — |
+| 2 | `CellposeStep` | PD-29 (C4), PD-30, PD-31 (C7, `flows`/`styles`), PD-16 (C6, notebook) | sim (PD-30) | sim | em andamento: C4 ✅ (2026-10-01); depois C6 (notebook), C7 (`flows`/`styles`) e PD-30 (Colab) |
 | 3 | `RGBAStep` | PD-34 (ideia) | — | — | — |
 | 4 | `DistanceMapStep` | PD-06 (depende da instância da etapa 1) | sim | não | — |
 | 5 | `SaveResultsStep` | regerar tudo **uma vez**, com commit e parâmetros no `meta.json` (PD-47) | — | sim | — |
@@ -422,11 +424,11 @@ seção. No fim de cada etapa, rodar a suíte inteira e registrar o resultado no
 | Correção | Commit | Testes depois | Observações |
 |---|---|---|---|
 | Etapa 0 (PD-23, PD-26) | `f263379` | nenhum código mudou | 37 + 14 pares achados pelo `MonusegDataset` real |
-| Etapa 1 (PD-25, PD-07) | ver `git log -- src/data/load/monuseg_dataset.py` (2026-09-29) | 81: 77 ok, 3 falhas conhecidas (PD-11), 1 pulado | GT novo idêntico à medição da base em 37/37 e 14/14 |
+| Etapa 1 (PD-25, PD-07) | `3dc9d75` | 81: 77 ok, 3 falhas conhecidas (PD-11), 1 pulado | GT novo idêntico à medição da base em 37/37 e 14/14 |
 | C1 | — | — | — |
 | C2 | — | — | — |
 | C3 | — | — | — |
-| C4 | — | — | — |
+| C4 (PD-29) | ver `git log -- src/pipeline/steps/preprocessing/cellpose_step.py` (2026-10-01) | 86: 82 ok, 3 falhas conhecidas (PD-11), 1 pulado | `ValueError` antes de carregar o modelo e antes da checagem de GPU |
 | C5 | — | — | — |
 | C6 | — | — | — |
 | C7 | — | — | — |
