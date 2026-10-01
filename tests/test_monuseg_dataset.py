@@ -1,7 +1,7 @@
-"""Testes da conversão XML → máscara do MonusegDataset (PD-25, PD-07).
+"""Testes da conversão XML → máscara do MonusegDataset.
 
-A base das regras está em ``docs/estudo/09-correcoes-pontuais.md`` §13: rasterização pelo centro
-do pixel (convenção de canto), descarte de regiões degeneradas e "o menor vence" na sobreposição.
+Regras testadas: rasterização pelo centro do pixel (convenção de canto), descarte de regiões
+degeneradas e "o menor vence" na sobreposição.
 
 O ``monuseg_dataset`` importa ``cellpose.io`` só para ler imagens; o Cellpose não é necessário
 aqui, então um módulo falso é instalado quando ele não existe.
@@ -53,7 +53,7 @@ def square(x0, y0, x1, y1):
 
 def test_square_on_pixel_corners_has_exact_area(tmp_path):
     # Quadrado de canto (0,0) a (4,4): cobre exatamente os pixels 0..3 → 16 px = área do polígono.
-    # O cv2.fillPoly antigo pintava a borda também (5×5 = 25 px).
+    # Pintar também a borda, como faz o cv2.fillPoly, daria 5×5 = 25 px.
     path = write_xml(tmp_path, [square(0, 0, 4, 4)])
 
     instances = xml_to_instance_mask(path, (10, 10))
@@ -65,7 +65,7 @@ def test_square_on_pixel_corners_has_exact_area(tmp_path):
 
 
 def test_degenerate_regions_are_discarded(tmp_path):
-    # Como os 5 casos reais do treino: 2 vértices e área 0; e 3 vértices colineares.
+    # Regiões degeneradas como as que aparecem no MoNuSeg: 2 vértices e área 0; e 3 vértices colineares.
     path = write_xml(
         tmp_path,
         [[(3.3, 4.0), (3.6, 4.0)], [(1, 1), (2, 2), (3, 3)], square(5, 5, 8, 8)],
@@ -136,7 +136,7 @@ REAL_XML = os.path.join(
 
 @pytest.mark.skipif(not os.path.exists(REAL_XML), reason="dados do MoNuSeg ausentes")
 def test_real_xml_area_matches_annotation():
-    # Numa imagem real, a área rasterizada fica a ~1% da área anotada (com o fillPoly era ~+10%),
+    # Numa imagem real, a área rasterizada fica a ~1% da área anotada (pintando a borda, ficaria ~10% acima),
     # e todo núcleo válido ganha um rótulo.
     regions = read_xml_regions(REAL_XML)
     valid = [r for r in regions if len(r) >= 3 and polygon_area(r) > 0]

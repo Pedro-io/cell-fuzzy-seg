@@ -290,7 +290,7 @@ O `.abs()` do Size some sem mudar nada, porque os marcadores saem de uma sigmoid
 |---|---|---|
 | `MarkerStep.__init__` | `model=None` aceito | `model=None` só com `allow_segmentation_fallback=True`; senão, `ValueError` já na construção |
 | `MarkerStep.forward` | *warning* e segue | igual quando a flag está ligada (uso explícito, por exemplo em teste) |
-| notebook, célula 9 | `try/except` → GT como `segmentation` | sem `try/except`: se o Cellpose não carrega, a célula falha |
+| notebook, célula 9 | `try/except` → GT como `segmentation` | sem `try/except`: se o Cellpose não carrega, a célula falha. ✅ aplicado em 2026-10-01, aguardando validação do autor |
 
 **Efeito nos resultados:** nenhum. Os runs registrados usaram o Cellpose (`meta.json`: `segmentation_source: cellpose`).
 **Testes:** o `test_forward_without_model_falls_back_to_segmentation` passa a ligar a flag; um novo verifica o `ValueError` sem ela.
@@ -403,7 +403,7 @@ diâmetro → Dmap), que punha o diâmetro antes.
 |---|---|---|---|---|---|
 | 0 | Dados brutos | PD-23, PD-26, (PD-24) | sim | não | ✅ 2026-09-29: novo download, 37 + 14, reorganizado |
 | 1 | `MonusegDataset` (XML → máscara) | PD-25, PD-07 | sim | não | ✅ 2026-09-29: E1-a, E1-b e E1-c aplicadas (§13.5) |
-| 2 | `CellposeStep` | PD-29 (C4), PD-30, PD-31 (C7, `flows`/`styles`), PD-16 (C6, notebook) | sim (PD-30) | sim | em andamento: C4 ✅ (2026-10-01); depois C6 (notebook), C7 (`flows`/`styles`) e PD-30 (Colab) |
+| 2 | `CellposeStep` | PD-29 (C4), PD-30, PD-31 (C7, `flows`/`styles`), PD-16 (C6, notebook) | sim (PD-30) | sim | em andamento: C4 ✅; C6 (notebook) aplicada, aguardando validação; depois C7 (`flows`/`styles`) e PD-30 (Colab) |
 | 3 | `RGBAStep` | PD-34 (ideia) | — | — | — |
 | 4 | `DistanceMapStep` | PD-06 (depende da instância da etapa 1) | sim | não | — |
 | 5 | `SaveResultsStep` | regerar tudo **uma vez**, com commit e parâmetros no `meta.json` (PD-47) | — | sim | — |
@@ -428,9 +428,10 @@ seção. No fim de cada etapa, rodar a suíte inteira e registrar o resultado no
 | C1 | — | — | — |
 | C2 | — | — | — |
 | C3 | — | — | — |
-| C4 (PD-29) | ver `git log -- src/pipeline/steps/preprocessing/cellpose_step.py` (2026-10-01) | 86: 82 ok, 3 falhas conhecidas (PD-11), 1 pulado | `ValueError` antes de carregar o modelo e antes da checagem de GPU |
+| C4 (PD-29) | `f4fcf3a` | 86: 82 ok, 3 falhas conhecidas (PD-11), 1 pulado | `ValueError` antes de carregar o modelo e antes da checagem de GPU |
 | C5 | — | — | — |
-| C6 | — | — | — |
+| C6, parte do notebook (PD-16) | — (aguardando validação do autor) | 82 ok, 3 falhas conhecidas (PD-11), 1 pulado (o notebook não tem testes; sintaxe da célula conferida) | célula 9 sem fallback; markdown das células 0 e 16 descreve o comportamento; não executado (precisa de GPU). No mesmo pacote: menções a pendências tiradas do código desta sessão (PD-50) |
+| C6, parte do `MarkerStep` | — | — | fica para a etapa 7 |
 | C7 | — | — | — |
 | C8 | — | — | — |
 

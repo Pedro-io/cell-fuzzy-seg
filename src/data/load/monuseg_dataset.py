@@ -47,12 +47,12 @@ def polygon_area(vertices: np.ndarray) -> float:
 def xml_to_instance_mask(xml_path: str, shape: Tuple[int, int]) -> np.ndarray:
     """Rasteriza os núcleos de um XML do MoNuSeg como máscara por instância.
 
-    Regras (base medida em ``docs/estudo/09-correcoes-pontuais.md`` §13; PD-25 e PD-07):
+    Regras:
 
     - **Convenção de canto do pixel:** ``X = 0`` é a borda esquerda do pixel 0, então o centro do
       pixel ``(r, c)`` fica em ``(c + 0,5, r + 0,5)``. Um pixel pertence ao núcleo se o seu centro
-      cai dentro do polígono. Assim a área rasterizada bate com a área anotada (o ``cv2.fillPoly``
-      usado antes pintava todo pixel tocado pela borda e deixava o GT ~10% maior).
+      cai dentro do polígono. Assim a área rasterizada bate com a área anotada; pintar todo pixel
+      tocado pela borda (como faz o ``cv2.fillPoly``) deixaria a máscara ~10% maior.
     - Regiões com menos de 3 vértices ou área zero (cliques soltos na anotação) são descartadas.
     - Na sobreposição entre polígonos, **o menor vence**: os núcleos são pintados do maior para o
       menor, e nenhum núcleo pequeno some por inteiro.

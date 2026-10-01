@@ -41,7 +41,7 @@ class CellposeStep(PipelineStep):
                 modelo registrado pelo usuário) ou caminho de um arquivo de modelo. Um nome
                 desconhecido levanta ``ValueError``: sem a checagem, o Cellpose trocaria o
                 modelo pelo ``cpsam`` só com um aviso, mudando a entrada da MarkerNet e a linha
-                de base (investigação, P9; PD-29).
+                de base.
             diam_mean: Diâmetro médio das células para segmentação.
             cellprob_threshold: Limiar aplicado à probabilidade celular do Cellpose.
             flow_threshold: Limiar aplicado às saídas de fluxo do Cellpose.
@@ -72,7 +72,7 @@ class CellposeStep(PipelineStep):
         Segue a mesma regra do ``CellposeModel`` (``cellpose/models.py``, v4.1.1): o nome é aceito
         se for um arquivo existente ou se estiver em ``MODEL_NAMES + get_user_models()``. Fora
         disso, a biblioteca usaria o ``cpsam`` e só registraria um aviso, que ainda mostra o
-        caminho do modelo padrão em vez do nome pedido (PD-29).
+        caminho do modelo padrão em vez do nome pedido.
 
         Args:
             pretrained_model: Nome ou caminho do modelo solicitado.

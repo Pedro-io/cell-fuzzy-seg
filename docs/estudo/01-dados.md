@@ -204,8 +204,9 @@ Envolve um dataset bruto e **roda o pipeline de pré-processamento a cada `__get
 3. Roda `CellposeStep → RGBAStep → DistanceMapStep → SaveResultsStep` e grava o `meta.json`.
 4. Confere que o que foi salvo é idêntico ao que está em memória.
 
-⚠️ Se o Cellpose não carregar, o notebook **usa o GT como segmentação**, o que seria vazamento total. Não aconteceu no run
-atual (o log diz "Cellpose disponível" e o `meta.json` diz `cellpose`), mas é um risco (PD-16).
+⚠️ Até 2026-10-01, se o Cellpose não carregasse, o notebook **usava o GT como segmentação**, o que seria vazamento total. Não
+aconteceu no run atual (o log diz "Cellpose disponível" e o `meta.json` diz `cellpose`). Desde então, a execução para com erro
+(PD-16, parte do notebook).
 
 ### 7.2 Leitura (em cada experimento): funções `load_preprocessed` e `build_batch` (no exp. 6, células 8 e 12)
 

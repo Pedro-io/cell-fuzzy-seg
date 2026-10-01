@@ -34,7 +34,7 @@
 | [PD-13](#pd-13) | 🟡 | Loss | Desbalanceamento de classes não tratado (P8) | Aberta |
 | [PD-14](#pd-14) | ⚪ | Diagnóstico | `GradNormCallback` mede a norma depois do clipping | Aberta |
 | [PD-15](#pd-15) | 🟡 | Segurança | O checkpoint do ScribblePrompt é baixado sem verificação de hash | Aberta (hash de referência registrado) |
-| [PD-16](#pd-16) | 🟡 | Robustez | Fallbacks silenciosos (GT como entrada; rede "dummy") | Aberta |
+| [PD-16](#pd-16) | 🟡 | Robustez | Fallbacks silenciosos (GT como entrada; rede "dummy") | Parcial (2026-10-01): notebook de pré-processamento corrigido; falta o `MarkerStep` |
 | [PD-17](#pd-17) | ⚪ | Código morto | `pipeline_test.py` está quebrado | Aberta |
 | [PD-18](#pd-18) | ⚪ | Config | Partes de `datasets.yml` não são usadas | Aberta |
 | [PD-19](#pd-19) | 🟡 | Dados | Dois caminhos de carregamento; `MonusegPreprocessedDataset` não lê do disco | Decidida: módulo em `src/` |
@@ -68,6 +68,7 @@
 | [PD-47](#pd-47) | 🟡 | Publicação | Resultados (oráculo e próximos experimentos) precisam ser salvos e reproduzíveis para o artigo | Aberta |
 | [PD-48](#pd-48) | 🟡 | Testes | Testes cobrem a "tubulação" com dummies; nada de redes reais, dados, métricas ou valores das losses; sem execução automática | Aberta |
 | [PD-49](#pd-49) | 🟠 | Modelo/Experimento | Só positivo: um fundo ≥ 1e-3 no canal positivo faz o ScribblePrompt marcar a imagem inteira; a sigmoid da MarkerUNet nunca dá 0 | Aberta (decisão do autor, 09 §9) |
+| [PD-50](#pd-50) | ⚪ | Código | Código, testes e notebooks citam a história do projeto (PD-nn, "investigação, P5", "C2", "regra 23") | Aberta (regra do autor, 2026-10-01) |
 
 ---
 
@@ -253,6 +254,14 @@ atual já usa essa versão, e o `requirements.txt` só exige `torch>=2.1.0`.
 
 Nenhum run atual foi afetado: as saídas mostram "Cellpose disponível" e "Rede final: ScribblePrompt", e o `meta.json` diz
 `segmentation_source: cellpose`. Mas é um risco. **Correção:** falhar com erro, ou exigir uma flag explícita para o fallback.
+**Parcial (2026-10-01, C6 parte do notebook; base em [09 §7](09-correcoes-pontuais.md)):** a célula 9 do
+`preprocessamento_monuseg_persistido.ipynb` não tem mais o `try/except`: se o `CellposeStep()` falhar (sem GPU ou, desde a
+PD-29, com nome de modelo desconhecido), a execução para. Saíram também o `segmentation = GT` do `run_preprocess`, o pipeline
+condicional e o `segmentation_source: ground_truth_fallback` do `meta.json`. O markdown das células 0 e 16 descreve o
+comportamento novo ("Cellpose obrigatório"), sem citar a mudança (regra da PD-50). As saídas guardadas do run de 16/08 ficaram
+como estão: são o registro do run que gerou os `.npy` atuais. ❓ A célula ainda não foi executada depois da mudança; isso
+acontece no Colab, na PD-30. **Falta:** o fallback do `MarkerStep` (etapa 7). O `DummyFinalNetwork` dos notebooks de
+experimento fica como está (PD-10).
 
 ### PD-17
 **⚪ `pipeline_test.py` está quebrado.** ✅
@@ -447,7 +456,7 @@ consequência é pequena, porque o próprio Cellpose loga "pretrained model … 
 **Correção:** usar `MODEL_NAMES` + `get_user_models()` do Cellpose 4, ou remover a função e confiar no aviso da biblioteca.
 **Base adicional (2026-09-28)** ✅: o aviso da biblioteca mostra o caminho do modelo **padrão**, e não o nome pedido, porque a
 variável é trocada antes do log (`cellpose/models.py` v4.1.1, L130-140). Detalhe em [09 §5](09-correcoes-pontuais.md).
-**✅ Resolvida (2026-10-01, commit da C4):** o autor decidiu que um nome errado deve **levantar erro**. O `_warn_if_model_unavailable`
+**✅ Resolvida (2026-10-01, `f4fcf3a`):** o autor decidiu que um nome errado deve **levantar erro**. O `_warn_if_model_unavailable`
 virou `_validate_model_name`, que aplica a mesma regra da biblioteca (arquivo existente, ou nome em `MODEL_NAMES +
 get_user_models()`) e levanta `ValueError` **antes** de carregar o Cellpose e antes da checagem de GPU. O import é direto: se a
 API mudar de novo, o erro aparece em vez de sumir. Testes: `tests/test_cellpose_step.py` (5, com um `cellpose` falso). Efeito nos
@@ -755,3 +764,22 @@ vazar (massa 1,3–2,5×) e ≥ 3e-3 inunda. No modo atual isso não aparece, po
 tratar isso, o experimento-base tende a inundar.
 **Opções** (detalhe e tabela em [09-correcoes-pontuais.md §9](09-correcoes-pontuais.md)): (a) limiar suave
 `relu(s − τ)/(1 − τ)`; (b) binário com *straight-through*; (c) cru, com risco de inundar. Recomendação: (a).
+
+### PD-50
+**⚪ O código cita a história do projeto em vez de só descrever o que faz.** ✅ (contado em 2026-10-01)
+**Regra do autor (2026-10-01):** quem clonar o repositório precisa saber **como o código funciona**, não que um *fallback* existiu
+ou foi removido numa data. Comentários, docstrings, testes e textos de notebook descrevem o comportamento e o porquê do desenho;
+a história (pendências, datas, "antes era…", itens da investigação) fica nos `docs/estudo/` e no git.
+**Situação:**
+- Já seguem a regra: `monuseg_dataset.py`, `cellpose_step.py`, os testes deles, o `requirements.txt` e o notebook de
+  pré-processamento (os trechos alterados em 2026-10-01).
+- **Faltam 37 menções em `src/` e `tests/`:** `test_training_integration.py` (14), `trainer.py` (5),
+  `scribble_prompting_network.py` (4), `marker_step.py` (3), e 2 ou menos em `test_scribble_prompting_network.py`,
+  `grad_norm_callback.py`, `save_results_step.py`, `terms.py`, `loss_composer.py` e `test_object_size_loss.py`. São do tipo
+  "investigação, P5", "C2", "C3/C4", "regra arquitetural 23".
+- **Notebooks:** 43 a 49 menções em cada `experiment_1..6` (vão ser podados depois das correções, PD-10), 14 no oráculo e 7 no
+  restante do notebook de pré-processamento (por exemplo, "(P7)").
+**Proposta:** uma tarefa própria para limpar `src/` e `tests/` (sem mudar comportamento), reescrevendo cada menção como explicação
+do comportamento quando ela carrega informação útil. Os notebooks de experimento ficam para a poda da PD-10. ⚠️ O `CLAUDE.md` e o
+02 §4.2/§7 pediam para manter válidas as referências "investigação, P3" e "regra 23" do código; com esta regra, elas deixam de ser
+mantidas e passam a ser removidas.

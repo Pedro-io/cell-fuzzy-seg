@@ -1,4 +1,4 @@
-"""Testes da checagem do nome do modelo no CellposeStep (PD-29).
+"""Testes da checagem do nome do modelo no CellposeStep.
 
 O Cellpose exige GPU e não roda nos testes. Um módulo ``cellpose`` falso reproduz só o que a
 checagem usa, com os mesmos nomes do ``cellpose/models.py`` v4.1.1: ``MODEL_NAMES``,
@@ -63,7 +63,7 @@ def test_existing_model_file_is_accepted(cellpose_step_module, tmp_path):
 
 
 def test_unknown_model_name_raises_before_loading(cellpose_step_module, monkeypatch):
-    # "cpsam_v2" era o nome errado da investigação (P9). O Cellpose não pode nem ser carregado.
+    # "cpsam_v2" não existe no Cellpose 4: o modelo não pode nem ser carregado.
     def fail_if_built(*args, **kwargs):
         raise AssertionError("o CellposeModel não deveria ser construído")
 
