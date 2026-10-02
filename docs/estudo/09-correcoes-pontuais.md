@@ -290,7 +290,7 @@ O `.abs()` do Size some sem mudar nada, porque os marcadores saem de uma sigmoid
 |---|---|---|
 | `MarkerStep.__init__` | `model=None` aceito | `model=None` só com `allow_segmentation_fallback=True`; senão, `ValueError` já na construção |
 | `MarkerStep.forward` | *warning* e segue | igual quando a flag está ligada (uso explícito, por exemplo em teste) |
-| notebook, célula 9 | `try/except` → GT como `segmentation` | sem `try/except`: se o Cellpose não carrega, a célula falha. ✅ aplicado em 2026-10-01, aguardando validação do autor |
+| notebook, célula 9 | `try/except` → GT como `segmentation` | sem `try/except`: se o Cellpose não carrega, a célula falha. ✅ aplicado em 2026-10-01 (`9395df2`) |
 
 **Efeito nos resultados:** nenhum. Os runs registrados usaram o Cellpose (`meta.json`: `segmentation_source: cellpose`).
 **Testes:** o `test_forward_without_model_falls_back_to_segmentation` passa a ligar a flag; um novo verifica o `ValueError` sem ela.
@@ -403,7 +403,7 @@ diâmetro → Dmap), que punha o diâmetro antes.
 |---|---|---|---|---|---|
 | 0 | Dados brutos | PD-23, PD-26, (PD-24) | sim | não | ✅ 2026-09-29: novo download, 37 + 14, reorganizado |
 | 1 | `MonusegDataset` (XML → máscara) | PD-25, PD-07 | sim | não | ✅ 2026-09-29: E1-a, E1-b e E1-c aplicadas (§13.5) |
-| 2 | `CellposeStep` | PD-29 (C4), PD-30, PD-31 (C7, `flows`/`styles`), PD-16 (C6, notebook) | sim (PD-30) | sim | em andamento: C4 ✅; C6 (notebook) aplicada, aguardando validação; depois C7 (`flows`/`styles`) e PD-30 (Colab) |
+| 2 | `CellposeStep` | PD-29 (C4), PD-30, PD-31 (C7, `flows`/`styles`), PD-16 (C6, notebook) | sim (PD-30) | sim | em andamento: C4 ✅; C6 (notebook) ✅; C7 (`flows`/`styles`) + PD-34 aplicadas, aguardando validação; depois PD-30 (Colab) |
 | 3 | `RGBAStep` | PD-34 (ideia) | — | — | — |
 | 4 | `DistanceMapStep` | PD-06 (depende da instância da etapa 1) | sim | não | — |
 | 5 | `SaveResultsStep` | regerar tudo **uma vez**, com commit e parâmetros no `meta.json` (PD-47) | — | sim | — |
@@ -430,9 +430,10 @@ seção. No fim de cada etapa, rodar a suíte inteira e registrar o resultado no
 | C3 | — | — | — |
 | C4 (PD-29) | `f4fcf3a` | 86: 82 ok, 3 falhas conhecidas (PD-11), 1 pulado | `ValueError` antes de carregar o modelo e antes da checagem de GPU |
 | C5 | — | — | — |
-| C6, parte do notebook (PD-16) | — (aguardando validação do autor) | 82 ok, 3 falhas conhecidas (PD-11), 1 pulado (o notebook não tem testes; sintaxe da célula conferida) | célula 9 sem fallback; markdown das células 0 e 16 descreve o comportamento; não executado (precisa de GPU). No mesmo pacote: menções a pendências tiradas do código desta sessão (PD-50) |
+| C6, parte do notebook (PD-16) | `9395df2` (validado pelo autor) | 82 ok, 3 falhas conhecidas (PD-11), 1 pulado (o notebook não tem testes; sintaxe da célula conferida) | célula 9 sem fallback; markdown das células 0 e 16 descreve o comportamento; não executado (precisa de GPU). No mesmo pacote: menções a pendências tiradas do código desta sessão (PD-50) |
 | C6, parte do `MarkerStep` | — | — | fica para a etapa 7 |
-| C7 | — | — | — |
+| C7, parte do Cellpose (PD-31) + PD-34 (a) | — (aguardando validação do autor) | 94: 90 ok, 3 falhas conhecidas (PD-11), 1 pulado | `flows`/`styles` fora; `cellpose_prob` e `RGBAStep(alpha=...)`; notebook não executado (precisa de GPU) |
+| C7, resto (PD-17, PD-20, PD-31) | — | — | — |
 | C8 | — | — | — |
 
 ---
@@ -553,3 +554,41 @@ vértices é descartado; dois polígonos sobrepostos → o menor mantém os seus
 (treino) e 14/14 (teste) imagens. Área / área anotada: 0,995 e 1,011. Instâncias: 24.133 de 24.135 regiões válidas no treino (2
 ocupam 0 px) e 6.697 de 6.697 no teste. Dice do Cellpose contra o GT novo: 0,8099 (treino, 30 imagens) e 0,8218 (teste).
 **Ainda não muda nenhum resultado:** os notebooks leem o `MoNuSegPreprocessed/`, que só é regerado na etapa 5.
+
+---
+
+## 14. Etapa 2 — `flows`/`styles` fora e probabilidade do Cellpose como opção (C7 parte do Cellpose + PD-34)
+
+### 14.1 Base ✅
+- **`flows` e `styles`** não são lidos por nenhum código nem salvos pelo `SaveResultsStep`. O único leitor é o notebook-tutorial
+  `preprocessamento_monuseg.ipynb`, que faz `if 'flows' in ...` e não quebra. No Cellpose 4, `styles` é só zeros.
+- **O que o `eval` devolve** (`cellpose/models.py` v4.1.1, L342): `masks, [fluxo_em_cores, dP, cellprob], styles`.
+- **O `cellprob` (`flows[2]`) é um logit,** não uma probabilidade: o Cellpose o treina com `BCEWithLogitsLoss` (`train.py`, L47 e
+  L51), e os pixels de célula são `cellprob > cellprob_threshold`, com padrão 0 (`dynamics.py`, L647), que equivale a 0,5 depois da
+  sigmoide. A sigmoide põe o mapa na mesma escala da máscara binária ([0, 1]) e cabe em `float16`.
+- **Formato:** no 2D, com `resample=True` (padrão), o mapa volta ao tamanho original mesmo com reescala (`_run_net`,
+  `resize_image(yf, shape[1], shape[2])`), o que importa para a PD-30.
+- **Disco:** 1000×1000 em `float16` = 2 MB por imagem, ~102 MB para as 51 imagens (contra ~204 MB em `float32`).
+
+### 14.2 Decisões do autor (2026-10-01)
+
+| # | Pergunta | Resposta | Onde ficou |
+|---|---|---|---|
+| 1 | Qual variante da PD-34? | (a): probabilidade no lugar da máscara, 4 canais | `RGBAStep(alpha="prob")` |
+| 2 | Parametrizável? | sim | `alpha="mask"` (padrão) ou `"prob"`; `RGBA_ALPHA` no notebook |
+| 3 | `float16` ou `float32`? | `float16` | `CellposeStep` |
+| 4 | Junto com a C7 (`flows`/`styles`)? | sim, um pacote só | este §14 |
+
+### 14.3 O que mudou ✅ (aguardando validação do autor; sem commit)
+- `cellpose_step.py`: o `forward` grava `segmentation` e `cellpose_prob` (`expit(flows[2])` em `float16`) e confere o formato;
+  não grava mais `flows` nem `styles`.
+- `rgba_step.py`: parâmetro `alpha` (`"mask"` | `"prob"`, validado no construtor); confere o formato da origem e, com `"prob"`,
+  a faixa [0, 1].
+- `save_results_step.py`: `cellpose_prob` entra nas chaves padrão.
+- Notebook de pré-processamento: `RGBA_ALPHA = "mask"`, `RGBAStep(alpha=RGBA_ALPHA)`, `meta.json` com `rgba_alpha` e as chaves
+  vindas de `SaveResultsStep.DEFAULT_KEYS`; a célula 13 lê `cellpose_prob`; markdown das células 0 e 16 atualizado.
+- Testes: +2 no `test_cellpose_step.py` (chaves do `forward`, sigmoide, formato), +5 no `test_rgba_step.py` (padrão, `"prob"`,
+  valor inválido, chave ausente, faixa e formato), +1 no `test_save_results_step.py` (`float16` preservado); o teste das chaves
+  padrão foi atualizado.
+
+**Efeito nos resultados:** nenhum enquanto `alpha="mask"`. Os `.npy` só mudam na etapa 5.

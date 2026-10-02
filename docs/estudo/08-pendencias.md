@@ -49,10 +49,10 @@
 | [PD-28](#pd-28) | ⚪ | Docs | `ARCHITECTURE.md` tem trechos errados (`registry/`, rede final "treinável") | ✅ Resolvida (2026-09-27) |
 | [PD-29](#pd-29) | 🟡 | Pré-proc. | A proteção contra nome de modelo do Cellpose nunca executa (`MODEL_LIST` não existe) | ✅ Resolvida (2026-10-01): nome desconhecido → erro |
 | [PD-30](#pd-30) | 🟡 | Pré-proc. | Parâmetros do Cellpose: `diam_mean` ignorado, `diameter=30` sem reescala, `flow_threshold`/`min_size` fora do padrão | Decidida: testar no Colab |
-| [PD-31](#pd-31) | ⚪ | Código morto | `ModelPipeline`, métodos do `OutputWriter`, `to_uint8_rgb`, `RMSEAccuracy`, `flows`/`styles` | Decidida: remover |
+| [PD-31](#pd-31) | ⚪ | Código morto | `ModelPipeline`, métodos do `OutputWriter`, `to_uint8_rgb`, `RMSEAccuracy`, `flows`/`styles` | Parcial (2026-10-01): `flows`/`styles` removidas; o resto continua decidido |
 | [PD-32](#pd-32) | ⚪ | Arquitetura | Três classes de pipeline idênticas; separação só por convenção | Aberta |
 | [PD-33](#pd-33) | 🟡 | Contrato | A chave `segmentation` significa duas coisas (Cellpose e saída final) | Decidida: renomear |
-| [PD-34](#pd-34) | ⚪ | Ideia | Usar a probabilidade contínua do Cellpose em vez do alpha binário | Ideia |
+| [PD-34](#pd-34) | ⚪ | Ideia | Usar a probabilidade contínua do Cellpose em vez do alpha binário | Implementada como opção (2026-10-01); falta a ablação |
 | [PD-35](#pd-35) | ⚪ | Arquitetura | Acoplamento implícito a atributos internos (`step.model`, `self.model.model`) | Aberta |
 | [PD-36](#pd-36) | 🟡 | Modelo | A entrada da MarkerUNet não tem a normalização ImageNet que o encoder espera | Decidida: ablação |
 | [PD-37](#pd-37) | ⚪ | Resolução | Reduções bilineares sem antialias: o ScribblePrompt lê 6,6% dos pixels | ✅ Encerrada: o antialias piora (oráculo) |
@@ -254,7 +254,7 @@ atual já usa essa versão, e o `requirements.txt` só exige `torch>=2.1.0`.
 
 Nenhum run atual foi afetado: as saídas mostram "Cellpose disponível" e "Rede final: ScribblePrompt", e o `meta.json` diz
 `segmentation_source: cellpose`. Mas é um risco. **Correção:** falhar com erro, ou exigir uma flag explícita para o fallback.
-**Parcial (2026-10-01, C6 parte do notebook; base em [09 §7](09-correcoes-pontuais.md)):** a célula 9 do
+**Parcial (2026-10-01, `9395df2`, C6 parte do notebook; base em [09 §7](09-correcoes-pontuais.md)):** a célula 9 do
 `preprocessamento_monuseg_persistido.ipynb` não tem mais o `try/except`: se o `CellposeStep()` falhar (sem GPU ou, desde a
 PD-29, com nome de modelo desconhecido), a execução para. Saíram também o `segmentation = GT` do `run_preprocess`, o pipeline
 condicional e o `segmentation_source: ground_truth_fallback` do `meta.json`. O markdown das células 0 e 16 descreve o
@@ -490,6 +490,9 @@ Registrar o Dice, o IoU e a razão de massa **por imagem**. Só regerar `MoNuSeg
 - as chaves `flows` e `styles` gravadas pelo `CellposeStep`. `styles` é só zeros no Cellpose 4.
 **Decisão (2026-09-27): remover.** Se alguma função for necessária para as figuras do TCC, será reimplementada depois
 (ela continua no histórico do git).
+**Parcial (2026-10-01, C7 parte do Cellpose):** o `CellposeStep` não grava mais `flows` nem `styles`. Do `flows`, só o mapa de
+probabilidade continua, numa chave própria (`cellpose_prob`, PD-34). O resto da PD-31 (`ModelPipeline`, métodos do
+`OutputWriter`, `to_uint8_rgb`, `RMSEAccuracy`) continua para a C7.
 
 ### PD-32
 **⚪ Três classes de pipeline idênticas.** ✅
@@ -514,6 +517,18 @@ padrão de `Trainer.prediction_key`, as docstrings de `LossComposer`/`LossTerm`/
 O Cellpose calcula por pixel a probabilidade de ser célula (`flows[2]`), mas o `RGBAStep` passa à MarkerUNet só `segmentation > 0`
 (binário). Um 4º canal contínuo carrega a incerteza do Cellpose, que é justamente onde a MarkerUNet poderia corrigir. A mesma
 ideia vale para usar os fluxos (5 canais). Exige mudar o `CellposeStep`, o `RGBAStep` e regerar os dados.
+**Decisão do autor (2026-10-01):** aplicar a **variante (a)** (probabilidade no lugar da máscara, 4 canais), **parametrizável**,
+com `float16` em disco. As variantes (b) (máscara + probabilidade, 5 canais) e (c) (+ vetores de fluxo, 6 canais) ficam como ideia.
+**Implementada como opção (2026-10-01)** ✅, base em [09 §14](09-correcoes-pontuais.md):
+- `CellposeStep` grava `cellpose_prob` = sigmoide do `flows[2]` em `float16`. O `flows[2]` é um logit: conferido no Cellpose
+  4.1.1, que treina esse canal com `BCEWithLogitsLoss` (`train.py`, L47/L51) e corta em `cellprob > 0` (`dynamics.py`, L647).
+  No 2D, o mapa volta ao tamanho original mesmo com reescala (`_run_net`, `resample=True`); o step confere o formato mesmo assim.
+- `RGBAStep(alpha="mask" | "prob")`, com `"mask"` como padrão: **nenhum resultado muda** até alguém escolher `"prob"`.
+- `SaveResultsStep` salva `cellpose_prob` por padrão (~2 MB por imagem, ~102 MB para as 51). O notebook de pré-processamento
+  ganhou `RGBA_ALPHA` e grava `rgba_alpha` no `meta.json`.
+**Falta:** regerar os dados (etapa 5) e a **ablação** `"mask"` × `"prob"` na fase 2. A escolha do alpha na hora de carregar os
+dados, sem refazer o `rgba`, fica para o módulo da PD-19. ❓ Ainda não foi medido quantos pixels têm probabilidade alta fora de
+qualquer máscara do Cellpose (a máscara também depende dos fluxos, do `flow_threshold` e do `min_size`).
 
 ### PD-35
 **⚪ Acoplamento implícito a atributos internos.** ✅

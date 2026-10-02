@@ -1,7 +1,9 @@
 import os
 from typing import Any, Dict
 
+import numpy as np
 from cellpose import core, models
+from scipy.special import expit
 
 from src.utils.logger import logger
 
@@ -101,18 +103,23 @@ class CellposeStep(PipelineStep):
         Returns:
             O mesmo dicionário ``data`` com chaves adicionadas:
                 - ``"segmentation"``: array da máscara de instâncias com formato ``(H, W)``.
-                - ``"flows"``: saídas do campo de fluxo do Cellpose.
-                - ``"styles"``: vetores de estilo do Cellpose.
+                - ``"cellpose_prob"``: probabilidade de cada pixel ser célula, ``float16``
+                  ``(H, W)`` em ``[0, 1]``. É a sigmoide do mapa ``flows[2]`` do Cellpose, que é
+                  um logit (a rede é treinada com ``BCEWithLogitsLoss``); por isso
+                  ``cellprob_threshold=0`` corresponde a probabilidade 0,5. A máscara final não
+                  sai só deste mapa: ela também depende dos fluxos, do ``flow_threshold`` e do
+                  ``min_size``.
 
         Raises:
             KeyError: Se a chave ``"image"`` estiver ausente em ``data``.
+            ValueError: Se o mapa de probabilidade não tiver o formato da máscara.
         """
         if "image" not in data:
             raise KeyError("Input data must contain 'image'")
 
         image = data["image"]
 
-        masks, flows, styles = self.model.eval(
+        masks, flows, _styles = self.model.eval(
             image,
             batch_size=self.batch_size,
             diameter=self.diam_mean,
@@ -121,8 +128,14 @@ class CellposeStep(PipelineStep):
             min_size=self.min_size,
         )
 
+        cellprob_logit = np.asarray(flows[2])
+        if cellprob_logit.shape != masks.shape:
+            raise ValueError(
+                f"[CellposeStep] Mapa de probabilidade com formato {cellprob_logit.shape}, "
+                f"diferente da máscara {masks.shape}."
+            )
+
         data["segmentation"] = masks
-        data["flows"] = flows
-        data["styles"] = styles
+        data["cellpose_prob"] = expit(cellprob_logit).astype(np.float16)
 
         return data

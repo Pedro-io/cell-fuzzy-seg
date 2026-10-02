@@ -98,8 +98,9 @@ Funciona, mas quem renomear esses atributos quebra o treino sem erro de import (
 | `ground_truth_instances` | `MonusegDataset` (desde 2026-09-29, só com XML) | (H,W) int32, um rótulo por núcleo | ninguém ainda; será usado pelo Dmap por núcleo (PD-06). Não é persistido. |
 | `meta` | `MonusegDataset` | dict de caminhos | ninguém |
 | `segmentation` ① | `CellposeStep` | (H,W) uint16, instâncias | `RGBAStep`, `SaveResultsStep` |
-| `flows`, `styles` | `CellposeStep` | listas do Cellpose | **ninguém** (não são salvos; no Cellpose 4, `styles` é só zeros) |
-| `rgba` | `RGBAStep` | (H,W,4) float32 [0,1] | `MarkerStep` |
+| `cellpose_prob` | `CellposeStep` (desde 2026-10-01) | (H,W) float16 [0,1]: sigmoide do logit `flows[2]` | `RGBAStep` com `alpha="prob"`, `SaveResultsStep` |
+| ~~`flows`, `styles`~~ | `CellposeStep` (até 2026-10-01) | listas do Cellpose | ninguém; removidas (PD-31) |
+| `rgba` | `RGBAStep` | (H,W,4) float32 [0,1]; alpha = máscara (`"mask"`, padrão) ou probabilidade (`"prob"`) | `MarkerStep` |
 | `distance_map` | `DistanceMapStep` | (H,W) float32 [0,1] | losses (`DMapTerm`) |
 | `markers` | `MarkerStep` | (B,1,H,W) float [0,1], com grafo | `FrozenSegmentationStep`, losses |
 | `segmentation` ② | `FrozenSegmentationStep` | (B,1,H,W) float [0,1], com grafo | `Trainer` (`prediction_key`), losses |
@@ -168,8 +169,9 @@ Outros comportamentos:
 - **Nome do modelo** (desde 2026-10-01, PD-29 ✅): o `_validate_model_name` aceita um arquivo existente ou um nome de
   `MODEL_NAMES + get_user_models()`, a mesma regra do Cellpose 4.1.1, e levanta `ValueError` antes de carregar o modelo. Antes,
   o `_warn_if_model_unavailable` importava `MODEL_LIST`, que não existe no 4.1.1, e a proteção (item P9 da investigação) nunca executava.
-- `forward` ([L90-124](../../src/pipeline/steps/preprocessing/cellpose_step.py#L90-L124)) grava `segmentation`, `flows` e
-  `styles`. **A probabilidade contínua** (`flows[2]`) é jogada fora: a MarkerUNet recebe só a máscara binária pelo canal alpha.
+- `forward` grava `segmentation` e, desde 2026-10-01, `cellpose_prob`: a sigmoide do `flows[2]`, que é um logit (o Cellpose
+  treina esse canal com `BCEWithLogitsLoss`, e o `cellprob_threshold=0` equivale a 0,5), em `float16`. O step confere que o mapa
+  tem o formato da máscara. `flows` e `styles` deixaram de ser gravados (PD-31). Antes, a probabilidade era jogada fora (PD-34).
   Usá-la seria uma ideia a testar (PD-34).
 
 ### 5.3 `RGBAStep` — [rgba_step.py](../../src/pipeline/steps/preprocessing/rgba_step.py)
@@ -178,6 +180,8 @@ Outros comportamentos:
 ([L60-85](../../src/pipeline/steps/preprocessing/rgba_step.py#L60-L85)). O `to_float32_rgb`
 ([image_utils.py:29-49](../../src/utils/image_utils.py#L29-L49)) replica imagens cinza para 3 canais, corta em 3 canais e
 divide por 255 se o máximo passar de 1. O alpha é **binário**: a identidade das instâncias do Cellpose se perde aqui.
+**Desde 2026-10-01 (PD-34):** o parâmetro `alpha` escolhe a origem do 4º canal: `"mask"` (padrão, o comportamento acima) ou
+`"prob"` (a `cellpose_prob`, em [0,1]). O step confere o formato e, com `"prob"`, a faixa.
 
 **Por que RGBA?** 📖 É a forma de fusão precoce da tese (prova de conceito, 5.4.1: "RGB concatenado a uma máscara de cue,
 entrada de 4 canais"). O "A" não é transparência de verdade; é só o 4º canal.
@@ -202,7 +206,8 @@ em 1000² e o aviso não se aplica. A aumentação (rotação de 90° e flips) m
 
 - O Step exige `id` e delega a `OutputWriter.save_preprocessed(id, data, keys)`, que grava `<output_dir>/<chave>/<id>.npy`
   ([output_writer.py:29-57](../../src/io/output_writer.py#L29-L57)).
-- Chaves padrão: `image`, `segmentation`, `rgba`, `ground_truth` e `distance_map`.
+- Chaves padrão: `image`, `segmentation`, `cellpose_prob` (desde 2026-10-01), `rgba`, `ground_truth` e `distance_map`. A
+  `cellpose_prob` é salva mesmo com `alpha="mask"`, para a outra variante poder ser montada sem rodar o Cellpose de novo.
 - **Por que `.npy`** (docstring, 📜): `rgba` e `distance_map` são float32; salvar em PNG uint8 perderia precisão.
 - Divisão de papéis (regra 12): o Step decide **o quê e quando** salvar; o `io/` só sabe **como**.
 - O resto do `OutputWriter` (`save_all`, `save_segmentation`, `save_markers`, `save_overlay`, `save_rgba`, `_colorize`) não é

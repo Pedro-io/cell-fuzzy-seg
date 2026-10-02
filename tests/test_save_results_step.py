@@ -10,10 +10,12 @@ def _sample(image_id="TCGA-test-01"):
     rgba = np.concatenate([image.astype(np.float32) / 255.0, segmentation[..., None].astype(np.float32)], axis=-1)
     ground_truth = segmentation.astype(np.float32)
     distance_map = 1.0 - ground_truth
+    cellpose_prob = np.random.rand(8, 8).astype(np.float16)
     return {
         "id": image_id,
         "image": image,
         "segmentation": segmentation,
+        "cellpose_prob": cellpose_prob,
         "rgba": rgba,
         "ground_truth": ground_truth,
         "distance_map": distance_map,
@@ -54,7 +56,20 @@ def test_save_results_step_preserves_float_precision(tmp_path):
 def test_save_results_step_uses_default_keys(tmp_path):
     step = SaveResultsStep(output_dir=str(tmp_path))
 
-    assert set(step.keys) == {"image", "segmentation", "rgba", "ground_truth", "distance_map"}
+    assert set(step.keys) == {
+        "image", "segmentation", "cellpose_prob", "rgba", "ground_truth", "distance_map"
+    }
+
+
+def test_save_results_step_preserves_float16_probability(tmp_path):
+    step = SaveResultsStep(output_dir=str(tmp_path), keys=["cellpose_prob"])
+    sample = _sample()
+
+    step(sample)
+
+    loaded = np.load(tmp_path / "cellpose_prob" / f"{sample['id']}.npy")
+    assert loaded.dtype == np.float16
+    assert np.array_equal(loaded, sample["cellpose_prob"])
 
 
 def test_save_results_step_custom_keys(tmp_path):

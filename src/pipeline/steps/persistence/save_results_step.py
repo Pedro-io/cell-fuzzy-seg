@@ -37,14 +37,16 @@ class SaveResultsStep(PipelineStep):
         output_dir: Diretório base onde as chaves serão persistidas
             (ex.: ``data_source/MoNuSegPreprocessed/train``).
         keys: Lista de chaves a persistir. Padrão: as chaves produzidas pelo
-            pré-processamento (``image``, ``segmentation``, ``rgba``,
-            ``ground_truth`` e ``distance_map``).
+            pré-processamento (``image``, ``segmentation``, ``cellpose_prob``, ``rgba``,
+            ``ground_truth`` e ``distance_map``). O ``cellpose_prob`` é salvo mesmo quando o
+            alpha do ``rgba`` é a máscara binária, para que a outra variante possa ser montada
+            sem rodar o Cellpose de novo.
         writer: Instância de :class:`~src.io.output_writer.OutputWriter` que
             executa a gravação em disco.
         name: Identificador deste passo no pipeline.
     """
 
-    DEFAULT_KEYS = ["image", "segmentation", "rgba", "ground_truth", "distance_map"]
+    DEFAULT_KEYS = ["image", "segmentation", "cellpose_prob", "rgba", "ground_truth", "distance_map"]
 
     def __init__(
         self,
