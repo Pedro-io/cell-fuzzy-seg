@@ -403,7 +403,7 @@ diâmetro → Dmap), que punha o diâmetro antes.
 |---|---|---|---|---|---|
 | 0 | Dados brutos | PD-23, PD-26, (PD-24) | sim | não | ✅ 2026-09-29: novo download, 37 + 14, reorganizado |
 | 1 | `MonusegDataset` (XML → máscara) | PD-25, PD-07 | sim | não | ✅ 2026-09-29: E1-a, E1-b e E1-c aplicadas (§13.5) |
-| 2 | `CellposeStep` | PD-29 (C4), PD-30, PD-31 (C7, `flows`/`styles`), PD-16 (C6, notebook) | sim (PD-30) | sim | em andamento: C4 ✅; C6 (notebook) ✅; C7 (`flows`/`styles`) + PD-34 aplicadas, aguardando validação; depois PD-30 (Colab) |
+| 2 | `CellposeStep` | PD-29 (C4), PD-30, PD-31 (C7, `flows`/`styles`), PD-16 (C6, notebook) | sim (PD-30) | sim | em andamento: C4 ✅; C6 (notebook) ✅; C7 (`flows`/`styles`) + PD-34 ✅; falta PD-30 (Colab) |
 | 3 | `RGBAStep` | PD-34 (ideia) | — | — | — |
 | 4 | `DistanceMapStep` | PD-06 (depende da instância da etapa 1) | sim | não | — |
 | 5 | `SaveResultsStep` | regerar tudo **uma vez**, com commit e parâmetros no `meta.json` (PD-47) | — | sim | — |
@@ -432,7 +432,7 @@ seção. No fim de cada etapa, rodar a suíte inteira e registrar o resultado no
 | C5 | — | — | — |
 | C6, parte do notebook (PD-16) | `9395df2` (validado pelo autor) | 82 ok, 3 falhas conhecidas (PD-11), 1 pulado (o notebook não tem testes; sintaxe da célula conferida) | célula 9 sem fallback; markdown das células 0 e 16 descreve o comportamento; não executado (precisa de GPU). No mesmo pacote: menções a pendências tiradas do código desta sessão (PD-50) |
 | C6, parte do `MarkerStep` | — | — | fica para a etapa 7 |
-| C7, parte do Cellpose (PD-31) + PD-34 (a) | — (aguardando validação do autor) | 94: 90 ok, 3 falhas conhecidas (PD-11), 1 pulado | `flows`/`styles` fora; `cellpose_prob` e `RGBAStep(alpha=...)`; notebook não executado (precisa de GPU) |
+| C7, parte do Cellpose (PD-31) + PD-34 (a) | `64a624f` (validado pelo autor) | 94: 90 ok, 3 falhas conhecidas (PD-11), 1 pulado | `flows`/`styles` fora; `cellpose_prob` e `RGBAStep(alpha=...)`; notebook não executado (precisa de GPU) |
 | C7, resto (PD-17, PD-20, PD-31) | — | — | — |
 | C8 | — | — | — |
 
@@ -579,7 +579,7 @@ ocupam 0 px) e 6.697 de 6.697 no teste. Dice do Cellpose contra o GT novo: 0,809
 | 3 | `float16` ou `float32`? | `float16` | `CellposeStep` |
 | 4 | Junto com a C7 (`flows`/`styles`)? | sim, um pacote só | este §14 |
 
-### 14.3 O que mudou ✅ (aguardando validação do autor; sem commit)
+### 14.3 O que mudou ✅ (`64a624f`)
 - `cellpose_step.py`: o `forward` grava `segmentation` e `cellpose_prob` (`expit(flows[2])` em `float16`) e confere o formato;
   não grava mais `flows` nem `styles`.
 - `rgba_step.py`: parâmetro `alpha` (`"mask"` | `"prob"`, validado no construtor); confere o formato da origem e, com `"prob"`,
@@ -592,3 +592,92 @@ ocupam 0 px) e 6.697 de 6.697 no teste. Dice do Cellpose contra o GT novo: 0,809
   padrão foi atualizado.
 
 **Efeito nos resultados:** nenhum enquanto `alpha="mask"`. Os `.npy` só mudam na etapa 5.
+
+---
+
+## 15. Etapa 2 — teste dos parâmetros do Cellpose (PD-30): base e notebook
+
+### 15.1 Base ✅
+- **O que o `diameter` faz** (`cellpose/models.py` v4.1.1, L271-273): `image_scaling = 30 / diameter` se `diameter > 0`; com
+  `None`, o fator é 1. Ou seja, `diameter=None` e `diameter=30` dão a mesma reescala (nenhuma). A configuração "padrão da
+  biblioteca" do plano só muda `flow_threshold` (0,4) e `min_size` (15).
+- **Diâmetro real com o GT novo** (37 imagens, máscara por instância da etapa 1; diâmetro equivalente `2·√(área/π)`, mediana por
+  imagem e depois mediana entre imagens):
+
+  | Grupo | Imagens | Diâmetro mediano | Faixa entre imagens |
+  |---|---|---|---|
+  | 40× (`MicronsPerPixel` < 0,4) | 30 | **22,3 px** | 16,9–32,5 |
+  | 20× (`TCGA-HE-7128/7129/7130`) | 3 | **12,4 px** | 10,9–12,6 |
+  | sem `MicronsPerPixel` | 4 | 23,4 px | 18,4–30,3 |
+
+  Os 24 e 13 px do plano antigo vinham do GT antigo (~10% maior). As 4 imagens sem escala têm núcleos do tamanho das 40×.
+- **Canais:** as 37 imagens de treino são RGB (3 canais).
+
+### 15.2 Configurações do teste
+
+| Config. | `diameter` | `flow_threshold` | `min_size` |
+|---|---|---|---|
+| `atual` | 30 | 0,2 | 4 |
+| `padrao` | `None` (= fator 1) | 0,4 | 15 |
+| `d22` | 22 | 0,2 | 4 |
+| `por_imagem` | 12 se `MicronsPerPixel ≥ 0,4`, senão 22 | 0,2 | 4 |
+
+### 15.3 O notebook
+[notebooks/exploration/cellpose_parametros.ipynb](../../notebooks/exploration/cellpose_parametros.ipynb):
+- **Setup:** clona o branch `homolog` ou, se o clone já existir no Colab, faz `fetch` + `pull --ff-only`; instala o
+  `requirements.txt`; exige GPU; registra o commit e as versões.
+- **Execução:** um único `CellposeStep` (o modelo carrega uma vez), com `diam_mean`, `flow_threshold` e `min_size` trocados por
+  configuração; só as 37 de treino.
+- **Saída:** tabela média ± desvio, Dice por grupo de escala (20× × 40×), comparação pareada com `atual` (diferença média,
+  nº de imagens que melhoram, Wilcoxon) e os arquivos `docs/estudo/resultados/cellpose_parametros_treino.csv` +
+  `..._meta.json`, baixados automaticamente no Colab.
+- **Ensaio a seco** (local, sem GPU, com um Cellpose de mentira): o fluxo inteiro roda nas 37 imagens, e os diâmetros chegam
+  certos (12 nas três em 20× e 22 nas outras 34).
+
+**Para rodar:** o notebook precisa estar no GitHub (o Colab clona o `homolog`), então ele só roda depois do commit + push.
+
+### 15.4 Resultado (Colab, 2026-10-02) ✅
+Rodado pelo autor: commit `64a624f` (sem mudanças locais em `src/`), Tesla T4, torch 2.11.0+cu128, numpy 2.0.2, cellpose 4.1.1.
+Arquivos: [cellpose_parametros_treino.csv](resultados/cellpose_parametros_treino.csv) e
+[..._meta.json](resultados/cellpose_parametros_treino_meta.json). 37 imagens de treino, GT da etapa 1. Média ± desvio padrão:
+
+| Config. | Dice | IoU | Precisão | Revocação | Massa / GT | Instâncias / núcleos | s por imagem |
+|---|---|---|---|---|---|---|---|
+| `atual` (30; 0,2; 4) | 0,814 ± 0,038 | 0,688 | 0,879 | 0,761 | 0,867 | 0,80 | 10,4 |
+| **`padrao`** (`None`; 0,4; 15) | **0,845 ± 0,030** | **0,733** | 0,867 | **0,826** | 0,955 | 0,92 | 10,7 |
+| `d22` (22; 0,2; 4) | 0,815 ± 0,039 | 0,690 | 0,872 | 0,768 | 0,883 | 0,80 | 20,6 |
+| `por_imagem` (22/12; 0,2; 4) | 0,816 ± 0,038 | 0,691 | 0,871 | 0,771 | 0,887 | 0,81 | 23,7 |
+
+**Comparação pareada com `atual` (Dice, 37 imagens):**
+
+| Config. | Δ médio | Δ mediano | Melhora / piora | Wilcoxon p |
+|---|---|---|---|---|
+| `padrao` | **+0,0310** | +0,0279 | **37 / 0** | **1,5e-11** |
+| `d22` | +0,0011 | −0,0006 | 16 / 21 | 0,59 |
+| `por_imagem` | +0,0021 | +0,0012 | 19 / 18 | 0,15 |
+
+**Por escala (Dice):** em 40× (34 imagens) `atual` 0,816, `padrao` 0,846, `por_imagem` 0,818; em 20× (3 imagens) `atual` 0,790,
+`padrao` 0,836, `por_imagem` 0,798. Nas três em 20×, ampliar pelo diâmetro de 12 px ajuda um pouco (+0,008 a +0,014 em relação
+ao `atual`); usar 22 nelas piora um pouco.
+
+**Leitura:**
+1. **Os limiares são o fator que importa.** `flow_threshold=0,2` e `min_size=4` são mais rígidos que o padrão e fazem o Cellpose
+   descartar máscaras boas: ele acha 80% dos núcleos anotados, contra 92% com os padrões. A revocação sobe 6,5 pontos e a precisão
+   cai só 1,2. O ganho é consistente: melhora as 37 imagens, a menor melhora é +0,006.
+2. **O diâmetro quase não importa** para o `cpsam` neste conjunto, exceto, um pouco, nas três imagens em 20×. Custa ~2× o tempo.
+3. ❓ **Não testado:** qual dos dois limiares causou o ganho, se afrouxar mais ajuda (a revocação ainda está abaixo da precisão)
+   e a combinação limiares padrão + diâmetro por imagem.
+
+### 15.5 Decisões (autor, 2026-10-06)
+
+| # | Pergunta | Resposta | Onde ficou |
+|---|---|---|---|
+| 1 | Adotar `flow_threshold=0,4` e `min_size=15`? | sim | padrões do `CellposeStep` (§15.6) |
+| 2 | Diâmetro: sem reescala ou por imagem? | sem reescala | `diameter=None` |
+| 3 | Segunda rodada antes de fixar? | não; seguir | o que não foi testado fica registrado na PD-30 |
+
+#### Perguntas originais (histórico)
+1. Adotar `flow_threshold=0,4` e `min_size=15` no `CellposeStep`? Os dados apoiam com folga.
+2. Diâmetro: deixar sem reescala (`None`/30) ou usar o diâmetro por imagem, que ajuda só as três imagens em 20× e dobra o tempo?
+3. Rodar uma segunda rodada curta (≈ 5 configurações, ~40 min numa T4) para separar o efeito de cada limiar e testar afrouxar
+   mais, antes de fixar? Ou fixar os padrões já?

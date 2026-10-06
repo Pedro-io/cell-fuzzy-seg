@@ -48,7 +48,7 @@
 | [PD-27](#pd-27) | 🟡 | Licença | Repositório público redistribui o MoNuSeg sem atribuição; `LICENSE` vazio | Parcial: atribuição feita; falta a licença do código |
 | [PD-28](#pd-28) | ⚪ | Docs | `ARCHITECTURE.md` tem trechos errados (`registry/`, rede final "treinável") | ✅ Resolvida (2026-09-27) |
 | [PD-29](#pd-29) | 🟡 | Pré-proc. | A proteção contra nome de modelo do Cellpose nunca executa (`MODEL_LIST` não existe) | ✅ Resolvida (2026-10-01): nome desconhecido → erro |
-| [PD-30](#pd-30) | 🟡 | Pré-proc. | Parâmetros do Cellpose: `diam_mean` ignorado, `diameter=30` sem reescala, `flow_threshold`/`min_size` fora do padrão | Decidida: testar no Colab |
+| [PD-30](#pd-30) | 🟡 | Pré-proc. | Parâmetros do Cellpose: `diam_mean` ignorado, `diameter=30` sem reescala, `flow_threshold`/`min_size` fora do padrão | Decidida (2026-10-06): limiares padrão (0,4 e 15), sem reescala; falta aplicar no `CellposeStep` |
 | [PD-31](#pd-31) | ⚪ | Código morto | `ModelPipeline`, métodos do `OutputWriter`, `to_uint8_rgb`, `RMSEAccuracy`, `flows`/`styles` | Parcial (2026-10-01): `flows`/`styles` removidas; o resto continua decidido |
 | [PD-32](#pd-32) | ⚪ | Arquitetura | Três classes de pipeline idênticas; separação só por convenção | Aberta |
 | [PD-33](#pd-33) | 🟡 | Contrato | A chave `segmentation` significa duas coisas (Cellpose e saída final) | Decidida: renomear |
@@ -69,6 +69,7 @@
 | [PD-48](#pd-48) | 🟡 | Testes | Testes cobrem a "tubulação" com dummies; nada de redes reais, dados, métricas ou valores das losses; sem execução automática | Aberta |
 | [PD-49](#pd-49) | 🟠 | Modelo/Experimento | Só positivo: um fundo ≥ 1e-3 no canal positivo faz o ScribblePrompt marcar a imagem inteira; a sigmoid da MarkerUNet nunca dá 0 | Aberta (decisão do autor, 09 §9) |
 | [PD-50](#pd-50) | ⚪ | Código | Código, testes e notebooks citam a história do projeto (PD-nn, "investigação, P5", "C2", "regra 23") | Aberta (regra do autor, 2026-10-01) |
+| [PD-51](#pd-51) | ⚪ | Dados | Uma região de área ~0 é classificada de forma diferente conforme a versão do numpy (só muda o log) | Aberta |
 
 ---
 
@@ -479,6 +480,31 @@ inicial"), mas os números não foram guardados. Plano do teste, no Colab e medi
 4. diâmetro por imagem: 24 nas imagens em 40× e ~13 nas três em 20× (`TCGA-HE-7128/7129/7130`).
 
 Registrar o Dice, o IoU e a razão de massa **por imagem**. Só regerar `MoNuSegPreprocessed/` com a melhor configuração.
+**Base revista (2026-10-01)** ✅, detalhe em [09 §15](09-correcoes-pontuais.md):
+- No Cellpose 4.1.1, `diameter=None` dá o mesmo fator que `diameter=30` (`image_scaling = 1.0`, `models.py` L271-273). A
+  config. 2 ("padrão") difere da atual **só nos limiares**.
+- Com o GT novo (etapa 1) e as 37 imagens, o diâmetro equivalente mediano é **22,3 px** nas 30 imagens em 40×, **12,4 px** nas
+  três em 20× e ~23 px nas 4 sem `MicronsPerPixel`. Os 24 e 13 do plano vinham do GT antigo, ~10% maior. As configs. 3 e 4
+  passam a usar **22** e **12** (as 4 sem escala seguem a regra das 40×).
+- Notebook: [cellpose_parametros.ipynb](../../notebooks/exploration/cellpose_parametros.ipynb). Mede as 4 configurações nas 37 de
+  treino (sem o teste), com Dice, IoU, precisão, revocação, massa e nº de instâncias por imagem, mais a comparação pareada com a
+  atual (Wilcoxon), e salva CSV + `meta.json` (commit, versões, GPU) em `docs/estudo/resultados/` (PD-47). Ensaio a seco feito
+  localmente com um Cellpose de mentira (fluxo completo, 37 imagens, diâmetros repassados certos); **falta rodar no Colab**.
+**Resultado (rodado pelo autor no Colab em 2026-10-02, commit `64a624f`, Tesla T4, numpy 2.0.2, cellpose 4.1.1)** ✅ —
+[cellpose_parametros_treino.csv](resultados/cellpose_parametros_treino.csv), 37 imagens de treino, GT novo; tabela completa no
+[09 §15.4](09-correcoes-pontuais.md):
+- **Os limiares é que importam.** `padrao` (`flow_threshold` 0,4, `min_size` 15) sobe o Dice de **0,814 para 0,845** (+0,031),
+  melhora **as 37 imagens** (Wilcoxon p = 1,5e-11), e a revocação vai de 0,761 a 0,826, com a precisão quase igual (0,879 → 0,867).
+  O Cellpose passa a achar 92% dos núcleos anotados, contra 80%. Os valores 0,2 e 4 eram mais rígidos que o padrão e descartavam
+  máscaras boas.
+- **O diâmetro quase não importa.** `d22`: +0,001 (p = 0,59, melhora 16 e piora 21). `por_imagem`: +0,002 (p = 0,15); só nas três
+  imagens em 20× o ganho é visível (+0,008 a +0,014), e o tempo sobe ~2,3× (a imagem é ampliada).
+- ❓ Não se sabe qual dos dois limiares causou o ganho (mudaram juntos), nem se afrouxar mais (`flow_threshold` maior,
+  `cellprob_threshold` < 0) ajuda, já que a revocação (0,83) continua abaixo da precisão (0,87).
+- **Linha de base nova no treino:** com o GT novo e as 37 imagens, o Cellpose atual dá 0,814; com os limiares padrão, 0,845.
+**Decisão (autor, 2026-10-06):** adotar `flow_threshold=0,4` e `min_size=15`, **sem reescala** (`diameter=None`), e **não** fazer
+uma segunda rodada. Ficam sem teste: o efeito isolado de cada limiar, afrouxar mais (`flow_threshold` > 0,4, `cellprob_threshold`
+< 0) e os limiares padrão com o diâmetro por imagem. A mudança no `CellposeStep` vem num commit próprio.
 
 ### PD-31
 **⚪ Código morto.** ✅ Não é usado por nada em `src/`, `tests/` nem nos notebooks:
@@ -490,7 +516,7 @@ Registrar o Dice, o IoU e a razão de massa **por imagem**. Só regerar `MoNuSeg
 - as chaves `flows` e `styles` gravadas pelo `CellposeStep`. `styles` é só zeros no Cellpose 4.
 **Decisão (2026-09-27): remover.** Se alguma função for necessária para as figuras do TCC, será reimplementada depois
 (ela continua no histórico do git).
-**Parcial (2026-10-01, C7 parte do Cellpose):** o `CellposeStep` não grava mais `flows` nem `styles`. Do `flows`, só o mapa de
+**Parcial (2026-10-01, `64a624f`, C7 parte do Cellpose):** o `CellposeStep` não grava mais `flows` nem `styles`. Do `flows`, só o mapa de
 probabilidade continua, numa chave própria (`cellpose_prob`, PD-34). O resto da PD-31 (`ModelPipeline`, métodos do
 `OutputWriter`, `to_uint8_rgb`, `RMSEAccuracy`) continua para a C7.
 
@@ -519,7 +545,7 @@ O Cellpose calcula por pixel a probabilidade de ser célula (`flows[2]`), mas o 
 ideia vale para usar os fluxos (5 canais). Exige mudar o `CellposeStep`, o `RGBAStep` e regerar os dados.
 **Decisão do autor (2026-10-01):** aplicar a **variante (a)** (probabilidade no lugar da máscara, 4 canais), **parametrizável**,
 com `float16` em disco. As variantes (b) (máscara + probabilidade, 5 canais) e (c) (+ vetores de fluxo, 6 canais) ficam como ideia.
-**Implementada como opção (2026-10-01)** ✅, base em [09 §14](09-correcoes-pontuais.md):
+**Implementada como opção (2026-10-01, `64a624f`)** ✅, base em [09 §14](09-correcoes-pontuais.md):
 - `CellposeStep` grava `cellpose_prob` = sigmoide do `flows[2]` em `float16`. O `flows[2]` é um logit: conferido no Cellpose
   4.1.1, que treina esse canal com `BCEWithLogitsLoss` (`train.py`, L47/L51) e corta em `cellprob > 0` (`dynamics.py`, L647).
   No 2D, o mapa volta ao tamanho original mesmo com reescala (`_run_net`, `resample=True`); o step confere o formato mesmo assim.
@@ -798,3 +824,13 @@ a história (pendências, datas, "antes era…", itens da investigação) fica n
 do comportamento quando ela carrega informação útil. Os notebooks de experimento ficam para a poda da PD-10. ⚠️ O `CLAUDE.md` e o
 02 §4.2/§7 pediam para manter válidas as referências "investigação, P3" e "regra 23" do código; com esta regra, elas deixam de ser
 mantidas e passam a ser removidas.
+
+### PD-51
+**⚪ A classificação de uma região quase degenerada depende da versão do numpy.** ✅ (2026-10-01)
+No `TCGA-HE-7129`, a região 1148 tem 3 vértices colineares (`(108,3; 255,9)`, `(108,2; 255,9)`, `(108,1; 255,9)`). A área pela
+fórmula do laço dá `7,3e-12` com o numpy 2.5.3 (local) e **0** com o numpy 2.0.2 (Colab, `requirements.txt`). Por isso o log do
+`xml_to_instance_mask` diz "degenerada" no Colab e "sem nenhum pixel" localmente. **A máscara final é idêntica nos dois casos**
+(a região não ocupa nenhum pixel), então nenhum resultado muda; só o log difere entre ambientes. O mesmo vale para a região 827
+do `TCGA-HE-7128` (área 0,025, 0 px).
+**Proposta:** tratar como degenerada uma área abaixo de uma tolerância (ex.: `< 1e-6 px²`), em vez de `<= 0`, para o log ser o
+mesmo em qualquer ambiente.

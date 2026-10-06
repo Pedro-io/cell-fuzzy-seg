@@ -1,0 +1,36 @@
+{
+  "commit": "64a624f0743d5d6137fcb1aa5b385378a8c0ac75",
+  "mudancas_locais_em_src": false,
+  "versoes": {
+    "python": "3.12.13",
+    "torch": "2.11.0+cu128",
+    "cellpose": "4.1.1",
+    "numpy": "2.0.2",
+    "gpu": "Tesla T4"
+  },
+  "conjunto": "treino (37 imagens)",
+  "cellprob_threshold": 0.0,
+  "configs": {
+    "atual": {
+      "diameter": 30.0,
+      "flow_threshold": 0.2,
+      "min_size": 4
+    },
+    "padrao": {
+      "diameter": null,
+      "flow_threshold": 0.4,
+      "min_size": 15
+    },
+    "d22": {
+      "diameter": 22.0,
+      "flow_threshold": 0.2,
+      "min_size": 4
+    },
+    "por_imagem": {
+      "diameter": "12 se MicronsPerPixel >= 0.4, senão 22",
+      "flow_threshold": 0.2,
+      "min_size": 4
+    }
+  },
+  "criado_em": "2026-10-02 12:49:57"
+}
