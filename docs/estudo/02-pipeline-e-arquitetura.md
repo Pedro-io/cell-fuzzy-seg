@@ -157,11 +157,11 @@ probabilidade. ❓ A descrição do Cellpose-SAM precisa do artigo próprio (PD-
 | Parâmetro no Step | Valor | Padrão da biblioteca | O que faz de verdade |
 |---|---|---|---|
 | `pretrained_model` | `"cpsam"` | `"cpsam"` | Um nome desconhecido faz o Cellpose **cair no `cpsam` com um aviso no log**. O `cpsam_v2` de julho, portanto, rodava `cpsam`. |
-| `diam_mean` (construtor) | 30 | — | **Ignorado** no Cellpose ≥ 4.0.1. A biblioteca loga "diam_mean argument are not used"; o aviso aparece na saída do notebook de pré-processamento (PD-30). |
-| `diameter` (`eval`) | 30 | `None` | Reescala a imagem por `30/diameter`. **Com 30, o fator é 1: não reescala.** O núcleo mediano do MoNuSeg tem ~24 px (40×) e ~13 px nas imagens em 20× (PD-24, PD-30). |
-| `flow_threshold` | **0,2** | 0,4 | Mais rígido que o padrão: descarta mais máscaras "incoerentes". Escolhido por teste do autor (§9); os números do teste não foram guardados. |
+| `diam_mean` (construtor) | 30 → **não é mais passado** (2026-10-06) | — | **Ignorado** no Cellpose ≥ 4.0.1. A biblioteca loga "diam_mean argument are not used"; o aviso aparece na saída do notebook de pré-processamento (PD-30). |
+| `diameter` (`eval`) | 30 → **`None`** (2026-10-06) | `None` | Reescala a imagem por `30/diameter`. **Com 30, o fator é 1: não reescala.** O núcleo mediano do MoNuSeg tem ~24 px (40×) e ~13 px nas imagens em 20× (PD-24, PD-30). |
+| `flow_threshold` | 0,2 → **0,4** (2026-10-06) | 0,4 | Erro de fluxo máximo por máscara. O 0,2 (teste antigo do autor, sem números) descartava máscaras boas; no teste da PD-30, o padrão subiu o Dice no treino de 0,814 para 0,845. |
 | `cellprob_threshold` | 0,0 | 0,0 | Limiar do logit de probabilidade; menor = mais e maiores máscaras. |
-| `min_size` | **4** | 15 | Remove máscaras com menos de 4 px. Mais permissivo que o padrão. Escolhido por teste do autor (§9). |
+| `min_size` | 4 → **15** (2026-10-06) | 15 | Remove máscaras menores que `min_size` px. Mudou junto com o `flow_threshold` (PD-30). |
 | `batch_size` | 8 | 8 | Nº de *tiles* de 256² processados juntos na GPU (só afeta velocidade). |
 
 Outros comportamentos:

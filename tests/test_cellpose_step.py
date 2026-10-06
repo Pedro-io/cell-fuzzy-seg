@@ -25,6 +25,7 @@ class FakeCellposeModel:
         self.logit = FAKE_LOGIT
 
     def eval(self, image, **kwargs):
+        self.eval_kwargs = kwargs
         flows = [np.zeros(image.shape[:2] + (3,), np.uint8), np.zeros((2,) + image.shape[:2]), self.logit]
         return FAKE_MASKS, flows, np.zeros(256)
 
@@ -110,3 +111,16 @@ def test_forward_rejects_probability_with_wrong_shape(cellpose_step_module):
 
     with pytest.raises(ValueError, match="formato"):
         step({"image": np.zeros((2, 2, 3), dtype=np.uint8)})
+
+
+def test_default_parameters_reach_cellpose_eval(cellpose_step_module):
+    # Padrões: sem reescala e limiares da biblioteca.
+    step = cellpose_step_module.CellposeStep(pretrained_model="cpsam")
+
+    step({"image": np.zeros((2, 2, 3), dtype=np.uint8)})
+
+    kwargs = step.model.eval_kwargs
+    assert kwargs["diameter"] is None
+    assert kwargs["flow_threshold"] == 0.4
+    assert kwargs["min_size"] == 15
+    assert kwargs["cellprob_threshold"] == 0.0

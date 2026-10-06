@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import numpy as np
 from cellpose import core, models
@@ -19,7 +19,7 @@ class CellposeStep(PipelineStep):
     Atributos:
         model: Instância carregada de ``CellposeModel`` usando inferência na GPU.
         batch_size: Número de imagens processadas por batch de inferência.
-        diam_mean: Diâmetro estimado dos objetos passado ao Cellpose.
+        diam_mean: Diâmetro dos objetos passado ao ``eval`` do Cellpose (``None``: sem reescala).
         cellprob_threshold: Limiar de probabilidade celular para seleção da máscara.
         flow_threshold: Limiar de fluxo para rastreamento do Cellpose.
         min_size: Tamanho mínimo de objeto a ser mantido na máscara final.
@@ -29,10 +29,10 @@ class CellposeStep(PipelineStep):
         self, batch_size: int = 8,
         name: str = "CellposeStep",
         pretrained_model: str = "cpsam",
-        diam_mean: float = 30.0,
+        diam_mean: Optional[float] = None,
         cellprob_threshold: float = 0.0,
-        flow_threshold: float = 0.2,
-        min_size: int = 4
+        flow_threshold: float = 0.4,
+        min_size: int = 15
         ) -> None:
         """Cria um CellposeStep e verifica a disponibilidade da GPU.
 
@@ -44,10 +44,15 @@ class CellposeStep(PipelineStep):
                 desconhecido levanta ``ValueError``: sem a checagem, o Cellpose trocaria o
                 modelo pelo ``cpsam`` só com um aviso, mudando a entrada da MarkerNet e a linha
                 de base.
-            diam_mean: Diâmetro médio das células para segmentação.
-            cellprob_threshold: Limiar aplicado à probabilidade celular do Cellpose.
-            flow_threshold: Limiar aplicado às saídas de fluxo do Cellpose.
-            min_size: Tamanho mínimo de instância a ser mantido na máscara de segmentação.
+            diam_mean: Diâmetro típico dos núcleos, em pixels. O Cellpose reescala a imagem por
+                ``30 / diam_mean`` antes da rede; ``None`` (padrão) ou ``30`` não reescalam. No
+                MoNuSeg, reescalar pelo diâmetro medido (~22 px em 40×) quase não muda o Dice e
+                dobra o tempo.
+            cellprob_threshold: Limiar do logit de probabilidade celular (0 equivale a 0,5).
+            flow_threshold: Erro máximo de fluxo aceito por máscara; valores menores descartam mais
+                máscaras. O padrão (0,4, o da biblioteca) achou mais núcleos que valores menores.
+            min_size: Tamanho mínimo, em pixels, de uma instância na máscara (padrão 15, o da
+                biblioteca).
 
         Raises:
             ValueError: Se ``pretrained_model`` não for um modelo conhecido nem um arquivo existente.
@@ -59,7 +64,7 @@ class CellposeStep(PipelineStep):
         if not core.use_gpu():
             raise RuntimeError("GPU is required but not available.")
 
-        self.model = models.CellposeModel(gpu=True, pretrained_model=pretrained_model, diam_mean=diam_mean)
+        self.model = models.CellposeModel(gpu=True, pretrained_model=pretrained_model)
         self.batch_size = batch_size
         self.diam_mean = diam_mean
         self.cellprob_threshold = cellprob_threshold

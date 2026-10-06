@@ -48,7 +48,7 @@
 | [PD-27](#pd-27) | 🟡 | Licença | Repositório público redistribui o MoNuSeg sem atribuição; `LICENSE` vazio | Parcial: atribuição feita; falta a licença do código |
 | [PD-28](#pd-28) | ⚪ | Docs | `ARCHITECTURE.md` tem trechos errados (`registry/`, rede final "treinável") | ✅ Resolvida (2026-09-27) |
 | [PD-29](#pd-29) | 🟡 | Pré-proc. | A proteção contra nome de modelo do Cellpose nunca executa (`MODEL_LIST` não existe) | ✅ Resolvida (2026-10-01): nome desconhecido → erro |
-| [PD-30](#pd-30) | 🟡 | Pré-proc. | Parâmetros do Cellpose: `diam_mean` ignorado, `diameter=30` sem reescala, `flow_threshold`/`min_size` fora do padrão | Decidida (2026-10-06): limiares padrão (0,4 e 15), sem reescala; falta aplicar no `CellposeStep` |
+| [PD-30](#pd-30) | 🟡 | Pré-proc. | Parâmetros do Cellpose: `diam_mean` ignorado, `diameter=30` sem reescala, `flow_threshold`/`min_size` fora do padrão | ✅ Resolvida (2026-10-06): limiares padrão, sem reescala; vale a partir da regeração |
 | [PD-31](#pd-31) | ⚪ | Código morto | `ModelPipeline`, métodos do `OutputWriter`, `to_uint8_rgb`, `RMSEAccuracy`, `flows`/`styles` | Parcial (2026-10-01): `flows`/`styles` removidas; o resto continua decidido |
 | [PD-32](#pd-32) | ⚪ | Arquitetura | Três classes de pipeline idênticas; separação só por convenção | Aberta |
 | [PD-33](#pd-33) | 🟡 | Contrato | A chave `segmentation` significa duas coisas (Cellpose e saída final) | Decidida: renomear |
@@ -505,6 +505,9 @@ Registrar o Dice, o IoU e a razão de massa **por imagem**. Só regerar `MoNuSeg
 **Decisão (autor, 2026-10-06):** adotar `flow_threshold=0,4` e `min_size=15`, **sem reescala** (`diameter=None`), e **não** fazer
 uma segunda rodada. Ficam sem teste: o efeito isolado de cada limiar, afrouxar mais (`flow_threshold` > 0,4, `cellprob_threshold`
 < 0) e os limiares padrão com o diâmetro por imagem. A mudança no `CellposeStep` vem num commit próprio.
+**✅ Resolvida (2026-10-06, validada pelo autor; resultados em `2922d37`):** padrões do `CellposeStep` = `diam_mean=None`, `flow_threshold=0.4`,
+`min_size=15`; o `diam_mean` não é mais passado ao construtor do `CellposeModel` (que o ignora e avisava). Teste novo confere
+que os padrões chegam ao `eval`. O notebook de pré-processamento usa os padrões, então a regeração (etapa 5) já sai com eles.
 
 ### PD-31
 **⚪ Código morto.** ✅ Não é usado por nada em `src/`, `tests/` nem nos notebooks:

@@ -681,3 +681,11 @@ ao `atual`); usar 22 nelas piora um pouco.
 2. Diâmetro: deixar sem reescala (`None`/30) ou usar o diâmetro por imagem, que ajuda só as três imagens em 20× e dobra o tempo?
 3. Rodar uma segunda rodada curta (≈ 5 configurações, ~40 min numa T4) para separar o efeito de cada limiar e testar afrouxar
    mais, antes de fixar? Ou fixar os padrões já?
+
+### 15.6 Aplicação (2026-10-06; aguardando validação, sem commit)
+- `cellpose_step.py`: padrões `diam_mean=None`, `flow_threshold=0.4`, `min_size=15`; o `diam_mean` deixou de ser passado ao
+  construtor do `CellposeModel`, que o ignora no Cellpose 4 (vai só para o `eval`, como `diameter`). Docstrings explicam o que
+  cada parâmetro faz e por que o padrão foi escolhido.
+- `test_cellpose_step.py`: +1 teste (os padrões chegam ao `eval`). Suíte: **95 testes, 91 ok, 3 falhas conhecidas (PD-11), 1 pulado**.
+- `cellpose_parametros.ipynb`: a descrição da config. `atual` deixou de dizer "os valores do `CellposeStep` hoje".
+- **Efeito:** nenhum número muda até a regeração dos dados (etapa 5); ali, a linha de base do Cellpose passa a ser a do `padrao`.
