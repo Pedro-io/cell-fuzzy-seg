@@ -3,9 +3,9 @@
 Este módulo fornece :class:`PreprocessingPipeline`, o orquestrador canônico
 para passos de pré-processamento (por exemplo, Cellpose e conversão para RGBA)
 que são executados **uma vez** por imagem, fora do loop de treino. Os resultados
-são normalmente persistidos por um :class:`SaveResultsStep` e consumidos depois por
-:class:`MonusegPreprocessedDataset` durante o treino, evitando recomputação de
-passos caros (como o Cellpose) a cada época.
+são persistidos por um :class:`SaveResultsStep` e lidos depois do disco durante o
+treino (:mod:`src.data.load.preprocessed_dataset`), evitando recomputar passos
+caros (como o Cellpose) a cada época.
 """
 
 from typing import Any, Dict, List
@@ -20,8 +20,7 @@ class PreprocessingPipeline:
     Cada passo é executado em ordem, passando o mesmo dicionário de dados pela cadeia.
     Os passos devem **adicionar** chaves ao dicionário, nunca removê-las.
 
-    O ponto de entrada canônico é :meth:`run`, que corresponde à interface esperada por
-    :class:`~src.data.load.monuseg_preprocessed_dataset.MonusegPreprocessedDataset`.
+    O ponto de entrada canônico é :meth:`run`.
 
     Uso típico::
 
@@ -77,8 +76,6 @@ class PreprocessingPipeline:
     def __call__(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Alias conveniente para :meth:`run` (sem verbosidade).
 
-        Permite passar o pipeline como objeto chamável para
-        :class:`~src.data.load.monuseg_preprocessed_dataset.MonusegPreprocessedDataset`
-        sem exigir ``.run()`` ou ``.forward()`` explicitamente.
+        Permite usar o pipeline como objeto chamável, sem exigir ``.run()`` explicitamente.
         """
         return self.run(data, verbose=False)

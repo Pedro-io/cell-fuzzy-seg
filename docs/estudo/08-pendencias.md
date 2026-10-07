@@ -26,7 +26,7 @@
 | [PD-05](#pd-05) | 🟡 | Resolução | O ScribblePrompt trabalha em 128²: o núcleo mediano vira ~3 px | Aberta; o oráculo recomenda 256² |
 | [PD-06](#pd-06) | 🟠 | Dados/Loss | O mapa de distância é normalizado pelo máximo da imagem, não por núcleo | ✅ Resolvida (2026-10-06, `308ba92`); falta recalibrar o peso do DMap (fase 2) |
 | [PD-07](#pd-07) | 🟠 | Dados | O GT binário funde núcleos (−25% de componentes no treino) | Parcial: a máscara por instância alimenta o Dmap (2026-10-06); o GT binário continua fundindo (intencional) |
-| [PD-08](#pd-08) | 🟡 | Treino | A aumentação é estática e não há shuffle | Decidida: módulo em `src/` com aumentação por época |
+| [PD-08](#pd-08) | 🟡 | Treino | A aumentação é estática e não há shuffle | Implementada no módulo (2026-10-07); vale quando os notebooks passarem a usá-lo |
 | [PD-09](#pd-09) | 🟡 | Treino | Os runs provavelmente validaram com a BatchNorm em `train()` | Aberta |
 | [PD-10](#pd-10) | 🟡 | Reprodutibilidade | Checkpoints não salvos, saídas velhas, markdowns desatualizados | Aberta |
 | [PD-11](#pd-11) | ⚪ | Testes | Os testes e a docstring do `ObjectSizeLoss` descrevem a fórmula antiga | Aberta |
@@ -37,7 +37,7 @@
 | [PD-16](#pd-16) | 🟡 | Robustez | Fallbacks silenciosos (GT como entrada; rede "dummy") | Parcial (2026-10-01): notebook de pré-processamento corrigido; falta o `MarkerStep` |
 | [PD-17](#pd-17) | ⚪ | Código morto | `pipeline_test.py` está quebrado | Aberta |
 | [PD-18](#pd-18) | ⚪ | Config | Partes de `datasets.yml` não são usadas | Aberta |
-| [PD-19](#pd-19) | 🟡 | Dados | Dois caminhos de carregamento; `MonusegPreprocessedDataset` não lê do disco | Decidida: módulo em `src/` |
+| [PD-19](#pd-19) | 🟡 | Dados | Dois caminhos de carregamento; `MonusegPreprocessedDataset` não lê do disco | Em andamento: peças 1 (métricas) e 2 (dataset) feitas; classe antiga removida |
 | [PD-20](#pd-20) | ⚪ | Git | `.pyc` e `egg-info` versionados | Aberta |
 | [PD-21](#pd-21) | 🟡 | Git | 1,6 GB de dados no git, incluindo 1,1 GB de `.npy` derivados | Adiada (decisão do autor) |
 | [PD-22](#pd-22) | ⚪ | Referências | Falta o artigo do Cellpose-SAM | Aberta |
@@ -200,6 +200,8 @@ Nos notebooks, `make_batches(train_preprocessed, 4, augment=True)` roda **uma ve
 mesmos 8 batches, com as mesmas rotações e flips e na mesma ordem.
 **Correção:** sortear a aumentação dentro do loop (por época) e embaralhar as amostras.
 **Decisão (2026-09-27):** fica no módulo de dados/treino em `src/` da PD-19, e não copiado em cada notebook.
+**Implementada (2026-10-07, aguardando validação):** `PreprocessedDataset(augment=True, seed=...)` sorteia rot90 + flips a cada
+acesso (a cada época) e `make_loader(shuffle=True, seed=...)` embaralha a ordem; ver 09 §18.6.
 
 ### PD-09
 **🟡 Os runs provavelmente validaram com a BatchNorm em modo treino.** ❓
@@ -308,6 +310,9 @@ dataset bruto; **não lê** os `.npy`. Os experimentos não o usam: cada noteboo
 
 Vale decidir, na hora de implementar, se o `MonusegPreprocessedDataset` atual (que roda o pipeline na hora) é substituído ou
 mantido para o tutorial.
+**Andamento (2026-10-07):** peça 1 (métricas, `ba0b85c`) e peça 2 (dataset, aguardando validação; 09 §18.6). O
+`MonusegPreprocessedDataset` foi **removido** (decisão do autor: remover o código não usado conforme for encontrado), junto com
+o seu teste, as citações nas docstrings do `PreprocessingPipeline` e a seção 7 do tutorial `preprocessamento_monuseg.ipynb`.
 
 ### PD-20
 **⚪ `.pyc` versionados.** ✅ Há arquivos em `src/**/__pycache__/` no git, apesar do `__pycache__/` no `.gitignore`.

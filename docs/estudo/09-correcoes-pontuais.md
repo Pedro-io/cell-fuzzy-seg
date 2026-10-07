@@ -894,7 +894,7 @@ final vem dos próprios *folds*: em cada um, o *early stopping* acha a época de
 mediana delas. Com isso o treino final dura mais ou menos conforme o experimento, medido na validação e não na loss de treino.
 O máximo, a paciência e a regra (mediana) ficam parametrizáveis.
 
-### 18.5 Peça 1 — métricas (2026-10-07; aguardando validação, sem commit)
+### 18.5 Peça 1 — métricas (2026-10-07, `ba0b85c`, validada pelo autor)
 - `src/evaluation/metrics.py`:
   - `binary_metrics(prediction, ground_truth, threshold=0.5)`: Dice, IoU, precisão, revocação e massa por imagem; aceita NumPy ou
     tensor; o GT conta como primeiro plano o que for diferente de zero (vale para rótulos de instância). Casos vazios com valor
@@ -909,4 +909,24 @@ O máximo, a paciência e a regra (mediana) ficam parametrizáveis.
   testes, 106 ok, 3 falhas conhecidas (PD-11), 1 pulado**.
 - **Conferência:** nas 14 imagens de teste, a função nova difere da `compute_binary_metrics` dos notebooks em no máximo 5e-8 (o `eps`)
   e reproduz o Dice do Cellpose (0,8370).
+
+### 18.6 Peça 2 — dataset, aumentação e collate (2026-10-07; aguardando validação, sem commit)
+- `src/data/load/preprocessed_dataset.py`:
+  - `load_preprocessed(split, root, ids=None, alpha="mask")`: lê os `.npy` do split uma vez e devolve `id -> amostra`. A
+    segmentação do Cellpose entra como **`cellpose_segmentation`** (a rede final grava a saída em `segmentation`, PD-33), e é dela
+    que o `evaluate` tira a linha de base. `alpha="prob"` troca o 4º canal do `rgba` pela `cellpose_prob` na carga (PD-34).
+  - `PreprocessedDataset(samples, ids=None, augment=False, seed=None)`: um subconjunto de ids sobre as amostras já carregadas (os
+    *folds* compartilham os arrays, sem cópia); com `augment`, sorteia rot90 (k ∈ 0..3) + flip horizontal + flip vertical **a cada
+    acesso**, aplicados juntos a todas as chaves, com gerador próprio e semente; os arrays carregados nunca são alterados. Devolve
+    tensores `(C, H, W)` no formato dos notebooks (`image` float em [0, 255]).
+  - `collate_samples` (batch com `id` em lista) e `make_loader(dataset, batch_size, shuffle, seed)` (`num_workers=0`, ordem com
+    semente).
+- **Removido** (código não usado): `MonusegPreprocessedDataset` e `tests/test_monuseg_preprocessed_dataset.py`; as citações nas
+  docstrings do `PreprocessingPipeline`; a seção 7 do tutorial `preprocessamento_monuseg.ipynb` (3 células) e a linha dele no resumo.
+- `tests/test_preprocessed_dataset.py`: 10 testes (carga e renome, subconjunto, `alpha="prob"`, erros, tensores sem aumentação,
+  ids ausentes, **mesma transformação em todas as chaves**, sorteio diferente a cada acesso sem alterar os originais, mesma
+  semente = mesma sequência, collate e loader com ordem reproduzível). Suíte: **119 testes, 115 ok, 3 falhas conhecidas (PD-11),
+  1 pulado**.
+- **Dados reais:** carga de 37 + 14 imagens em 1,0 s, 1,27 GB em memória; uma época do loader (37 imagens, com aumentação) em 1,7 s
+  em CPU; alpha = máscara do Cellpose e RGB = imagem/255 em todos os batches aumentados; com `alpha="prob"`, o 4º canal fica em [0, 1].
 

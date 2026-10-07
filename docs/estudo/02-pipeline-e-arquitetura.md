@@ -253,7 +253,7 @@ nos temas 3 e 5.
 
 | # | Regra | Situação |
 |---|---|---|
-| 1 | `Dataset` nunca executa modelos | ⚠️ `MonusegPreprocessedDataset` roda o pipeline, que pode conter o Cellpose. Formalmente delega (regra 2), mas executa. |
+| 1 | `Dataset` nunca executa modelos | ✅ desde 2026-10-07: o `MonusegPreprocessedDataset`, que rodava o pipeline (podendo conter o Cellpose), foi removido; o `PreprocessedDataset` só lê os `.npy`. |
 | 2 | `Dataset` delega o pré-processamento ao `PreprocessingPipeline` | ✅ |
 | 3 | `models/` não conhece `data/` | ✅ |
 | 4 | `models/` não conhece `pipeline/` | ✅ |

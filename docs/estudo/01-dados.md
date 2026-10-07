@@ -186,7 +186,10 @@ Classe abstrata (herda de `torch.utils.data.Dataset`). No construtor, ela:
   `{"id", "image", "ground_truth", "meta": {image_path, mask_path}}` e aplica `transform` no dicionário inteiro, se houver.
 - Não redimensiona, não normaliza e não aumenta os dados.
 
-### 6.3 `MonusegPreprocessedDataset`: [monuseg_preprocessed_dataset.py](../../src/data/load/monuseg_preprocessed_dataset.py)
+### 6.3 `MonusegPreprocessedDataset` (removido em 2026-10-07)
+
+> Substituído por `load_preprocessed` + `PreprocessedDataset` ([preprocessed_dataset.py](../../src/data/load/preprocessed_dataset.py)),
+> que leem os `.npy` do disco (PD-19). O texto abaixo descreve a classe antiga, como histórico.
 
 Envolve um dataset bruto e **roda o pipeline de pré-processamento a cada `__getitem__`**
 ([L66-78](../../src/data/load/monuseg_preprocessed_dataset.py#L66-L78)), sobre uma cópia profunda da amostra. Portanto
