@@ -1033,6 +1033,9 @@ O máximo, a paciência e a regra (mediana) ficam parametrizáveis.
   `TCGA-18-5592-01Z-00-DX1`: conferências aprovadas; perda 0,515 → **0,108**; Dice 0,520 → **0,878** (Cellpose nessa imagem:
   0,883); massa 1,87× → 1,03×; marcador cobre 13% → 25% da imagem. O pipeline consegue aprender: o caminho do gradiente pelo
   ScribblePrompt congelado funciona com a configuração nova. Isso não diz nada sobre generalização.
+- **Executado pelo autor no Colab (2026-10-07, commit `f08bc1d`, GPU):** mesmos valores iniciais (semente fixa); conferências
+  aprovadas; perda 0,515 → 0,109; Dice 0,520 → **0,881** (Cellpose 0,883); marcador cobre 13% → 20%. O aviso de `HF_TOKEN` na
+  saída vem do download dos pesos ImageNet do encoder pelo `smp` e é inofensivo.
 
 ### 18.11 Notebook do experimento-base (PD-44) (2026-10-07, `53961f2`, validado pelo autor)
 [notebooks/experiments/base_dice_tv.ipynb](../../notebooks/experiments/base_dice_tv.ipynb), o primeiro experimento sobre o módulo:
@@ -1050,7 +1053,7 @@ O máximo, a paciência e a regra (mediana) ficam parametrizáveis.
 - ❓ **Tempo no Colab** não medido: a entrada do ScribblePrompt em 256² custa ~4× a de 128², e a aumentação em CPU soma ~1,7 s por
   época. No pior caso (200 épocas em todos os *folds*), deve passar de 1 h; a paciência deve encurtar.
 
-### 18.12 Logs enxutos (2026-10-07; aguardando validação, sem commit)
+### 18.12 Logs enxutos (2026-10-07, `f08bc1d`, validado pelo autor)
 **Problema** (apontado pelo autor): o `src/utils/logger.py` usava o Loguru sem configuração, e o padrão dele mostra tudo desde DEBUG.
 As saídas traziam centenas de linhas por imagem e por batch (`Loading image`, `Building RGBA`, `Generated segmentation`...), uma
 linha por objeto criado (`Initialized`, `Persistindo em` — 51 vezes no pré-processamento) e as regiões degeneradas a cada carga do
