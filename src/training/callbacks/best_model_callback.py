@@ -22,6 +22,8 @@ class BestModelCallback(TrainerCallback):
     Quando ele supera o melhor anterior em mais de ``min_delta``, guarda uma cópia (em CPU) do
     ``state_dict`` de ``model``. Com ``patience``, marca ``trainer.stop_training = True`` depois de
     ``patience`` validações seguidas sem melhora. Ao fim, :meth:`restore_best` carrega o melhor estado.
+    O Dice da época, o melhor Dice e a melhor época são acrescentados ao ``val_metrics`` da época
+    (``val_dice``, ``best_dice``, ``best_epoch``), e o ``TrainingLoop`` os mostra no progresso.
 
     Args:
         model: Módulo cujo estado é guardado (a MarkerUNet).
@@ -94,12 +96,14 @@ class BestModelCallback(TrainerCallback):
             self._since_best = 0
         else:
             self._since_best += 1
-            if self.patience is not None and self._since_best >= self.patience:
-                trainer.stop_training = True
-                logger.info(
-                    f"[BestModelCallback] {self._since_best} validações sem melhora; melhor Dice "
-                    f"{self.best_dice:.4f} na época {self.best_epoch}."
-                )
+        val_metrics.update({"val_dice": dice, "best_dice": self.best_dice, "best_epoch": self.best_epoch})
+
+        if self.patience is not None and self._since_best >= self.patience:
+            trainer.stop_training = True
+            logger.info(
+                f"[BestModelCallback] {self._since_best} validações sem melhora; melhor Dice "
+                f"{self.best_dice:.4f} na época {self.best_epoch}."
+            )
 
     def restore_best(self) -> None:
         """Carrega no modelo o estado da época de melhor Dice.

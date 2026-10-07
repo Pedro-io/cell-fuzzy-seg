@@ -39,6 +39,9 @@
 > **Atualização (2026-10-07, PD-19, peça 5):** `test_report.py` (6 testes). **138 testes: 134 passam, 3 falhas (PD-11), 1 pulado**.
 >
 > **Atualização (2026-10-07, C8):** +5 em `test_scribble_prompting_network.py` (modo `positive` e `input_size`, §6). **143 testes: 139 passam, 3 falhas, 1 pulado**.
+>
+> **Atualização (2026-10-07, logs):** `test_logger.py` (3) e +1 em `test_training_loop.py` e em `test_best_model_callback.py`.
+> **148 testes: 144 passam, 3 falhas (PD-11), 1 pulado**.
 
 - Existem **74 testes em 12 arquivos** ([tests/](../../tests/)), escritos entre julho e agosto junto com as correções da
   investigação do exp. 1. ✅

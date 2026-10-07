@@ -67,7 +67,7 @@ class SaveResultsStep(PipelineStep):
         self.output_dir = output_dir
         self.keys = list(keys) if keys is not None else list(self.DEFAULT_KEYS)
         self.writer = OutputWriter(output_dir)
-        logger.info(f"[{self.name}] Persistindo em: {output_dir}")
+        logger.debug(f"[{self.name}] Persistindo em: {output_dir}")
 
     def forward(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Persiste as chaves configuradas do dicionário e devolve o dicionário intacto.

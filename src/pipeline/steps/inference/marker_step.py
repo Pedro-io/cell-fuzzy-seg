@@ -83,7 +83,7 @@ class MarkerStep(PipelineStep):
             else:
                 self.model.model.eval()
 
-        logger.info(
+        logger.debug(
             f"[{self.name}] Initialized on {self.device} (differentiable={differentiable})"
         )
 

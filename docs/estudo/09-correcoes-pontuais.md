@@ -1034,7 +1034,7 @@ O máximo, a paciência e a regra (mediana) ficam parametrizáveis.
   0,883); massa 1,87× → 1,03×; marcador cobre 13% → 25% da imagem. O pipeline consegue aprender: o caminho do gradiente pelo
   ScribblePrompt congelado funciona com a configuração nova. Isso não diz nada sobre generalização.
 
-### 18.11 Notebook do experimento-base (PD-44) (2026-10-07; aguardando validação, sem commit)
+### 18.11 Notebook do experimento-base (PD-44) (2026-10-07, `53961f2`, validado pelo autor)
 [notebooks/experiments/base_dice_tv.ipynb](../../notebooks/experiments/base_dice_tv.ipynb), o primeiro experimento sobre o módulo:
 - **Configuração** (decidida na PD-44): soft Dice + TV 0,001 (sem Size, DMap e Border); ScribblePrompt congelado em modo `positive`,
   τ = 0,5, entrada 256²; MarkerUNet (resnet34 ImageNet, 4 canais, alpha = máscara do Cellpose); `TrainConfig(k=5, batch_size=4,
@@ -1049,4 +1049,29 @@ O máximo, a paciência e a regra (mediana) ficam parametrizáveis.
   significam nada.
 - ❓ **Tempo no Colab** não medido: a entrada do ScribblePrompt em 256² custa ~4× a de 128², e a aumentação em CPU soma ~1,7 s por
   época. No pior caso (200 épocas em todos os *folds*), deve passar de 1 h; a paciência deve encurtar.
+
+### 18.12 Logs enxutos (2026-10-07; aguardando validação, sem commit)
+**Problema** (apontado pelo autor): o `src/utils/logger.py` usava o Loguru sem configuração, e o padrão dele mostra tudo desde DEBUG.
+As saídas traziam centenas de linhas por imagem e por batch (`Loading image`, `Building RGBA`, `Generated segmentation`...), uma
+linha por objeto criado (`Initialized`, `Persistindo em` — 51 vezes no pré-processamento) e as regiões degeneradas a cada carga do
+dataset. ✅ inventário feito com `grep` em `src/`.
+
+**Mudança** (decisão do autor: seguir a proposta e incluir o Dice na linha de progresso):
+- `src/utils/logger.py`: nível **INFO** por padrão e formato curto (`HH:MM:SS | mensagem`; o nível só aparece a partir de WARNING).
+  `CELL_FUZZY_LOG_LEVEL=DEBUG` (variável de ambiente) ou `set_log_level("DEBUG")` mostram os detalhes de novo. A troca de nível
+  substitui só o destino criado pelo módulo.
+- Rebaixados para DEBUG: inicialização de `MarkerStep`, `FrozenSegmentationStep`, `Trainer`, `SaveResultsStep`,
+  `ScribblePromptingNetwork` e `CellposeStep`; "checkpoint já existe"; regiões degeneradas no XML.
+- Ficam em INFO: progresso por época, início e resultado de cada *fold*, parada antecipada, download do checkpoint; WARNING e ERROR.
+- **Dice na linha de progresso:** os callbacks podem acrescentar métricas numéricas ao `val_metrics` da época, e o `TrainingLoop`
+  as mostra. O `BestModelCallback` acrescenta `val_dice`, `best_dice` e `best_epoch`.
+- Testes: `tests/test_logger.py` (3: INFO esconde DEBUG e usa o formato curto; DEBUG mostra; a variável de ambiente fixa o nível),
+  +1 em `test_training_loop.py` (métricas dos callbacks na linha de progresso), +1 em `test_best_model_callback.py`. Suíte:
+  **148 testes, 144 ok, 3 falhas conhecidas (PD-11), 1 pulado**.
+- Saída do ensaio do experimento-base depois da mudança (CPU, versão reduzida):
+  ```
+  19:55:29 | [kfold] fold 1/2: 3 treino, 3 validação
+  19:55:44 | [TrainingLoop] Epoch 2/4 | train_loss=0.6225 | val_loss=0.5506 | val_dice=0.4577 | best_dice=0.4577 | best_epoch=2
+  19:56:01 | [kfold] fold 1: melhor Dice 0.4577 na época 2
+  ```
 

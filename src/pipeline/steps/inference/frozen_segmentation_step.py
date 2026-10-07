@@ -64,7 +64,7 @@ class FrozenSegmentationStep(PipelineStep):
             self.final_network.to(self.device)
             self.final_network.train()
 
-        logger.info(f"[{self.name}] Initialized on {self.device}")
+        logger.debug(f"[{self.name}] Initialized on {self.device}")
 
     def forward(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Executa a rede final de segmentação sobre imagem e marcadores.

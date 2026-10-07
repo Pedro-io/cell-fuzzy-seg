@@ -152,7 +152,7 @@ class Trainer:
         if isinstance(self.loss_composer, nn.Module):
             self.loss_composer.to(self.device)
 
-        logger.info(f"[Trainer] Initialized on {self.device}")
+        logger.debug(f"[Trainer] Initialized on {self.device}")
 
     def train_step(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         """Executa um passo completo de treinamento para um batch.

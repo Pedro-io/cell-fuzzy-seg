@@ -50,6 +50,10 @@ class TrainingLoop:
             Padrão: 1 (valida em todas as épocas, se ``val_loader`` existir).
         log_every: Intervalo (em épocas) entre logs de progresso. Padrão: 1.
 
+    Callbacks podem acrescentar métricas numéricas ao ``val_metrics`` da época em
+    ``on_epoch_end`` (ex.: o ``BestModelCallback`` acrescenta o Dice de validação); elas entram na
+    linha de progresso.
+
     Raises:
         ValueError: Se ``validate_every`` ou ``log_every`` não forem positivos.
     """
@@ -214,5 +218,9 @@ class TrainingLoop:
 
         if val_metrics is not None:
             message += f" | val_loss={val_metrics['loss']:.4f}"
+            for key, value in val_metrics.items():
+                if key in ("loss", "terms") or not isinstance(value, (int, float)):
+                    continue
+                message += f" | {key}={value:.4f}" if isinstance(value, float) else f" | {key}={value}"
 
         logger.info(message)

@@ -70,6 +70,20 @@ def test_tracks_best_epoch_and_restores_its_weights():
     assert model.weight.item() == 2.0                 # pesos da época 2
 
 
+def test_adds_dice_to_the_epoch_metrics():
+    model = nn.Linear(1, 1, bias=False)
+    cb = BestModelCallback(model)
+    trainer = ScheduledTrainer(model, [3, 8], [cb])
+    trainer.train_step({})
+    trainer.eval_step({})
+    metrics = {"loss": 1.0, "terms": {}}
+
+    cb.on_epoch_end(trainer, 1, {}, metrics)
+
+    assert metrics["val_dice"] == pytest.approx(dice(3))
+    assert metrics["best_dice"] == pytest.approx(dice(3)) and metrics["best_epoch"] == 1
+
+
 def test_stops_after_patience_validations_without_improvement():
     _, cb, history = run([3, 8, 6, 7, 7, 9, 9], patience=3)
 

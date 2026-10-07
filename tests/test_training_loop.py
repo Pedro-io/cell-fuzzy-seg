@@ -185,3 +185,23 @@ def test_non_positive_log_every_raises():
         pass
     else:
         raise AssertionError("Expected ValueError for log_every <= 0")
+
+
+def test_metrics_added_by_callbacks_appear_in_the_progress_line():
+    from src.utils.logger import logger
+
+    class AddsDice(EpochCallback):
+        def on_epoch_end(self, trainer, epoch, train_metrics, val_metrics):
+            val_metrics.update({"val_dice": 0.5, "best_epoch": 3})
+
+    messages = []
+    sink = logger.add(lambda m: messages.append(m.record["message"]), level="INFO")
+    try:
+        TrainingLoop(trainer=FakeTrainer(callbacks=[AddsDice()]), train_loader=make_loader(),
+                     val_loader=make_loader(), num_epochs=1).run()
+    finally:
+        logger.remove(sink)
+
+    line = next(m for m in messages if m.startswith("[TrainingLoop] Epoch 1/1"))
+    assert "val_loss=2.0000" in line and "val_dice=0.5000" in line and "best_epoch=3" in line
+

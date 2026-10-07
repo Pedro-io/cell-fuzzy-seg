@@ -180,7 +180,7 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
         self.unet.eval()
 
         self.input_size = input_size if input_size is not None else tuple(self._sp.input_size)
-        logger.info(
+        logger.debug(
             f"[ScribblePromptingNetwork] Inicializada (version={version}, "
             f"device={self.device}, input_size={self.input_size})"
         )
@@ -406,7 +406,7 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
         name = f"ScribblePrompt_unet_{version}_nf192_res128.pt"
         dest = pathlib.Path(dest_dir) / name
         if dest.exists():
-            logger.info(f"[ScribblePromptingNetwork] Checkpoint já existe: {dest}")
+            logger.debug(f"[ScribblePromptingNetwork] Checkpoint já existe: {dest}")
             return str(dest)
 
         url = cls.CHECKPOINT_URLS[version]

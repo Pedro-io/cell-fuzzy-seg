@@ -70,7 +70,7 @@ class CellposeStep(PipelineStep):
         self.cellprob_threshold = cellprob_threshold
         self.flow_threshold = flow_threshold
         self.min_size = min_size
-        logger.info(f"[CellposeStep] Running on GPU (model={pretrained_model})")
+        logger.debug(f"[CellposeStep] Running on GPU (model={pretrained_model})")
 
     @staticmethod
     def _validate_model_name(pretrained_model: str) -> None:

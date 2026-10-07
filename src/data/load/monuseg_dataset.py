@@ -87,7 +87,7 @@ def xml_to_instance_mask(xml_path: str, shape: Tuple[int, int]) -> np.ndarray:
         instances[rows, cols] = label + 1
 
     if n_degenerate or n_empty:
-        logger.info(
+        logger.debug(
             f"{os.path.basename(xml_path)}: {n_degenerate} região(ões) degenerada(s) descartada(s) "
             f"(< 3 vértices ou área 0); {n_empty} sem nenhum pixel."
         )
