@@ -805,7 +805,7 @@ uint8; `distance_map` float32.
 - No teste, o Cellpose acha **mais** instâncias que núcleos anotados (1,09). ❓ Pode ser que ele divida núcleos ou ache núcleos não
   anotados; não foi investigado.
 
-### 17.4 Correções do notebook de pré-processamento (2026-10-07; aguardando validação, sem commit)
+### 17.4 Correções do notebook de pré-processamento (2026-10-07, `f25eaf3`, validadas pelo autor)
 Da revisão feita antes da regeração. **Nenhuma muda os dados** gerados com o mesmo código; elas tornam a próxima regeração segura
 e documentada.
 1. **Setup:** clona o `homolog` ou, se o clone já existir no Colab, faz `fetch` + `pull --ff-only`, e imprime o commit (antes, um
@@ -826,4 +826,87 @@ As saídas guardadas (do run de 16/08) foram **limpas**: não correspondem mais 
 **Ensaio a seco** (Cellpose de mentira, 2 + 1 imagens, gravando no scratchpad e conferindo antes que o redirecionamento foi
 aplicado): fluxo completo, pasta antiga apagada, `meta.json` com procedência, checagens aprovadas; os dados do repositório ficaram
 intactos (hash de todos os arquivos igual antes e depois).
+
+---
+
+## 18. Fase 2 — módulo de dados, métricas e k-fold (PD-19, PD-08, PD-02, PD-46): base e desenho
+
+### 18.1 O que existe hoje ✅ (lido no `experiment_6.ipynb`, igual nos exp. 3–6, e em `src/`)
+- **`load_preprocessed(split)`** (célula 8): lê `image`, `rgba`, `ground_truth` e `distance_map` de cada `.npy`. Não lê
+  `segmentation` nem `cellpose_prob`, então a linha de base do Cellpose não é calculada no notebook.
+- **`build_batch` / `make_batches`** (célula 12): rot90 (k ∈ 0..3) + flip horizontal + flip vertical, sorteados com `np.random` e
+  aplicados juntos aos quatro arrays; converte para tensores `(B,C,H,W)`. Os batches são montados **uma vez**, antes do treino,
+  sem shuffle: todas as épocas veem as mesmas aumentações na mesma ordem (PD-08).
+- **`compute_binary_metrics` / `evaluate_val_quality`** (célula 22): Dice, IoU, precisão, revocação e massa por imagem, limiar 0,5,
+  mais a fração de marcador. Roda sob `no_grad`, mas **não põe a rede em `eval()`**: depende de a última chamada ter sido um
+  `eval_step` do `TrainingLoop`. Funciona por acaso.
+- **`TrainingLoop`**: aceita qualquer iterável de batches e itera de novo a cada época; por isso um `DataLoader` com shuffle já dá
+  batches novos por época. **Não tem como parar antes** (early stopping) nem guarda o melhor modelo (PD-46).
+- **Callbacks:** `on_validation_step_end(trainer, data, loss, loss_log)` recebe o `data` de saída do pipeline, com `segmentation` e
+  `ground_truth`. Dá para calcular o Dice de validação por imagem **sem um forward a mais**.
+- **`MonusegPreprocessedDataset`**: roda o pipeline de pré-processamento na hora, sobre o dataset bruto; não lê os `.npy`. Só é
+  usado pelo próprio teste e pelo notebook-tutorial `preprocessamento_monuseg.ipynb`.
+- **Custos:** em memória, ~24 MB por imagem (`image` + `rgba` + `ground_truth` + `distance_map`), ~1,2 GB para as 51 imagens; o
+  Colab tem ~12 GB. Uma época leva ~1,5 s (30 imagens, T4).
+
+### 18.2 Desenho proposto
+Cinco peças em `src/`, cada uma com testes, implementadas e validadas **uma por vez**:
+
+| # | Peça | Onde | O que faz |
+|---|---|---|---|
+| 1 | Métricas | `src/evaluation/metrics.py` | `binary_metrics(pred, gt, limiar)` por imagem (Dice, IoU, precisão, revocação, massa); `evaluate(...)` põe as redes em `eval()` + `no_grad` e devolve uma linha por imagem, **com a linha de base do Cellpose** (`segmentation > 0`) ao lado |
+| 2 | Dataset + aumentação + collate | `src/data/load/preprocessed_dataset.py` | `PreprocessedDataset(split, ids=None, augment=False, alpha="mask")`: lê os `.npy` uma vez para a memória; com `augment`, sorteia rot90 + flips **a cada acesso** (portanto a cada época), aplicados juntos a todas as chaves espaciais; `alpha="prob"` troca o 4º canal do `rgba` pela `cellpose_prob` na hora de carregar (PD-34). `collate_samples` empilha o batch no formato de hoje. Usado com `DataLoader(shuffle=True)` e semente fixa |
+| 3 | Callbacks de validação | `src/training/callbacks/` | Dice de validação por imagem a cada época (a partir do `data` do callback); guarda o estado da MarkerUNet na época de **melhor Dice**; *early stopping* com paciência. Exige uma mudança pequena no `TrainingLoop`: parar quando um callback pedir |
+| 4 | K-fold | `src/training/kfold.py` | divide as 37 imagens de treino em *folds* (por imagem, semente fixa); para cada *fold*, treina do zero e guarda as métricas por imagem da validação e a melhor época; depois, treino final com as 37 e **uma** avaliação no teste |
+| 5 | Registro dos resultados | junto do k-fold | por run: configuração (JSON), commit, CSV por imagem e por *fold*, CSV do teste e resumo (média ± desvio, comparação pareada com o Cellpose) em `docs/estudo/resultados/` (PD-47) |
+
+Depois das cinco peças, um notebook-modelo de experimento usa o módulo (em vez do código copiado), começando pelo
+experimento-base (PD-44).
+
+### 18.3 Decisões para o autor
+1. **Número de *folds*:** 5 (7 ou 8 imagens de validação por *fold*)?
+2. **Estratificação:** distribuir as três imagens em 20× por *folds* diferentes, para nenhum *fold* concentrar a escala diferente?
+   ❓ Estratificar por órgão exigiria a lista de órgãos por imagem, que não está nos dados do repositório.
+3. **Seleção e parada:** melhor Dice médio de validação do *fold* (já decidido, PD-46), com paciência de ~20 épocas e máximo de
+   200?
+4. **Modelo final:** treinar com as 37 pelo número de épocas da mediana das melhores épocas dos *folds* e avaliar no teste uma
+   vez? (A alternativa é a média dos 5 modelos dos *folds*.)
+5. **Checkpoints:** a MarkerUNet tem ~98 MB por checkpoint. Guardar fora do git (no Colab ou no Drive) e registrar só o caminho e
+   o hash?
+6. **`MonusegPreprocessedDataset`:** remover, junto com o código morto da C7, já que ninguém mais vai precisar dele?
+7. **Ordem:** métricas → dataset → callbacks → k-fold → registro → notebook-modelo?
+
+### 18.4 Decisões (autor, 2026-10-07)
+
+| # | Pergunta | Resposta | Onde fica |
+|---|---|---|---|
+| 1 | Número de *folds* | 5, **parametrizável** por experimento | `k` no k-fold |
+| 2 | Estratificação | não, por enquanto (não se sabe com certeza o órgão de cada imagem) | divisão aleatória por imagem, semente fixa |
+| 3 | Seleção e parada | melhor Dice de validação, paciência ~20, máximo 200 (parametrizáveis) | callbacks |
+| 4 | Modelo final | treino com as 37 e uma avaliação no teste. **Dúvida do autor sobre o número de épocas** (rodar mais ou menos conforme a queda da loss) | ver nota abaixo |
+| 5 | Checkpoints | ainda não são salvos. Quando forem, ficam **fora do git, numa pasta na raiz do usuário** (ex.: `~/cell-fuzzy-models/`) | registro: caminho + hash |
+| 6 | `MonusegPreprocessedDataset` | **remover todo código não usado conforme for encontrado** | sai junto com a peça 2 |
+| 7 | Ordem | métricas → dataset → callbacks → k-fold → registro → notebook-modelo | — |
+
+**Nota sobre o item 4:** parar o treino final pela queda da loss **de treino** não é um bom critério, porque ela continua caindo
+com o *overfitting* (exp. 5: soft Dice ≈ 0,85 no treino contra 0,60 de Dice na validação; PD-38). O número de épocas do treino
+final vem dos próprios *folds*: em cada um, o *early stopping* acha a época de melhor Dice de validação, e o treino final usa a
+mediana delas. Com isso o treino final dura mais ou menos conforme o experimento, medido na validação e não na loss de treino.
+O máximo, a paciência e a regra (mediana) ficam parametrizáveis.
+
+### 18.5 Peça 1 — métricas (2026-10-07; aguardando validação, sem commit)
+- `src/evaluation/metrics.py`:
+  - `binary_metrics(prediction, ground_truth, threshold=0.5)`: Dice, IoU, precisão, revocação e massa por imagem; aceita NumPy ou
+    tensor; o GT conta como primeiro plano o que for diferente de zero (vale para rótulos de instância). Casos vazios com valor
+    definido (Dice/IoU = 1 com os dois vazios; precisão = 1 sem nada previsto; revocação = 1 com GT vazio), em vez do `eps` dos
+    notebooks, que dava Dice 0 com os dois vazios.
+  - `evaluate(pipeline, batches, ...)`: põe os steps em modo de avaliação e roda sem gradiente; trabalha sobre uma **cópia** do batch
+    (os steps escrevem no dicionário, e a rede final sobrescreve `segmentation`, PD-33); devolve uma linha por imagem, com as
+    métricas da predição, a **linha de base do Cellpose** (`cellpose_*`, lida da chave `cellpose_segmentation` do batch, que a peça 2
+    vai fornecer) e a fração de marcador.
+- `tests/test_metrics.py`: 10 testes (caso calculado à mão, limiar inclusivo, rótulos de instância, 3 casos vazios, tensor = NumPy,
+  formatos diferentes, `evaluate` com modo eval, sem gradiente, batch intacto e linha de base, e sem linha de base). Suíte: **110
+  testes, 106 ok, 3 falhas conhecidas (PD-11), 1 pulado**.
+- **Conferência:** nas 14 imagens de teste, a função nova difere da `compute_binary_metrics` dos notebooks em no máximo 5e-8 (o `eps`)
+  e reproduz o Dice do Cellpose (0,8370).
 

@@ -24,6 +24,9 @@
 >
 > **Atualização (2026-10-06, PD-06):** `test_distance_map_step.py` reescrito para o mapa por núcleo (6 → 11 testes, incluindo o
 > caso de dois núcleos de tamanhos diferentes pedido no §7). **100 testes: 96 passam, 3 falhas (PD-11), 1 pulado**.
+>
+> **Atualização (2026-10-07, PD-19, peça 1):** `test_metrics.py` (10 testes das métricas binárias e da avaliação: item 1 do §7).
+> **110 testes: 106 passam, 3 falhas (PD-11), 1 pulado**.
 
 - Existem **74 testes em 12 arquivos** ([tests/](../../tests/)), escritos entre julho e agosto junto com as correções da
   investigação do exp. 1. ✅
