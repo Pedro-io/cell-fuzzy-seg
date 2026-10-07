@@ -403,7 +403,7 @@ diâmetro → Dmap), que punha o diâmetro antes.
 |---|---|---|---|---|---|
 | 0 | Dados brutos | PD-23, PD-26, (PD-24) | sim | não | ✅ 2026-09-29: novo download, 37 + 14, reorganizado |
 | 1 | `MonusegDataset` (XML → máscara) | PD-25, PD-07 | sim | não | ✅ 2026-09-29: E1-a, E1-b e E1-c aplicadas (§13.5) |
-| 2 | `CellposeStep` | PD-29 (C4), PD-30, PD-31 (C7, `flows`/`styles`), PD-16 (C6, notebook) | sim (PD-30) | sim | em andamento: C4 ✅; C6 (notebook) ✅; C7 (`flows`/`styles`) + PD-34 ✅; falta PD-30 (Colab) |
+| 2 | `CellposeStep` | PD-29 (C4), PD-30, PD-31 (C7, `flows`/`styles`), PD-16 (C6, notebook) | sim (PD-30) | sim | ✅ 2026-10-06: C4, C6 (notebook), C7 (`flows`/`styles`) + PD-34 e PD-30 |
 | 3 | `RGBAStep` | PD-34 (ideia) | — | — | — |
 | 4 | `DistanceMapStep` | PD-06 (depende da instância da etapa 1) | sim | não | — |
 | 5 | `SaveResultsStep` | regerar tudo **uma vez**, com commit e parâmetros no `meta.json` (PD-47) | — | sim | — |
@@ -432,6 +432,8 @@ seção. No fim de cada etapa, rodar a suíte inteira e registrar o resultado no
 | C5 | — | — | — |
 | C6, parte do notebook (PD-16) | `9395df2` (validado pelo autor) | 82 ok, 3 falhas conhecidas (PD-11), 1 pulado (o notebook não tem testes; sintaxe da célula conferida) | célula 9 sem fallback; markdown das células 0 e 16 descreve o comportamento; não executado (precisa de GPU). No mesmo pacote: menções a pendências tiradas do código desta sessão (PD-50) |
 | C6, parte do `MarkerStep` | — | — | fica para a etapa 7 |
+| PD-30, teste no Colab | `2922d37` | — (notebook + resultados) | limiares padrão +0,031 de Dice no treino; diâmetro ≈ 0 |
+| PD-30, parâmetros no `CellposeStep` | `fdd08c0` | 95: 91 ok, 3 falhas conhecidas (PD-11), 1 pulado | `diam_mean=None`, `flow_threshold=0.4`, `min_size=15` |
 | C7, parte do Cellpose (PD-31) + PD-34 (a) | `64a624f` (validado pelo autor) | 94: 90 ok, 3 falhas conhecidas (PD-11), 1 pulado | `flows`/`styles` fora; `cellpose_prob` e `RGBAStep(alpha=...)`; notebook não executado (precisa de GPU) |
 | C7, resto (PD-17, PD-20, PD-31) | — | — | — |
 | C8 | — | — | — |
@@ -682,10 +684,83 @@ ao `atual`); usar 22 nelas piora um pouco.
 3. Rodar uma segunda rodada curta (≈ 5 configurações, ~40 min numa T4) para separar o efeito de cada limiar e testar afrouxar
    mais, antes de fixar? Ou fixar os padrões já?
 
-### 15.6 Aplicação (2026-10-06; aguardando validação, sem commit)
+### 15.6 Aplicação (2026-10-06, `fdd08c0`, validada pelo autor)
 - `cellpose_step.py`: padrões `diam_mean=None`, `flow_threshold=0.4`, `min_size=15`; o `diam_mean` deixou de ser passado ao
   construtor do `CellposeModel`, que o ignora no Cellpose 4 (vai só para o `eval`, como `diameter`). Docstrings explicam o que
   cada parâmetro faz e por que o padrão foi escolhido.
 - `test_cellpose_step.py`: +1 teste (os padrões chegam ao `eval`). Suíte: **95 testes, 91 ok, 3 falhas conhecidas (PD-11), 1 pulado**.
 - `cellpose_parametros.ipynb`: a descrição da config. `atual` deixou de dizer "os valores do `CellposeStep` hoje".
 - **Efeito:** nenhum número muda até a regeração dos dados (etapa 5); ali, a linha de base do Cellpose passa a ser a do `padrao`.
+
+---
+
+## 16. Etapa 4 — mapa de distância por núcleo (PD-06): base
+
+### 16.1 Como é hoje ✅
+[compute_distance_map](../../src/pipeline/steps/preprocessing/distance_map_step.py#L23-L43): `1 − EDT/máx` sobre o GT binário,
+com o **máximo da imagem inteira**. Só o maior núcleo de cada imagem tem centro 0; os pequenos têm o centro "caro". Na tese
+(eq. 5.7), a normalização é por objeto (explicação em linguagem simples no [04 §7](04-losses.md)).
+
+### 16.2 Medido com o GT novo (2026-10-06) ✅
+Script `etapa4_dmap.py` (scratchpad da sessão). Para cada núcleo (instância da etapa 1), o valor mínimo do mapa dentro dele, que é
+o valor no seu centro:
+
+| Mapa | Centro do núcleo, mediana (treino · teste) | Núcleos com centro > 0,5 | Pixels de núcleo < 0,5 |
+|---|---|---|---|
+| atual (máximo da imagem) | 0,473 · 0,506 | **43,5% · 52,0%** | 6,9% · 6,7% |
+| por componente conexa do GT binário | 0,000 · 0,000 | 0,4% · 0,1% | 32,2% · 33,3% |
+| **por núcleo** (`ground_truth_instances`, recorte com 1 px de margem) | **0,000 · 0,000** | **0,0% · 0,0%** | **33,3% · 33,6%** |
+| por núcleo, recorte justo (esboço do 04 §7.6) | 0,000 · 0,000 | 0,0% · 0,0% | 36,1% · 35,9% ⚠️ |
+
+- **O recorte justo erra:** a EDT só "vê" fundo dentro do recorte, então os pixels na borda do recorte ficam com distância maior
+  que a real, e o mapa fica barato demais. Com 1 px de margem (limitada à imagem), o mapa por núcleo é **idêntico, pixel a pixel**,
+  ao calculado com a EDT da imagem inteira para cada núcleo (conferido em 3 imagens: diferença máxima 0).
+- **Custo:** 0,03 s por imagem.
+- **Núcleos vizinhos:** com a máscara por instância, a fronteira entre dois núcleos que se tocam conta como borda dos dois, o que
+  o mapa por componente não faz (ele os trata como um núcleo só).
+- **Borda da imagem:** como no mapa atual, a borda da imagem **não** conta como fundo. Num núcleo cortado pela borda, o ponto
+  mais barato fica junto da borda, onde o centro verdadeiro provavelmente estaria.
+
+### 16.3 Proposta de código (aguarda decisão)
+- `distance_map_step.py`: função nova `compute_instance_distance_map(labels)` (EDT por rótulo, recorte com 1 px de margem) e
+  parâmetro `normalization` no `DistanceMapStep`: `"instance"` (padrão; lê `ground_truth_instances`) ou `"image"` (o mapa atual,
+  lê `ground_truth`). Sem *fallback*: com `"instance"` e sem a chave de instâncias, `KeyError`.
+- Notebook de pré-processamento: o `resize_sample` e o `run_preprocess` passam a levar `ground_truth_instances` adiante (hoje o
+  descartam, PD-07); a redução, se houver, é por vizinho mais próximo. O `meta.json` registra a normalização usada.
+- Testes: dois núcleos de raios 20 e 6 têm os **dois** centros em 0; núcleos que se tocam; recorte com margem igual à EDT na imagem
+  inteira; modo `"image"` igual ao atual; chave ausente e opção inválida dão erro. Os testes atuais do `DistanceMapStep` passam a
+  usar `normalization="image"`, que é o que eles testam.
+- **Fica para depois:** recalibrar o peso do DMap (o mapa novo tem ~5× mais pixels baratos), na fase 2.
+
+### 16.4 Decisões para o autor
+1. Parametrizar (`"instance"` como padrão e `"image"` como opção), como foi feito com o alpha?
+2. Salvar `ground_truth_instances` em disco na regeração? Recomendação: **não**. Ela sai dos XMLs em CPU (~0,5 s por imagem) sempre
+   que for preciso, e salvar custaria ~102 MB a mais no git (em `uint16`).
+3. Borda da imagem: manter como hoje (a borda não conta como fundo)?
+
+### 16.5 Decisões (autor, 2026-10-06)
+
+| # | Pergunta | Resposta | Onde ficou |
+|---|---|---|---|
+| 1 | Parametrizar (`"instance"` / `"image"`)? | não: o mapa pela imagem inteira **não é útil** e é **removido** | só `compute_instance_distance_map` |
+| 2 | Salvar `ground_truth_instances`? | não | sai dos XMLs quando for preciso |
+| 3 | Borda da imagem conta como fundo? | não (como hoje) | docstring e teste |
+
+**Por que remover o modo "imagem"** (pergunta do autor): não é uma alternativa científica (a tese define o mapa por objeto, e o
+da imagem inteira foi um erro de implementação); não serve para reproduzir os exp. 1–6, que também usaram o GT antigo, 30 imagens
+e outros limiares do Cellpose (o código antigo continua no git); e nada em `src/` ou nos testes o usava.
+
+### 16.6 Aplicação (2026-10-06; aguardando validação, sem commit)
+- `distance_map_step.py`: `compute_distance_map` (binário, máximo da imagem) deu lugar a `compute_instance_distance_map(labels)`
+  (EDT por rótulo num recorte com 1 px de margem; valida que a entrada é 2D de inteiros). O `DistanceMapStep` lê
+  `instances_key="ground_truth_instances"` e levanta `KeyError` sem ela.
+- `test_distance_map_step.py` reescrito: 11 testes (faixa e tipo; centro 0 / fundo 1 / borda 0,5; núcleos de raios 20 e 6 com os
+  dois centros em 0; núcleos que se tocam; recorte com margem igual à EDT na imagem inteira; borda da imagem; entrada não inteira;
+  chaves do step; falta das instâncias; chaves personalizadas). Suíte: **100 testes, 96 ok, 3 falhas conhecidas (PD-11), 1 pulado**.
+- Notebook de pré-processamento: `resize_sample` e `run_preprocess` levam `ground_truth_instances` (redução por vizinho mais
+  próximo, se houver); `meta.json` ganha `distance_map`; markdown das células 0, 8 e 16 atualizado (sai o "(P7)", PD-50).
+- **Conferência:** a função nova é idêntica ao mapa da medição da base em 37/37 e 14/14 imagens. Ensaio a seco do notebook (Cellpose
+  de mentira, 2 + 1 imagens, gravando no scratchpad): a máscara chega ao step, os 480 núcleos da primeira imagem têm centro 0, e
+  a máscara por instância não é salva.
+- ⚠️ Os notebooks antigos `experiment_1/2` e `test_e2e_pipeline` chamam `DistanceMapStep()` sobre o GT binário e deixariam de
+  rodar com o código atual; ficam para a poda da PD-10.

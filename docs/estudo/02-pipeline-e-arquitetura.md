@@ -95,13 +95,13 @@ Funciona, mas quem renomear esses atributos quebra o treino sem erro de import (
 | `id` | `MonusegDataset` | str | `SaveResultsStep` (nome do arquivo) |
 | `image` | `MonusegDataset` | (H,W,3) uint8 → no batch, (B,3,H,W) float [0,255] | `CellposeStep`, `RGBAStep`, `ScribblePromptingNetwork` |
 | `ground_truth` | `MonusegDataset` | (H,W) uint8 0/1 → (B,1,H,W) | `DistanceMapStep`, losses |
-| `ground_truth_instances` | `MonusegDataset` (desde 2026-09-29, só com XML) | (H,W) int32, um rótulo por núcleo | ninguém ainda; será usado pelo Dmap por núcleo (PD-06). Não é persistido. |
+| `ground_truth_instances` | `MonusegDataset` (desde 2026-09-29, só com XML) | (H,W) int32, um rótulo por núcleo | `DistanceMapStep` (desde 2026-10-06). Não é persistido (decisão do autor: sai dos XMLs em CPU). |
 | `meta` | `MonusegDataset` | dict de caminhos | ninguém |
 | `segmentation` ① | `CellposeStep` | (H,W) uint16, instâncias | `RGBAStep`, `SaveResultsStep` |
 | `cellpose_prob` | `CellposeStep` (desde 2026-10-01) | (H,W) float16 [0,1]: sigmoide do logit `flows[2]` | `RGBAStep` com `alpha="prob"`, `SaveResultsStep` |
 | ~~`flows`, `styles`~~ | `CellposeStep` (até 2026-10-01) | listas do Cellpose | ninguém; removidas (PD-31) |
 | `rgba` | `RGBAStep` | (H,W,4) float32 [0,1]; alpha = máscara (`"mask"`, padrão) ou probabilidade (`"prob"`) | `MarkerStep` |
-| `distance_map` | `DistanceMapStep` | (H,W) float32 [0,1] | losses (`DMapTerm`) |
+| `distance_map` | `DistanceMapStep` | (H,W) float32 [0,1]; 0 no centro de cada núcleo (desde 2026-10-06) | losses (`DMapTerm`) |
 | `markers` | `MarkerStep` | (B,1,H,W) float [0,1], com grafo | `FrozenSegmentationStep`, losses |
 | `segmentation` ② | `FrozenSegmentationStep` | (B,1,H,W) float [0,1], com grafo | `Trainer` (`prediction_key`), losses |
 
@@ -188,15 +188,19 @@ entrada de 4 canais"). O "A" não é transparência de verdade; é só o 4º can
 
 ### 5.4 `DistanceMapStep` — [distance_map_step.py](../../src/pipeline/steps/preprocessing/distance_map_step.py)
 
+**Desde 2026-10-06 (PD-06 ✅):** o mapa é **por núcleo**, a partir de `ground_truth_instances`
+([compute_instance_distance_map](../../src/pipeline/steps/preprocessing/distance_map_step.py)):
+
 ```python
-dt = distance_transform_edt(mask > 0)       # distância de cada pixel de núcleo ao fundo mais próximo
-dt = dt / dt.max()                           # ⚠️ máximo da IMAGEM inteira
-distance_map = 1 - dt                        # 0 no ponto mais interno da imagem, 1 na borda e no fundo
+for cada núcleo (rótulo > 0):                       # recorte com 1 px de margem, limitado à imagem
+    dt = distance_transform_edt(núcleo)             # distância ao pixel mais próximo fora do núcleo
+    distance_map[núcleo] = 1 - dt / dt.max()        # máximo DAQUELE núcleo: o centro de todo núcleo vale 0
+# fundo = 1; núcleos que se tocam têm a fronteira como borda dos dois; a borda da imagem não conta como fundo
 ```
 
-📖 Corresponde à eq. 5.7 da tese (`Dmap = 1 − EDT/max EDT`), mas lá a normalização é **por objeto**. Aqui é pela imagem,
-e o centro da maioria dos núcleos fica com valor alto (PD-06). Como o GT é binário, núcleos colados formam um único blob, e
-o EDT enxerga o blob, não os núcleos (PD-07).
+📖 É a eq. 5.7 da tese, com a normalização por objeto. Sem a chave `ground_truth_instances`, o step levanta `KeyError`. A versão
+anterior usava o máximo da **imagem** (só o maior núcleo tinha centro 0) e o GT binário (núcleos colados viravam um blob); ela
+foi removida, por decisão do autor, em vez de virar opção (09 §16.5).
 
 📜 O mapa era calculado dentro do notebook de treino e virou Step em 10/08 (regra 24). O `ARCHITECTURE.md` antigo avisava:
 se a máscara for redimensionada, o mapa precisa ser **recalculado** na nova resolução, e não redimensionado. Hoje tudo roda

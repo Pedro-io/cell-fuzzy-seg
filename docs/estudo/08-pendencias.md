@@ -24,8 +24,8 @@
 | [PD-03](#pd-03) | 🟠 | Metodologia | Os experimentos de isolamento E2/E3/E5 nunca foram executados | Parcial: E3 (oráculo) executado em 2026-09-27 |
 | [PD-04](#pd-04) | 🟠 | Modelo | O scribble negativo é o complemento denso do marcador (provável erro) | Decidida: só positivo (confirmado pelo oráculo) |
 | [PD-05](#pd-05) | 🟡 | Resolução | O ScribblePrompt trabalha em 128²: o núcleo mediano vira ~3 px | Aberta; o oráculo recomenda 256² |
-| [PD-06](#pd-06) | 🟠 | Dados/Loss | O mapa de distância é normalizado pelo máximo da imagem, não por núcleo | Aberta |
-| [PD-07](#pd-07) | 🟠 | Dados | O GT binário funde núcleos (−25% de componentes no treino) | Parcial: máscara por instância gerada (2026-09-29); falta usar e persistir |
+| [PD-06](#pd-06) | 🟠 | Dados/Loss | O mapa de distância é normalizado pelo máximo da imagem, não por núcleo | Aplicada (2026-10-06), aguardando validação; o peso do DMap precisa ser recalibrado |
+| [PD-07](#pd-07) | 🟠 | Dados | O GT binário funde núcleos (−25% de componentes no treino) | Parcial: a máscara por instância alimenta o Dmap (2026-10-06); o GT binário continua fundindo (intencional) |
 | [PD-08](#pd-08) | 🟡 | Treino | A aumentação é estática e não há shuffle | Decidida: módulo em `src/` com aumentação por época |
 | [PD-09](#pd-09) | 🟡 | Treino | Os runs provavelmente validaram com a BatchNorm em `train()` | Aberta |
 | [PD-10](#pd-10) | 🟡 | Reprodutibilidade | Checkpoints não salvos, saídas velhas, markdowns desatualizados | Aberta |
@@ -159,6 +159,17 @@ a massa para os poucos blobs grandes.
 **Decisão (2026-09-27):** corrigir o mapa **antes** de ajustar o peso do DMap. Depois da correção, o peso precisa ser
 recalibrado, porque o mapa passa a ter ~5× mais pixels baratos. Por componente já resolve quase tudo com o GT atual; por
 núcleo é o ideal.
+**Base revista (2026-10-06; GT da etapa 1, 37 + 14 imagens)** ✅ — detalhe em [09 §16](09-correcoes-pontuais.md): no mapa atual,
+**43,5%** dos núcleos do treino e **52,0%** dos do teste têm o centro acima de 0,5; por núcleo, 0,0% nos dois. Pixels de núcleo
+"baratos" (< 0,5): 6,9% → 33,3% (treino). O esboço do 04 §7.6 calcula a EDT no recorte justo do núcleo e erra a distância na
+borda do recorte (36,1% de pixels baratos); com 1 px de margem, o resultado é idêntico ao da EDT na imagem inteira, em 0,03 s por
+imagem. Proposta de código no 09 §16.3; aguarda decisão do autor.
+**Decisões do autor (2026-10-06):** só o mapa **por núcleo** (o da imagem inteira é removido, não vira opção); não salvar
+`ground_truth_instances`; a borda da imagem continua não contando como fundo.
+**Aplicada (2026-10-06, aguardando validação):** `compute_instance_distance_map` + `DistanceMapStep(instances_key="ground_truth_instances")`,
+sem *fallback*; o notebook de pré-processamento leva a máscara por instância até o step e registra `distance_map` no `meta.json`.
+Conferido nos dados reais: idêntico à medição da base em 37/37 e 14/14 imagens (33,3% / 33,6% de pixels baratos). **Falta:**
+regerar os dados (etapa 5) e recalibrar o peso do DMap na fase 2.
 
 ### PD-07
 **🟠 O GT binário funde núcleos que se tocam.** ✅ (medido)
@@ -175,6 +186,9 @@ XML, "o menor vence" na sobreposição): 24.133 instâncias no treino e 6.697 no
 núcleos vizinhos, o que é intencional (a avaliação é por pixel). **Falta:** usar as instâncias no Dmap (PD-06, etapa 4) e
 persisti-las (etapa 5). ⚠️ O `resize_sample` do notebook de pré-processamento monta um dicionário novo só com `id`, `image` e
 `ground_truth`, e **descarta** a chave nova; precisa ser ajustado na etapa 4.
+**Atualização (2026-10-06):** o notebook passou a levar `ground_truth_instances` até o `DistanceMapStep`. Por decisão do autor, ela
+**não** é persistida: sai dos XMLs em CPU (~0,5 s por imagem) quando for preciso. O que resta da PD-07 é o GT binário fundir
+núcleos, o que é intencional para a avaliação por pixel.
 
 ### PD-08
 **🟡 A aumentação é estática e não há shuffle.** ✅
@@ -505,7 +519,7 @@ Registrar o Dice, o IoU e a razão de massa **por imagem**. Só regerar `MoNuSeg
 **Decisão (autor, 2026-10-06):** adotar `flow_threshold=0,4` e `min_size=15`, **sem reescala** (`diameter=None`), e **não** fazer
 uma segunda rodada. Ficam sem teste: o efeito isolado de cada limiar, afrouxar mais (`flow_threshold` > 0,4, `cellprob_threshold`
 < 0) e os limiares padrão com o diâmetro por imagem. A mudança no `CellposeStep` vem num commit próprio.
-**✅ Resolvida (2026-10-06, validada pelo autor; resultados em `2922d37`):** padrões do `CellposeStep` = `diam_mean=None`, `flow_threshold=0.4`,
+**✅ Resolvida (2026-10-06, `fdd08c0`, validada pelo autor; resultados em `2922d37`):** padrões do `CellposeStep` = `diam_mean=None`, `flow_threshold=0.4`,
 `min_size=15`; o `diam_mean` não é mais passado ao construtor do `CellposeModel` (que o ignora e avisava). Teste novo confere
 que os padrões chegam ao `eval`. O notebook de pré-processamento usa os padrões, então a regeração (etapa 5) já sai com eles.
 
