@@ -804,3 +804,26 @@ uint8; `distance_map` float32.
   experimentos. Os números dos exp. 1–6 são do GT antigo.
 - No teste, o Cellpose acha **mais** instâncias que núcleos anotados (1,09). ❓ Pode ser que ele divida núcleos ou ache núcleos não
   anotados; não foi investigado.
+
+### 17.4 Correções do notebook de pré-processamento (2026-10-07; aguardando validação, sem commit)
+Da revisão feita antes da regeração. **Nenhuma muda os dados** gerados com o mesmo código; elas tornam a próxima regeração segura
+e documentada.
+1. **Setup:** clona o `homolog` ou, se o clone já existir no Colab, faz `fetch` + `pull --ff-only`, e imprime o commit (antes, um
+   clone antigo rodava código velho sem aviso, e a busca da raiz do repositório olhava acima de `/content`).
+2. **Procedência no `meta.json`:** commit, mudanças locais em `src/`, versões (python, torch, cellpose, numpy), GPU e os
+   parâmetros do Cellpose (modelo, `diameter`, `flow_threshold`, `min_size`, `cellprob_threshold`) (PD-47).
+3. **Limpeza:** apaga `train/` e `test/` antes de gravar, para não misturar arquivos de runs diferentes.
+4. **Textos:** 37 imagens de treino; tipos certos na árvore de pastas (`segmentation` uint16, `ground_truth` uint8).
+5. **Sem referências à história** (PD-50): saem "(C6)", "(P7)", `experiment_3` e "regra 10".
+6. **Checagens automáticas** (célula nova): formatos e tipos, `cellpose_prob` em [0, 1], alpha coerente com `RGBA_ALPHA` e centro
+   de todo núcleo em 0 no mapa de distância, para todas as imagens.
+7. **Metadata do Colab:** abre com GPU (T4).
+8. **Sem redimensionamento:** o `resize_sample` (que não fazia nada, porque o MoNuSeg já é 1000×1000) virou `check_sample`, que
+   levanta `ValueError` se alguma imagem ou máscara não tiver 1000×1000. O `meta.json` mantém `work_size: 1000`, lido pelos
+   notebooks de experimento.
+
+As saídas guardadas (do run de 16/08) foram **limpas**: não correspondem mais ao código nem aos dados, regerados em 07/10.
+**Ensaio a seco** (Cellpose de mentira, 2 + 1 imagens, gravando no scratchpad e conferindo antes que o redirecionamento foi
+aplicado): fluxo completo, pasta antiga apagada, `meta.json` com procedência, checagens aprovadas; os dados do repositório ficaram
+intactos (hash de todos os arquivos igual antes e depois).
+
