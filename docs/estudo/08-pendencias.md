@@ -20,7 +20,7 @@
 | ID | Sev. | Área | Resumo | Status |
 |---|---|---|---|---|
 | [PD-01](#pd-01) | 🔴 | Resultados | O pipeline é pior que o Cellpose sozinho (Dice 0,648 × 0,810) | Aberta; linha de base nova (2026-10-07): Cellpose 0,837 no teste |
-| [PD-02](#pd-02) | 🟠 | Metodologia | O teste oficial é usado como validação e para escolher configurações | Aberta (proposta: k-fold) |
+| [PD-02](#pd-02) | 🟠 | Metodologia | O teste oficial é usado como validação e para escolher configurações | k-fold implementado (2026-10-07); vale quando os experimentos passarem a usá-lo |
 | [PD-03](#pd-03) | 🟠 | Metodologia | Os experimentos de isolamento E2/E3/E5 nunca foram executados | Parcial: E3 (oráculo) executado em 2026-09-27 |
 | [PD-04](#pd-04) | 🟠 | Modelo | O scribble negativo é o complemento denso do marcador (provável erro) | Decidida: só positivo (confirmado pelo oráculo) |
 | [PD-05](#pd-05) | 🟡 | Resolução | O ScribblePrompt trabalha em 128²: o núcleo mediano vira ~3 px | Aberta; o oráculo recomenda 256² |
@@ -96,6 +96,9 @@ cego. O autor tem receio de tirar imagens do treino.
 treinar com as 30 e avaliar **uma vez** nas 14. A divisão tem que ser **por imagem**, nunca por recorte.
 **Custo (tema 5, medido)** ✅: uma época leva ~1,3–1,7 s no Colab; 5 *folds* × 50 épocas ≈ 7 min por configuração. O k-fold
 não tem custo computacional relevante.
+**Implementado (2026-10-07, aguardando validação; 09 §18.8):** `src/training/kfold.py` — `make_folds(ids, k, seed)` (por
+imagem, sem estratificação, decisão do autor), `run_kfold` (um modelo novo por *fold*, avaliado na época de melhor Dice de
+validação) e `run_final` (treino com as 37 pelo número de épocas da mediana das melhores épocas e **uma** avaliação no teste).
 
 ### PD-03
 **🟠 Os experimentos de isolamento nunca foram executados.** ✅

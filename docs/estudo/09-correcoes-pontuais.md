@@ -930,7 +930,7 @@ O máximo, a paciência e a regra (mediana) ficam parametrizáveis.
 - **Dados reais:** carga de 37 + 14 imagens em 1,0 s, 1,27 GB em memória; uma época do loader (37 imagens, com aumentação) em 1,7 s
   em CPU; alpha = máscara do Cellpose e RGB = imagem/255 em todos os batches aumentados; com `alpha="prob"`, o 4º canal fica em [0, 1].
 
-### 18.7 Peça 3 — callbacks de validação e parada antecipada (2026-10-07; aguardando validação, sem commit)
+### 18.7 Peça 3 — callbacks de validação e parada antecipada (2026-10-07, `955af95`, validada pelo autor)
 - `src/training/callbacks/best_model_callback.py` — `BestModelCallback(model, patience=None, min_delta=0.0, threshold=0.5)`:
   - em `on_validation_step_end`, calcula o Dice binário (`binary_metrics`) de cada imagem a partir do `data` que o `Trainer` já
     produz (sem forward extra);
@@ -945,4 +945,31 @@ O máximo, a paciência e a regra (mediana) ficam parametrizáveis.
   comparado ao melhor, não à época anterior; épocas sem validação não contam; erros; o sinal é zerado no início; com o `Trainer`
   real). Suíte: **126 testes, 122 ok, 3 falhas conhecidas (PD-11), 1 pulado**.
 - Nada é gravado em disco: o melhor estado fica em memória (~98 MB em CPU para a MarkerUNet).
+
+### 18.8 Peça 4 — k-fold e treino final (2026-10-07; aguardando validação, sem commit)
+- `src/training/kfold.py`:
+  - `TrainConfig`: `k=5`, `batch_size=4`, `max_epochs=200`, `patience=20`, `min_delta=0`, `lr=1e-4`, `grad_clip=1.0`,
+    `threshold=0.5`, `seed=42`, `device`, `log_every` — tudo parametrizável por experimento (decisões do §18.4).
+  - `make_folds(ids, k, seed)`: *folds* disjuntos por imagem, tamanhos o mais iguais possível (37 em 5 → 8, 8, 7, 7, 7), aleatório
+    com semente, sem estratificação.
+  - `run_kfold(factory, samples, ids, config)`: para cada *fold*, chama `factory()` para montar um experimento **novo** (modelo,
+    pipeline e compositor de perdas), treina com aumentação por época e shuffle, `BestModelCallback` com paciência, restaura a
+    melhor época e avalia a validação com `evaluate` (uma linha por imagem, com `fold` e a linha de base do Cellpose). As sementes
+    variam por *fold* (`seed + fold`).
+  - `final_epochs(folds)`: mediana das melhores épocas, arredondada.
+  - `run_final(factory, train, test, config, num_epochs)`: treina com todas as imagens de treino por `num_epochs`, sem validação,
+    e avalia o teste **uma vez**.
+- **O *cosine schedule* cobre sempre `max_epochs`.** No treino final, ele é planejado para `max_epochs` e o treino só para em
+  `num_epochs`. Assim a taxa de aprendizado em cada época é a mesma que os *folds* viram até a melhor época; com `T_max = num_epochs`,
+  ela cairia a zero mais cedo e o treino final não reproduziria o dos *folds*.
+- O otimizador é Adam sobre todos os parâmetros do modelo. ❓ A ablação de congelar o encoder ou usar *param groups* (PD-38) vai
+  exigir que a `factory` (ou a configuração) escolha o otimizador; fica para quando a ablação for feita.
+- `tests/test_kfold.py`: 6 testes (divisão disjunta, completa, equilibrada e reproduzível; erros de argumento; um modelo novo por
+  *fold* e **nenhuma imagem de validação no treino**; reproduzibilidade das métricas e da curva de perda; mediana; treino final sem
+  validação e avaliação do teste). Suíte: **132 testes, 128 ok, 3 falhas conhecidas (PD-11), 1 pulado**.
+- **Ensaio com as peças reais** (CPU, script `ensaio_kfold_real.py` no scratchpad): `MarkerUNet` + `ScribblePromptingNetwork`
+  reais sobre os `.npy` regerados, recorte de 6 imagens de treino e 2 de teste, `k=2`, 1 época, Dice + TV. O fluxo inteiro roda
+  (2 *folds* + treino final + teste) em 26 s. O Dice de validação que o `BestModelCallback` registra é **igual** à média das linhas
+  do `evaluate` em cada *fold* (0,352 e 0,411), ou seja, as duas medições batem. Os valores em si (0,15 a 0,53 contra 0,80 a 0,88 do
+  Cellpose) não significam nada: 1 época com 3 imagens.
 
