@@ -62,7 +62,7 @@
 | [PD-41](#pd-41) | 🟠 | Loss | `BorderTerm` pune marcadores sobre 16–17% dos pixels de núcleo real | Aberta |
 | [PD-42](#pd-42) | ⚪ | Docs | Docstring do `LossComposer` diz que o Size olha a predição (olha os marcadores) | Aberta |
 | [PD-43](#pd-43) | 🟡 | Loss | Com GT vazio: DMap e TV dividem por zero; Size perde a normalização | Aberta (latente) |
-| [PD-44](#pd-44) | 🟠 | Experimento | Plano do experimento-base "só Dice + TV" (256², só positivos) | Decidida; código pronto (2026-10-07); falta o notebook |
+| [PD-44](#pd-44) | 🟠 | Experimento | Plano do experimento-base "só Dice + TV" (256², só positivos) | Notebook pronto (2026-10-07, `notebooks/experiments/base_dice_tv.ipynb`); falta rodar no Colab |
 | [PD-45](#pd-45) | ⚪ | Treino | Médias por época são por batch, não por imagem (o último batch tem 2 imagens) | Aberta |
 | [PD-46](#pd-46) | 🟡 | Treino | Não há seleção do melhor modelo nem early stopping; avalia-se a última época | Implementada (2026-10-07): `BestModelCallback`; vale quando os notebooks passarem a usá-la |
 | [PD-47](#pd-47) | 🟡 | Publicação | Resultados (oráculo e próximos experimentos) precisam ser salvos e reproduzíveis para o artigo | Parcial: registro dos experimentos implementado (2026-10-07); falta o oráculo |

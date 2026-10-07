@@ -16,6 +16,10 @@ Notebooks de treino da MarkerNet com a rede final congelada (ScribblePrompt). Ca
 final com todas elas e uma única avaliação nas 14 de teste, sempre ao lado do Cellpose. Os resultados vão para
 `docs/estudo/resultados/<experimento>/`.
 
+| Notebook | Experimento |
+|---|---|
+| `base_dice_tv.ipynb` | **Experimento-base:** só soft Dice + TV (0,001), ScribblePrompt em 256² no modo `positive` (τ = 0,5), MarkerUNet com alpha = máscara do Cellpose. Resultados em `docs/estudo/resultados/base_dice_tv/`. Precisa de GPU. |
+
 > Os experimentos 1 a 6, anteriores a esse módulo, estão no histórico do git (por exemplo,
 > `git show df0a30f:notebooks/experiments/experiment_4.ipynb`); os resultados e a análise deles estão em
 > `docs/estudo/06-experimentos.md`.

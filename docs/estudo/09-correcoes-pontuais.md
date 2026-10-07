@@ -1018,7 +1018,7 @@ O máximo, a paciência e a regra (mediana) ficam parametrizáveis.
 - **Com as peças reais:** o ensaio do §18.8 gravado com `save_run` (no scratchpad) gera os 6 arquivos; a procedência acusou
   `mudancas_locais_em_src: true`, como devia (o `report.py` ainda não estava commitado).
 
-### 18.10 Notebooks legados removidos e notebook de inspeção (2026-10-07; aguardando validação, sem commit)
+### 18.10 Notebooks legados removidos e notebook de inspeção (2026-10-07, `4d0203d`, validado pelo autor)
 - **Removidos** (pedido do autor): `notebooks/experiments/experiment_1..6.ipynb` (~83 MB; substituídos pelo módulo de treino) e
   `notebooks/exploration/test_e2e_pipeline.ipynb` (quebrado desde o Dmap por núcleo; usava o GT no lugar do Cellpose sem GPU e a
   configuração antiga de perdas). Recuperáveis com `git show df0a30f:<caminho>`. Referências ajustadas no `notebooks/README.md`
@@ -1033,4 +1033,20 @@ O máximo, a paciência e a regra (mediana) ficam parametrizáveis.
   `TCGA-18-5592-01Z-00-DX1`: conferências aprovadas; perda 0,515 → **0,108**; Dice 0,520 → **0,878** (Cellpose nessa imagem:
   0,883); massa 1,87× → 1,03×; marcador cobre 13% → 25% da imagem. O pipeline consegue aprender: o caminho do gradiente pelo
   ScribblePrompt congelado funciona com a configuração nova. Isso não diz nada sobre generalização.
+
+### 18.11 Notebook do experimento-base (PD-44) (2026-10-07; aguardando validação, sem commit)
+[notebooks/experiments/base_dice_tv.ipynb](../../notebooks/experiments/base_dice_tv.ipynb), o primeiro experimento sobre o módulo:
+- **Configuração** (decidida na PD-44): soft Dice + TV 0,001 (sem Size, DMap e Border); ScribblePrompt congelado em modo `positive`,
+  τ = 0,5, entrada 256²; MarkerUNet (resnet34 ImageNet, 4 canais, alpha = máscara do Cellpose); `TrainConfig(k=5, batch_size=4,
+  max_epochs=200, patience=20, lr=1e-4, grad_clip=1.0, seed=42)`.
+- **Fluxo:** setup (clona ou atualiza o `homolog`) → dados + linha de base do Cellpose → ScribblePrompt carregado **uma vez** e
+  reaproveitado (congelado, sem estado) + `factory` com MarkerUNet nova por *fold* → `run_kfold` → `final_epochs` + `run_final` →
+  `save_run("base_dice_tv", ...)` e resumo (Dice ± desvio, IC 95%, diferença pareada com o Cellpose, Wilcoxon) → curvas e
+  dispersão por imagem no teste → no Colab, baixa a pasta compactada. `OVERWRITE = False`: o `save_run` recusa gravar por cima.
+- O checkpoint do ScribblePrompt vai para `~/cell-fuzzy-models/scribbleprompt/`.
+- **Ensaio a seco** (CPU, redes reais, 6 imagens de treino e 2 de teste, `k=2`, 1 época, gravando no scratchpad, com conferência de
+  que todas as substituições foram aplicadas): o notebook roda inteiro em 37 s e grava os 6 arquivos. Os números do ensaio não
+  significam nada.
+- ❓ **Tempo no Colab** não medido: a entrada do ScribblePrompt em 256² custa ~4× a de 128², e a aumentação em CPU soma ~1,7 s por
+  época. No pior caso (200 épocas em todos os *folds*), deve passar de 1 h; a paciência deve encurtar.
 
