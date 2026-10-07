@@ -30,6 +30,8 @@
 >
 > **Atualização (2026-10-07, PD-19, peça 2):** sai `test_monuseg_preprocessed_dataset.py` (1 teste; classe removida) e entra
 > `test_preprocessed_dataset.py` (10 testes: item 2 do §7). **119 testes: 115 passam, 3 falhas (PD-11), 1 pulado**.
+>
+> **Atualização (2026-10-07, PD-19, peça 3):** `test_best_model_callback.py` (7 testes). **126 testes: 122 passam, 3 falhas, 1 pulado**.
 
 - Existem **74 testes em 12 arquivos** ([tests/](../../tests/)), escritos entre julho e agosto junto com as correções da
   investigação do exp. 1. ✅

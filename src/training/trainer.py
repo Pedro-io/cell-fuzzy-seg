@@ -85,6 +85,10 @@ class Trainer:
     internos** de ``MarkerNet`` ou da rede final — apenas consome o pipeline
     já configurado.
 
+    Um callback pode encerrar o treino antes do fim marcando
+    ``trainer.stop_training = True``; o :class:`~src.training.training_loop.TrainingLoop`
+    para ao fim da época corrente.
+
     Uso típico::
 
         trainer = Trainer(
@@ -143,6 +147,7 @@ class Trainer:
         self.prediction_key = prediction_key
         self.distance_map_key = distance_map_key
         self.ground_truth_key = ground_truth_key
+        self.stop_training = False
 
         if isinstance(self.loss_composer, nn.Module):
             self.loss_composer.to(self.device)

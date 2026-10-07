@@ -12,7 +12,8 @@
 - O treino tem três camadas:
   - o **`TrainingLoop`** percorre épocas e batches;
   - o **`Trainer`** faz um passo de otimização (forward → loss → backward → clip → step → scheduler);
-  - os **callbacks** observam o processo. Hoje o único é o `GradNormCallback`. ✅
+  - os **callbacks** observam o processo: o `GradNormCallback` e, desde 2026-10-07, o `BestModelCallback` (melhor Dice de
+    validação + parada antecipada, PD-46). ✅
 - Só a **MarkerUNet** é otimizada; o ScribblePrompt está congelado. Todos os experimentos usam **Adam, lr 1e-4, cosseno por
   passo, clip de gradiente 1,0, batch 4 e seed 42**, e mudam só as losses e o número de épocas. ✅
 - **O treino é barato: ~1,3–1,7 s por época**, ou ~1,5 min para 50 épocas no Colab. Isso torna viáveis a validação cruzada

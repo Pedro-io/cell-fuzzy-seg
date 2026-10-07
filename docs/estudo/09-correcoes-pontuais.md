@@ -910,7 +910,7 @@ O máximo, a paciência e a regra (mediana) ficam parametrizáveis.
 - **Conferência:** nas 14 imagens de teste, a função nova difere da `compute_binary_metrics` dos notebooks em no máximo 5e-8 (o `eps`)
   e reproduz o Dice do Cellpose (0,8370).
 
-### 18.6 Peça 2 — dataset, aumentação e collate (2026-10-07; aguardando validação, sem commit)
+### 18.6 Peça 2 — dataset, aumentação e collate (2026-10-07, `76b71a6`, validada pelo autor)
 - `src/data/load/preprocessed_dataset.py`:
   - `load_preprocessed(split, root, ids=None, alpha="mask")`: lê os `.npy` do split uma vez e devolve `id -> amostra`. A
     segmentação do Cellpose entra como **`cellpose_segmentation`** (a rede final grava a saída em `segmentation`, PD-33), e é dela
@@ -929,4 +929,20 @@ O máximo, a paciência e a regra (mediana) ficam parametrizáveis.
   1 pulado**.
 - **Dados reais:** carga de 37 + 14 imagens em 1,0 s, 1,27 GB em memória; uma época do loader (37 imagens, com aumentação) em 1,7 s
   em CPU; alpha = máscara do Cellpose e RGB = imagem/255 em todos os batches aumentados; com `alpha="prob"`, o 4º canal fica em [0, 1].
+
+### 18.7 Peça 3 — callbacks de validação e parada antecipada (2026-10-07; aguardando validação, sem commit)
+- `src/training/callbacks/best_model_callback.py` — `BestModelCallback(model, patience=None, min_delta=0.0, threshold=0.5)`:
+  - em `on_validation_step_end`, calcula o Dice binário (`binary_metrics`) de cada imagem a partir do `data` que o `Trainer` já
+    produz (sem forward extra);
+  - em `on_epoch_end` (só nas épocas com validação), tira a média por imagem, registra em `history` e, se superar o melhor em mais
+    de `min_delta`, guarda uma cópia em CPU do `state_dict` do modelo (`best_epoch`, `best_dice`, `best_state`);
+  - com `patience`, depois de `patience` validações seguidas sem melhora, marca `trainer.stop_training = True`;
+  - `restore_best()` carrega o melhor estado; levanta erro se não houve validação.
+  - O modelo é passado explicitamente ao callback (não é procurado por nome de atributo, como faz o `GradNormCallback`, PD-35).
+- `Trainer`: atributo `stop_training = False`. `TrainingLoop`: zera o sinal no início, para ao fim da época em que ele for marcado
+  e devolve `history["epochs_run"]`. Um `Trainer` sem o atributo (como os de mentira dos testes antigos) nunca para.
+- `tests/test_best_model_callback.py`: 7 testes (melhor época e restauração dos pesos; parada após a paciência; `min_delta`
+  comparado ao melhor, não à época anterior; épocas sem validação não contam; erros; o sinal é zerado no início; com o `Trainer`
+  real). Suíte: **126 testes, 122 ok, 3 falhas conhecidas (PD-11), 1 pulado**.
+- Nada é gravado em disco: o melhor estado fica em memória (~98 MB em CPU para a MarkerUNet).
 

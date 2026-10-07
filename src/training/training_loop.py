@@ -86,7 +86,10 @@ class TrainingLoop:
                 - ``"train_terms"``: dict ``{termo: lista de médias por época}``
                   para os termos de perda do treino;
                 - ``"val_terms"``: dict ``{termo: lista de médias por época}``
-                  para os termos de perda da validação executada.
+                  para os termos de perda da validação executada;
+                - ``"epochs_run"``: número de épocas executadas (menor que
+                  ``num_epochs`` quando um callback pede a parada com
+                  ``trainer.stop_training = True``).
 
             Observação: quando ``validate_every > 1``, as listas ``"val_loss"`` e
             ``"val_terms"`` possuem menos entradas do que ``"train_loss"`` — elas
@@ -97,7 +100,10 @@ class TrainingLoop:
             "val_loss": [],
             "train_terms": {},
             "val_terms": {},
+            "epochs_run": 0,
         }
+        if hasattr(self.trainer, "stop_training"):
+            self.trainer.stop_training = False
 
         for epoch in range(1, self.num_epochs + 1):
             train_loss, train_terms = self._run_epoch(self.train_loader, training=True)
@@ -119,6 +125,11 @@ class TrainingLoop:
 
             if epoch % self.log_every == 0:
                 self._log_epoch(epoch, train_metrics, val_metrics)
+
+            history["epochs_run"] = epoch
+            if getattr(self.trainer, "stop_training", False):
+                logger.info(f"[TrainingLoop] Parada pedida por um callback na época {epoch}.")
+                break
 
         return history
 

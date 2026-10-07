@@ -64,7 +64,7 @@
 | [PD-43](#pd-43) | 🟡 | Loss | Com GT vazio: DMap e TV dividem por zero; Size perde a normalização | Aberta (latente) |
 | [PD-44](#pd-44) | 🟠 | Experimento | Plano do experimento-base "só Dice + TV" (256², só positivos) | Decidida: a executar |
 | [PD-45](#pd-45) | ⚪ | Treino | Médias por época são por batch, não por imagem (o último batch tem 2 imagens) | Aberta |
-| [PD-46](#pd-46) | 🟡 | Treino | Não há seleção do melhor modelo nem early stopping; avalia-se a última época | Decidida: melhor Dice + early stopping |
+| [PD-46](#pd-46) | 🟡 | Treino | Não há seleção do melhor modelo nem early stopping; avalia-se a última época | Implementada (2026-10-07): `BestModelCallback`; vale quando os notebooks passarem a usá-la |
 | [PD-47](#pd-47) | 🟡 | Publicação | Resultados (oráculo e próximos experimentos) precisam ser salvos e reproduzíveis para o artigo | Aberta |
 | [PD-48](#pd-48) | 🟡 | Testes | Testes cobrem a "tubulação" com dummies; nada de redes reais, dados, métricas ou valores das losses; sem execução automática | Aberta |
 | [PD-49](#pd-49) | 🟠 | Modelo/Experimento | Só positivo: um fundo ≥ 1e-3 no canal positivo faz o ScribblePrompt marcar a imagem inteira; a sigmoid da MarkerUNet nunca dá 0 | Aberta (decisão do autor, 09 §9) |
@@ -791,6 +791,11 @@ X (época N)", mas esse **não** é o modelo cujas métricas são mostradas. O e
 *overfitting* (PD-38).
 **Decisão (2026-09-27): sim para os dois.** Guardar o checkpoint de melhor Dice na validação do *fold* e usar *early stopping*
 por ela. Entra no módulo da PD-19.
+**Implementada (2026-10-07, aguardando validação; 09 §18.7):** `BestModelCallback(model, patience, min_delta)` calcula o Dice
+binário médio por imagem da validação a cada época (a partir do `data` do callback, sem forward extra), guarda em CPU o
+`state_dict` da época de melhor Dice e, com `patience`, pede a parada (`trainer.stop_training = True`), que o `TrainingLoop`
+respeita ao fim da época. `restore_best()` carrega o melhor estado. Nada é gravado em disco (decisão do autor: checkpoints só
+depois, numa pasta na raiz do usuário).
 **Proposta:** um callback que guarde o estado de **melhor Dice na validação do *fold*** (nunca no teste, PD-02) e, opcionalmente,
 pare depois de N épocas sem melhora. Como o treino custa ~1,5 s por época, o custo é irrelevante.
 
