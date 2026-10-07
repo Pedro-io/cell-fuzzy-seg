@@ -390,6 +390,31 @@ mudam, então os notebooks antigos continuam iguais.
 **Testes novos:** `input_size` não divisível por 16 → erro; `input_size=(256, 256)` chega à UNet em 256²; no modo `positive`,
 o negativo é zero e o positivo é zero abaixo de τ; o gradiente chega aos scribbles acima de τ.
 
+### 9.1 Decisão e aplicação (2026-10-07; aguardando validação, sem commit)
+**Decisão do autor:** opção (a), τ = 0,5, configurável. Explicação dada ao autor: a sigmoide da MarkerUNet (no `MarkerStep`)
+continua; o modo `positive` **não** aplica a segunda sigmoide do `sharpened` (é ela que deixa o piso de 0,0067) e corta em τ. A
+variante "cortar e depois afiar" fica como ideia.
+
+**O que mudou** ✅ (`scribble_prompting_network.py`):
+- `scribble_mode="positive"`: canais `[relu(s − τ) / (1 − τ), 0]`. Abaixo de τ, o positivo é exatamente 0; acima, contínuo em
+  (0, 1], com gradiente 1/(1 − τ). O negativo é zero.
+- `positive_threshold=0.5` (τ, validado em [0, 1)) e `input_size=None` (validado: 2 dimensões positivas divisíveis por 16; `None`
+  mantém os 128² do pacote). O `scribble_mode` passou a ser validado já no construtor.
+- Saem duas referências à história ("investigação, C2"), PD-50.
+- Padrões inalterados (`sharpened`, 128²): os notebooks antigos se comportam igual.
+
+**Testes:** +5 em `test_scribble_prompting_network.py` (corte e escala; gradiente só acima de τ; validação das opções; `input_size`
+chega à UNet; divisível por 16). Suíte: **143 testes, 139 ok, 3 falhas conhecidas (PD-11), 1 pulado**.
+
+**Com o ScribblePrompt real** (3 imagens de treino, marcador = miolo do GT, 256²):
+
+| Marcador | Dice | Massa / GT |
+|---|---|---|
+| oráculo: positivo = marcador cru, negativo 0 | 0,729 | 0,61 |
+| `positive`, marcador limpo | 0,729 | 0,61 |
+| `positive`, marcador + piso de 0,01 (como o fundo da sigmoide) | **0,729** | **0,61** |
+| *sharpening* só no positivo, marcador + piso | 0,421 | 4,61 ⚠️ |
+
 ---
 
 ## 10. Ordem de aplicação (revista em 2026-09-29: seguir o fluxo dos dados)
@@ -438,7 +463,7 @@ seção. No fim de cada etapa, rodar a suíte inteira e registrar o resultado no
 | Etapa 5: regeração dos `.npy` | `0cc2d7f` (autor, no Colab) | conferência dos dados: nenhuma falha (§17) | 37 + 14; Dice do Cellpose 0,845 (treino) / 0,837 (teste) |
 | C7, parte do Cellpose (PD-31) + PD-34 (a) | `64a624f` (validado pelo autor) | 94: 90 ok, 3 falhas conhecidas (PD-11), 1 pulado | `flows`/`styles` fora; `cellpose_prob` e `RGBAStep(alpha=...)`; notebook não executado (precisa de GPU) |
 | C7, resto (PD-17, PD-20, PD-31) | — | — | — |
-| C8 | — | — | — |
+| C8 (PD-44 código, PD-49) | — (aguardando validação do autor) | 143: 139 ok, 3 falhas conhecidas (PD-11), 1 pulado | modo `positive` (τ = 0,5) e `input_size`; idêntico ao oráculo com piso de 0,01 |
 
 ---
 
@@ -973,7 +998,7 @@ O máximo, a paciência e a regra (mediana) ficam parametrizáveis.
   do `evaluate` em cada *fold* (0,352 e 0,411), ou seja, as duas medições batem. Os valores em si (0,15 a 0,53 contra 0,80 a 0,88 do
   Cellpose) não significam nada: 1 época com 3 imagens.
 
-### 18.9 Peça 5 — registro dos resultados (2026-10-07; aguardando validação, sem commit)
+### 18.9 Peça 5 — registro dos resultados (2026-10-07, `7b8a955`, validada pelo autor)
 - `src/evaluation/report.py`:
   - `summarize(rows, metrics, baseline_prefix="cellpose_", seed=0)`: por métrica, média, desvio amostral e **IC 95% da média por
     *bootstrap*** (10 000 reamostragens das imagens); com a linha de base, a comparação **pareada por imagem**: diferença média e o

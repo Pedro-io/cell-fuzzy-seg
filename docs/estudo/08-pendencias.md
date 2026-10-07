@@ -23,7 +23,7 @@
 | [PD-02](#pd-02) | 🟠 | Metodologia | O teste oficial é usado como validação e para escolher configurações | k-fold implementado (2026-10-07); vale quando os experimentos passarem a usá-lo |
 | [PD-03](#pd-03) | 🟠 | Metodologia | Os experimentos de isolamento E2/E3/E5 nunca foram executados | Parcial: E3 (oráculo) executado em 2026-09-27 |
 | [PD-04](#pd-04) | 🟠 | Modelo | O scribble negativo é o complemento denso do marcador (provável erro) | Decidida: só positivo (confirmado pelo oráculo) |
-| [PD-05](#pd-05) | 🟡 | Resolução | O ScribblePrompt trabalha em 128²: o núcleo mediano vira ~3 px | Aberta; o oráculo recomenda 256² |
+| [PD-05](#pd-05) | 🟡 | Resolução | O ScribblePrompt trabalha em 128²: o núcleo mediano vira ~3 px | `input_size` configurável (2026-10-07); o experimento-base usa 256² |
 | [PD-06](#pd-06) | 🟠 | Dados/Loss | O mapa de distância é normalizado pelo máximo da imagem, não por núcleo | ✅ Resolvida (2026-10-06, `308ba92`); falta recalibrar o peso do DMap (fase 2) |
 | [PD-07](#pd-07) | 🟠 | Dados | O GT binário funde núcleos (−25% de componentes no treino) | Parcial: a máscara por instância alimenta o Dmap (2026-10-06); o GT binário continua fundindo (intencional) |
 | [PD-08](#pd-08) | 🟡 | Treino | A aumentação é estática e não há shuffle | Implementada no módulo (2026-10-07); vale quando os notebooks passarem a usá-lo |
@@ -62,12 +62,12 @@
 | [PD-41](#pd-41) | 🟠 | Loss | `BorderTerm` pune marcadores sobre 16–17% dos pixels de núcleo real | Aberta |
 | [PD-42](#pd-42) | ⚪ | Docs | Docstring do `LossComposer` diz que o Size olha a predição (olha os marcadores) | Aberta |
 | [PD-43](#pd-43) | 🟡 | Loss | Com GT vazio: DMap e TV dividem por zero; Size perde a normalização | Aberta (latente) |
-| [PD-44](#pd-44) | 🟠 | Experimento | Plano do experimento-base "só Dice + TV" (256², só positivos) | Decidida: a executar |
+| [PD-44](#pd-44) | 🟠 | Experimento | Plano do experimento-base "só Dice + TV" (256², só positivos) | Decidida; código pronto (2026-10-07); falta o notebook |
 | [PD-45](#pd-45) | ⚪ | Treino | Médias por época são por batch, não por imagem (o último batch tem 2 imagens) | Aberta |
 | [PD-46](#pd-46) | 🟡 | Treino | Não há seleção do melhor modelo nem early stopping; avalia-se a última época | Implementada (2026-10-07): `BestModelCallback`; vale quando os notebooks passarem a usá-la |
 | [PD-47](#pd-47) | 🟡 | Publicação | Resultados (oráculo e próximos experimentos) precisam ser salvos e reproduzíveis para o artigo | Parcial: registro dos experimentos implementado (2026-10-07); falta o oráculo |
 | [PD-48](#pd-48) | 🟡 | Testes | Testes cobrem a "tubulação" com dummies; nada de redes reais, dados, métricas ou valores das losses; sem execução automática | Aberta |
-| [PD-49](#pd-49) | 🟠 | Modelo/Experimento | Só positivo: um fundo ≥ 1e-3 no canal positivo faz o ScribblePrompt marcar a imagem inteira; a sigmoid da MarkerUNet nunca dá 0 | Aberta (decisão do autor, 09 §9) |
+| [PD-49](#pd-49) | 🟠 | Modelo/Experimento | Só positivo: um fundo ≥ 1e-3 no canal positivo faz o ScribblePrompt marcar a imagem inteira; a sigmoid da MarkerUNet nunca dá 0 | Implementada (2026-10-07): modo `positive` com corte em τ; aguarda validação |
 | [PD-50](#pd-50) | ⚪ | Código | Código, testes e notebooks citam a história do projeto (PD-nn, "investigação, P5", "C2", "regra 23") | Aberta (regra do autor, 2026-10-01) |
 | [PD-51](#pd-51) | ⚪ | Dados | Uma região de área ~0 é classificada de forma diferente conforme a versão do numpy (só muda o log) | Aberta |
 
@@ -850,6 +850,13 @@ vazar (massa 1,3–2,5×) e ≥ 3e-3 inunda. No modo atual isso não aparece, po
 tratar isso, o experimento-base tende a inundar.
 **Opções** (detalhe e tabela em [09-correcoes-pontuais.md §9](09-correcoes-pontuais.md)): (a) limiar suave
 `relu(s − τ)/(1 − τ)`; (b) binário com *straight-through*; (c) cru, com risco de inundar. Recomendação: (a).
+**Decisão do autor (2026-10-07):** opção (a), τ = 0,5, configurável. A sigmoide da MarkerUNet continua; o que sai é a **segunda**
+sigmoide (o *sharpening*), que deixava o piso de 0,0067. Fica como ideia, para testar depois se for preciso, cortar e então afiar
+o que sobra.
+**Implementada (2026-10-07, aguardando validação; 09 §9.1):** `scribble_mode="positive"` e `positive_threshold` no
+`ScribblePromptingNetwork`. Com o ScribblePrompt real (3 imagens, miolo do GT, 256²), o modo `positive` com um piso de 0,01 no
+marcador dá **Dice 0,729 e massa 0,61×, idênticos ao oráculo** (positivo = marcador cru); o *sharpening* com o mesmo piso inunda
+(Dice 0,421, massa 4,61×).
 
 ### PD-50
 **⚪ O código cita a história do projeto em vez de só descrever o que faz.** ✅ (contado em 2026-10-01)

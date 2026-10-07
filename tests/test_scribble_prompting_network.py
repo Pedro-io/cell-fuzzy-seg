@@ -246,3 +246,47 @@ def test_gradient_flows_through_sharpened_scribbles(fake_scribbleprompt):
 
     assert scribbles.grad is not None
     assert scribbles.grad.abs().sum() > 0
+
+
+def test_positive_mode_zeroes_negative_and_cuts_below_threshold(fake_scribbleprompt):
+    net = ScribblePromptingNetwork(scribble_mode="positive", positive_threshold=0.5)
+    scribbles = torch.tensor([[[[0.0, 0.01, 0.5, 0.75, 0.9, 1.0]]]])
+
+    s = net._prepare_scribbles(scribbles, torch.device("cpu"))
+
+    assert torch.equal(s[0, 1], torch.zeros(1, 6))                 # sem canal negativo
+    assert torch.equal(s[0, 0, 0, :3], torch.zeros(3))              # exatamente zero até τ
+    assert torch.allclose(s[0, 0, 0, 3:], torch.tensor([0.5, 0.8, 1.0]))  # (s − τ)/(1 − τ)
+
+
+def test_positive_mode_gradient_flows_only_above_threshold(fake_scribbleprompt):
+    net = ScribblePromptingNetwork(scribble_mode="positive", positive_threshold=0.5)
+    scribbles = torch.tensor([[[[0.2, 0.8]]]], requires_grad=True)
+
+    net._prepare_scribbles(scribbles, torch.device("cpu"))[:, 0].sum().backward()
+
+    assert torch.allclose(scribbles.grad, torch.tensor([[[[0.0, 2.0]]]]))  # 1/(1 − τ) acima de τ
+
+
+def test_scribble_options_are_validated_at_construction(fake_scribbleprompt):
+    with pytest.raises(ValueError, match="scribble_mode"):
+        ScribblePromptingNetwork(scribble_mode="negative")
+    with pytest.raises(ValueError, match="positive_threshold"):
+        ScribblePromptingNetwork(scribble_mode="positive", positive_threshold=1.0)
+
+
+def test_input_size_sets_the_network_resolution(fake_scribbleprompt):
+    net = ScribblePromptingNetwork(input_size=(256, 256), resize_output=False)
+    seen = []
+    net.unet.register_forward_hook(lambda module, inputs, output: seen.append(tuple(inputs[0].shape[-2:])))
+
+    mask = net({"image": torch.rand(1, 1, 64, 64), "scribbles": torch.rand(1, 1, 64, 64)})
+
+    assert net.input_size == (256, 256)
+    assert seen == [(256, 256)] and mask.shape[-2:] == (256, 256)
+    assert ScribblePromptingNetwork().input_size == (128, 128)     # padrão do pacote
+
+
+def test_input_size_must_be_divisible_by_16(fake_scribbleprompt):
+    with pytest.raises(ValueError, match="divisíveis por 16"):
+        ScribblePromptingNetwork(input_size=(250, 256))

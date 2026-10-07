@@ -26,7 +26,7 @@ original) ou informe o caminho do arquivo baixado.
 """
 
 import pathlib
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Dict, Literal, Optional, Tuple
 
 import numpy as np
 import torch
@@ -57,13 +57,17 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
             aplica ``sigmoid(T * (s - 0.5))`` / ``sigmoid(T * (0.5 - s))``,
             produzindo canais complementares quase binários — mais próximos da
             distribuição de treino do ScribblePrompt (traços 0/1 exclusivos) do
-            que ``[s, 1-s]`` com s suave em toda a imagem (investigação, C2).
-            ``"dense_soft"`` mantém o comportamento legado ``[s, 1-s]``.
+            que ``[s, 1-s]`` com s suave em toda a imagem.
+            ``"dense_soft"`` usa ``[s, 1-s]``. ``"positive"`` usa só o canal
+            positivo, ``relu(s − τ) / (1 − τ)``, e zera o negativo: abaixo do
+            limiar τ o positivo é exatamente zero, porque qualquer valor positivo
+            espalhado pela imagem (mesmo ~0,001) faz a rede segmentar demais.
         scribble_temperature: Temperatura ``T`` do sharpening (padrão ``10.0``).
             Valores maiores aproximam os scribbles de 0/1; valores menores
             preservam mais a suavidade (e o gradiente) dos marcadores.
+        positive_threshold: Limiar τ do modo ``"positive"`` (padrão ``0.5``).
         unet: UNet interna congelada (registrada como submódulo).
-        input_size: Tamanho espacial esperado pelo modelo (``(128, 128)``).
+        input_size: Tamanho espacial da entrada da rede (padrão do pacote: ``(128, 128)``).
     """
 
     CHECKPOINT_URLS: Dict[str, str] = {
@@ -79,8 +83,10 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
         checkpoint: Optional[str] = None,
         device: Optional[str] = None,
         resize_output: bool = True,
-        scribble_mode: Literal["sharpened", "dense_soft"] = "sharpened",
+        scribble_mode: Literal["sharpened", "dense_soft", "positive"] = "sharpened",
         scribble_temperature: float = 10.0,
+        positive_threshold: float = 0.5,
+        input_size: Optional[Tuple[int, int]] = None,
         config: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Inicializa a rede congelada do ScribblePrompt.
@@ -95,12 +101,28 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
             scribble_mode: Conversão dos marcadores em scribbles — veja a
                 descrição da classe (padrão ``"sharpened"``).
             scribble_temperature: Temperatura do sharpening (padrão ``10.0``).
+            positive_threshold: Limiar τ do modo ``"positive"``, em ``[0, 1)``.
+            input_size: ``(altura, largura)`` da entrada da rede; ambas divisíveis por 16 (a U-Net
+                tem 4 *poolings*). ``None``: o tamanho do pacote, ``(128, 128)``. A rede é totalmente
+                convolucional, então outros tamanhos usam os mesmos pesos.
             config: Configuração extra armazenada na rede.
 
         Raises:
             ImportError: Se o pacote ``scribbleprompt`` não estiver instalado.
             RuntimeError: Se o checkpoint não for encontrado.
+            ValueError: Se ``scribble_mode``, ``positive_threshold`` ou ``input_size`` forem inválidos.
         """
+        if scribble_mode not in ("sharpened", "dense_soft", "positive"):
+            raise ValueError(
+                f"scribble_mode desconhecido: {scribble_mode!r}. Use 'sharpened', 'dense_soft' ou 'positive'."
+            )
+        if not 0.0 <= positive_threshold < 1.0:
+            raise ValueError(f"positive_threshold deve estar em [0, 1), recebido {positive_threshold}.")
+        if input_size is not None:
+            input_size = tuple(int(v) for v in input_size)
+            if len(input_size) != 2 or any(v <= 0 or v % 16 for v in input_size):
+                raise ValueError(f"input_size deve ter 2 dimensões positivas divisíveis por 16, recebido {input_size}.")
+
         if config is None:
             config = {
                 "version": version,
@@ -108,6 +130,8 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
                 "resize_output": resize_output,
                 "scribble_mode": scribble_mode,
                 "scribble_temperature": scribble_temperature,
+                "positive_threshold": positive_threshold,
+                "input_size": input_size,
             }
         super().__init__(config=config)
 
@@ -115,6 +139,7 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
         self.resize_output = resize_output
         self.scribble_mode = scribble_mode
         self.scribble_temperature = scribble_temperature
+        self.positive_threshold = positive_threshold
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
 
         try:
@@ -154,7 +179,7 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
         self.unet.requires_grad_(False)
         self.unet.eval()
 
-        self.input_size = tuple(self._sp.input_size)
+        self.input_size = input_size if input_size is not None else tuple(self._sp.input_size)
         logger.info(
             f"[ScribblePromptingNetwork] Inicializada (version={version}, "
             f"device={self.device}, input_size={self.input_size})"
@@ -287,8 +312,9 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
           binários — ``pos = sigmoid(T*(s-0.5))`` e ``neg = sigmoid(T*(0.5-s))``.
           Isso aproxima a distribuição de treino do ScribblePrompt (traços 0/1
           mutuamente exclusivos) e evita a entrada degenerada ``[s, 1-s]`` com
-          s suave em todos os pixels (investigação, C2).
-        - ``"dense_soft"``: comportamento legado ``[s, 1 - s]``.
+          s suave em todos os pixels.
+        - ``"dense_soft"``: ``[s, 1 - s]``.
+        - ``"positive"``: ``[relu(s − τ) / (1 − τ), 0]``.
 
         Tensores preservam o grafo computacional (sem detach) para permitir a
         backpropagation até a MarkerNet.
@@ -351,9 +377,14 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
             neg = torch.sigmoid(t * (0.5 - s))
             return torch.cat([pos, neg], dim=1)
 
+        if self.scribble_mode == "positive":
+            tau = self.positive_threshold
+            pos = torch.relu(s - tau) / (1.0 - tau)
+            return torch.cat([pos, torch.zeros_like(pos)], dim=1)
+
         raise ValueError(
             f"scribble_mode desconhecido: {self.scribble_mode!r}. "
-            "Use 'sharpened' ou 'dense_soft'."
+            "Use 'sharpened', 'dense_soft' ou 'positive'."
         )
 
     @classmethod
