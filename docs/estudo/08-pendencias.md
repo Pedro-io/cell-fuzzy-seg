@@ -65,7 +65,7 @@
 | [PD-44](#pd-44) | 🟠 | Experimento | Plano do experimento-base "só Dice + TV" (256², só positivos) | Decidida: a executar |
 | [PD-45](#pd-45) | ⚪ | Treino | Médias por época são por batch, não por imagem (o último batch tem 2 imagens) | Aberta |
 | [PD-46](#pd-46) | 🟡 | Treino | Não há seleção do melhor modelo nem early stopping; avalia-se a última época | Implementada (2026-10-07): `BestModelCallback`; vale quando os notebooks passarem a usá-la |
-| [PD-47](#pd-47) | 🟡 | Publicação | Resultados (oráculo e próximos experimentos) precisam ser salvos e reproduzíveis para o artigo | Aberta |
+| [PD-47](#pd-47) | 🟡 | Publicação | Resultados (oráculo e próximos experimentos) precisam ser salvos e reproduzíveis para o artigo | Parcial: registro dos experimentos implementado (2026-10-07); falta o oráculo |
 | [PD-48](#pd-48) | 🟡 | Testes | Testes cobrem a "tubulação" com dummies; nada de redes reais, dados, métricas ou valores das losses; sem execução automática | Aberta |
 | [PD-49](#pd-49) | 🟠 | Modelo/Experimento | Só positivo: um fundo ≥ 1e-3 no canal positivo faz o ScribblePrompt marcar a imagem inteira; a sigmoid da MarkerUNet nunca dá 0 | Aberta (decisão do autor, 09 §9) |
 | [PD-50](#pd-50) | ⚪ | Código | Código, testes e notebooks citam a história do projeto (PD-nn, "investigação, P5", "C2", "regra 23") | Aberta (regra do autor, 2026-10-01) |
@@ -820,6 +820,12 @@ publicado, e o oráculo entra como resultado ([06-experimentos.md §6](06-experi
    sobre as imagens), e, na comparação com o Cellpose, um teste pareado por imagem (ex.: Wilcoxon). ❓ Confirmar com o orientador
    o padrão esperado pelo veículo de publicação.
 5. **Figuras candidatas já produzidas:** `docs/estudo/figuras/dmap_normalizacao.png` (mapa de distância atual × por núcleo).
+
+**Andamento (2026-10-07):** o teste de parâmetros do Cellpose (PD-30) e a regeração dos dados (`meta.json` com procedência) já
+saem salvos. Para os experimentos, `src/evaluation/report.py` (`summarize` + `save_run`, aguardando validação; 09 §18.9) cobre os
+itens 2 a 4: configuração e procedência em JSON, métricas por imagem e por *fold*, curvas, teste, média ± desvio, IC 95% por
+*bootstrap* e comparação pareada com o Cellpose (Wilcoxon). Checkpoints continuam fora (decisão do autor). **Falta:** o oráculo
+(item 1), que ainda só imprime as tabelas.
 
 ### PD-48
 **🟡 Os testes não verificam a parte científica e não rodam automaticamente.** ✅ (executados em 2026-09-27)

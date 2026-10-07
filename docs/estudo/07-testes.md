@@ -35,6 +35,8 @@
 >
 > **Atualização (2026-10-07, PD-19, peça 4):** `test_kfold.py` (6 testes; inclui *folds* disjuntos e sem vazamento, item 2 do §7).
 > **132 testes: 128 passam, 3 falhas (PD-11), 1 pulado**.
+>
+> **Atualização (2026-10-07, PD-19, peça 5):** `test_report.py` (6 testes). **138 testes: 134 passam, 3 falhas (PD-11), 1 pulado**.
 
 - Existem **74 testes em 12 arquivos** ([tests/](../../tests/)), escritos entre julho e agosto junto com as correções da
   investigação do exp. 1. ✅

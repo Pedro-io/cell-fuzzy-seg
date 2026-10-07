@@ -946,7 +946,7 @@ O máximo, a paciência e a regra (mediana) ficam parametrizáveis.
   real). Suíte: **126 testes, 122 ok, 3 falhas conhecidas (PD-11), 1 pulado**.
 - Nada é gravado em disco: o melhor estado fica em memória (~98 MB em CPU para a MarkerUNet).
 
-### 18.8 Peça 4 — k-fold e treino final (2026-10-07; aguardando validação, sem commit)
+### 18.8 Peça 4 — k-fold e treino final (2026-10-07, `01b997f`, validada pelo autor)
 - `src/training/kfold.py`:
   - `TrainConfig`: `k=5`, `batch_size=4`, `max_epochs=200`, `patience=20`, `min_delta=0`, `lr=1e-4`, `grad_clip=1.0`,
     `threshold=0.5`, `seed=42`, `device`, `log_every` — tudo parametrizável por experimento (decisões do §18.4).
@@ -972,4 +972,24 @@ O máximo, a paciência e a regra (mediana) ficam parametrizáveis.
   (2 *folds* + treino final + teste) em 26 s. O Dice de validação que o `BestModelCallback` registra é **igual** à média das linhas
   do `evaluate` em cada *fold* (0,352 e 0,411), ou seja, as duas medições batem. Os valores em si (0,15 a 0,53 contra 0,80 a 0,88 do
   Cellpose) não significam nada: 1 época com 3 imagens.
+
+### 18.9 Peça 5 — registro dos resultados (2026-10-07; aguardando validação, sem commit)
+- `src/evaluation/report.py`:
+  - `summarize(rows, metrics, baseline_prefix="cellpose_", seed=0)`: por métrica, média, desvio amostral e **IC 95% da média por
+    *bootstrap*** (10 000 reamostragens das imagens); com a linha de base, a comparação **pareada por imagem**: diferença média e o
+    seu IC 95%, quantas imagens melhoram e pioram, e o p do **Wilcoxon** (`null` quando todas as diferenças são zero). Métricas que
+    não estão em todas as linhas são ignoradas.
+  - `provenance()`: commit, se há mudanças locais em `src/`/`configs/`, versões de python, torch e numpy, GPU e data.
+  - `save_run(name, config, folds, test_rows, final_epochs, description, output_dir="docs/estudo/resultados")` grava
+    `<output_dir>/<name>/`: `config.json` (configuração, descrição do experimento, épocas do treino final, procedência),
+    `folds.csv` (por imagem), `folds_resumo.csv` (por *fold*), `curvas.csv` (perda de treino e Dice de validação por época),
+    `teste.csv` e `resumo.json`. **Recusa sobrescrever** uma pasta existente (salvo `overwrite=True`). Os JSON são estritos
+    (`NaN` → `null`).
+- Só biblioteca padrão (`csv`, `json`) + `scipy` (já no `requirements.txt`); sem `pandas`.
+- `tests/test_report.py`: 6 testes (média, desvio, comparação pareada e Wilcoxon contra o `scipy`; IC por *bootstrap* contém a
+  média e é reproduzível; p nulo quando idêntico; métricas ausentes; todos os arquivos e seus conteúdos; recusa a sobrescrever e
+  JSON sem `NaN`). Uma primeira versão quebrava quando faltava uma métrica nas linhas; corrigido no código. Suíte: **138 testes,
+  134 ok, 3 falhas conhecidas (PD-11), 1 pulado**.
+- **Com as peças reais:** o ensaio do §18.8 gravado com `save_run` (no scratchpad) gera os 6 arquivos; a procedência acusou
+  `mudancas_locais_em_src: true`, como devia (o `report.py` ainda não estava commitado).
 
