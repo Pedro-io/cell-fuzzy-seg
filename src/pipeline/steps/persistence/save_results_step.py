@@ -4,8 +4,8 @@ Este passo recebe o dicionário de dados já enriquecido pelos Steps anteriores
 (ex. Cellpose, RGBA, DistanceMap) e delega a gravação em disco ao
 :class:`~src.io.output_writer.OutputWriter`. Ele é o ponto de entrada canônico
 para persistir o pré-processamento **uma única vez** por imagem, permitindo que
-os notebooks de treino (ex. ``experiment_3.ipynb``) carreguem os resultados já
-processados sem recomputar o Cellpose a cada experimento.
+o treino carregue os resultados já processados
+(:mod:`src.data.load.preprocessed_dataset`) sem recomputar o Cellpose a cada experimento.
 
 Contrato de persistência:
 

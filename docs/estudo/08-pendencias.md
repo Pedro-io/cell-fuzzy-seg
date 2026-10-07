@@ -223,6 +223,11 @@ O controle `train()`/`eval()` por modo entrou em `ef7d731` (22/09). Os runs são
 **Decisão (2026-09-27):** não corrigir os notebooks antigos agora. **Depois das correções** (PD-44 e seguintes), remover os
 notebooks e células que não fizerem mais sentido e manter só o material que embasa o trabalho. O histórico dos exp. 1–6 fica em
 [06-experimentos.md](06-experimentos.md) e no git.
+**Parcial (2026-10-07, aguardando validação):** os notebooks `experiment_1` a `experiment_6` foram **removidos** (pedido do autor),
+substituídos pelo módulo de treino da PD-19; recuperáveis com `git show df0a30f:notebooks/experiments/experiment_N.ipynb`. O
+`notebooks/README.md` foi reescrito. O `exploration/test_e2e_pipeline.ipynb` (que deixou de rodar com o Dmap por núcleo e ainda tinha o *fallback* do GT no lugar do
+Cellpose) também foi removido e substituído pelo `exploration/inspecao_pipeline.ipynb` (09 §18.10). **Falta** decidir
+`analise_image`, `groud_truth_monuseg` e o tutorial `preprocessamento_monuseg`.
 
 ### PD-11
 **⚪ Os testes e a docstring do Size descrevem a fórmula antiga.** ✅ (executado em 2026-09-27: os 3 testes falham, como previsto)
@@ -870,7 +875,7 @@ a história (pendências, datas, "antes era…", itens da investigação) fica n
   `scribble_prompting_network.py` (4), `marker_step.py` (3), e 2 ou menos em `test_scribble_prompting_network.py`,
   `grad_norm_callback.py`, `save_results_step.py`, `terms.py`, `loss_composer.py` e `test_object_size_loss.py`. São do tipo
   "investigação, P5", "C2", "C3/C4", "regra arquitetural 23".
-- **Notebooks:** 43 a 49 menções em cada `experiment_1..6` (vão ser podados depois das correções, PD-10), 14 no oráculo e 7 no
+- **Notebooks:** os `experiment_1..6` (43 a 49 menções cada) foram removidos em 2026-10-07; restam 14 no oráculo e 7 no
   restante do notebook de pré-processamento (por exemplo, "(P7)").
 **Proposta:** uma tarefa própria para limpar `src/` e `tests/` (sem mudar comportamento), reescrevendo cada menção como explicação
 do comportamento quando ela carrega informação útil. Os notebooks de experimento ficam para a poda da PD-10. ⚠️ O `CLAUDE.md` e o

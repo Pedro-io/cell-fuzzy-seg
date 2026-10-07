@@ -162,7 +162,7 @@ diâmetro. ✅ (os tamanhos estão no código) · ❓ (o impacto disso nos resul
 | [src/models/](../../src/models/) | MarkerUNet e ScribblePromptingNetwork | 03 |
 | [src/losses/](../../src/losses/) | termos de perda e `LossComposer` | 04 |
 | [src/training/](../../src/training/) | `Trainer`, `TrainingLoop`, `GradNormCallback` | 05 |
-| [notebooks/experiments/](../../notebooks/experiments/) | experimentos 1 a 6 | 06 |
+| [notebooks/experiments/](../../notebooks/experiments/) | experimentos com o módulo de treino (os exp. 1 a 6 foram removidos em 2026-10-07; estão no git em `df0a30f`) | 06 |
 | [tests/](../../tests/) | 74 testes pytest | 07 |
 | [data_source/](../../data_source/) | MoNuSeg bruto e pré-processado (versionado no git) | 01 |
 | [docs/papers/](../papers/) | PDFs do Cellpose (2020) e do ScribblePrompt | — |

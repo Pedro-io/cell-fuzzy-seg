@@ -1018,3 +1018,19 @@ O máximo, a paciência e a regra (mediana) ficam parametrizáveis.
 - **Com as peças reais:** o ensaio do §18.8 gravado com `save_run` (no scratchpad) gera os 6 arquivos; a procedência acusou
   `mudancas_locais_em_src: true`, como devia (o `report.py` ainda não estava commitado).
 
+### 18.10 Notebooks legados removidos e notebook de inspeção (2026-10-07; aguardando validação, sem commit)
+- **Removidos** (pedido do autor): `notebooks/experiments/experiment_1..6.ipynb` (~83 MB; substituídos pelo módulo de treino) e
+  `notebooks/exploration/test_e2e_pipeline.ipynb` (quebrado desde o Dmap por núcleo; usava o GT no lugar do Cellpose sem GPU e a
+  configuração antiga de perdas). Recuperáveis com `git show df0a30f:<caminho>`. Referências ajustadas no `notebooks/README.md`
+  (reescrito), na docstring do `SaveResultsStep`, na do `test_training_integration.py`, no `CLAUDE.md` e nos docs 00, 06 e 08.
+- **Novo: `notebooks/exploration/inspecao_pipeline.ipynb`** — conferência antes de um treino longo, numa imagem lida do disco (sem
+  Cellpose nem GPU): entradas (imagem, GT, máscara e probabilidade do Cellpose, Dmap); pipeline do experimento-base (MarkerUNet +
+  ScribblePrompt `positive`, τ = 0,5, 256², Dice + TV 0,001); conferências com `assert` (gradiente chega à MarkerUNet, ScribblePrompt
+  sem parâmetros treináveis, negativo zero, positivo zero abaixo de τ); avaliação antes; **sobreajuste numa imagem** (100 passos,
+  lr 1e-3); avaliação depois e figuras. O checkpoint do ScribblePrompt vai para `~/cell-fuzzy-models/scribbleprompt/`, fora do
+  repositório (a pasta escolhida pelo autor para modelos).
+- **Executado localmente** (CPU, redes reais, pasta de modelos redirecionada para o scratchpad), em 189 s, na
+  `TCGA-18-5592-01Z-00-DX1`: conferências aprovadas; perda 0,515 → **0,108**; Dice 0,520 → **0,878** (Cellpose nessa imagem:
+  0,883); massa 1,87× → 1,03×; marcador cobre 13% → 25% da imagem. O pipeline consegue aprender: o caminho do gradiente pelo
+  ScribblePrompt congelado funciona com a configuração nova. Isso não diz nada sobre generalização.
+

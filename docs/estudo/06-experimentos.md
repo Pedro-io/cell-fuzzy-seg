@@ -8,6 +8,10 @@
 > Eles estão preservados, com a situação atual de cada um, na [§2.3](#23-catálogo-da-investigação-p-c-e--situação-em-2026-09-27).
 >
 > Os números da §3 foram levantados das saídas salvas nos notebooks. Última verificação: 2026-09-27.
+>
+> **Os notebooks `experiment_1` a `experiment_6` foram removidos em 2026-10-07** (decisão do autor, PD-10): foram substituídos
+> pelo módulo de treino (PD-19). Continuam recuperáveis com `git show df0a30f:notebooks/experiments/experiment_N.ipynb`. Os números
+> deste documento usam o GT antigo, 30 imagens de treino e os limiares antigos do Cellpose.
 
 ---
 

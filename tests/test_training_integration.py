@@ -1,7 +1,6 @@
-"""Teste de integração do fluxo de treinamento corrigido (investigação do experimento 1).
+"""Teste de integração do fluxo de treinamento.
 
-Valida, em escala reduzida, a cadeia completa que o notebook ``experiment_1.ipynb``
-executa após as correções:
+Valida, em escala reduzida, a cadeia completa de treino:
 
 - ``MarkerStep`` diferenciável mantém a MarkerNet em ``train()`` (P3);
 - o gradiente flui até a MarkerNet através da rede final congelada (P1);
