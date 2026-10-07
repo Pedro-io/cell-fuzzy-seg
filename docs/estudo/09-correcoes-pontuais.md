@@ -405,8 +405,8 @@ diâmetro → Dmap), que punha o diâmetro antes.
 | 1 | `MonusegDataset` (XML → máscara) | PD-25, PD-07 | sim | não | ✅ 2026-09-29: E1-a, E1-b e E1-c aplicadas (§13.5) |
 | 2 | `CellposeStep` | PD-29 (C4), PD-30, PD-31 (C7, `flows`/`styles`), PD-16 (C6, notebook) | sim (PD-30) | sim | ✅ 2026-10-06: C4, C6 (notebook), C7 (`flows`/`styles`) + PD-34 e PD-30 |
 | 3 | `RGBAStep` | PD-34 (ideia) | — | — | — |
-| 4 | `DistanceMapStep` | PD-06 (depende da instância da etapa 1) | sim | não | — |
-| 5 | `SaveResultsStep` | regerar tudo **uma vez**, com commit e parâmetros no `meta.json` (PD-47) | — | sim | — |
+| 4 | `DistanceMapStep` | PD-06 (depende da instância da etapa 1) | sim | não | ✅ 2026-10-06 (`308ba92`) |
+| 5 | `SaveResultsStep` | regerar tudo **uma vez**, com commit e parâmetros no `meta.json` (PD-47) | — | sim | ✅ 2026-10-07 (`0cc2d7f`, gerado no Colab sobre `308ba92`) |
 | 6 | carregamento no treino | PD-19, PD-08, PD-02, PD-46 | não | não | — |
 | 7 | `MarkerStep` | PD-16 (C6), PD-36/PD-38 | não | — | — |
 | 8 | ScribblePrompt | PD-15 (C3), PD-44/PD-49 (C8), PD-04, PD-05 | não | — | — |
@@ -434,6 +434,8 @@ seção. No fim de cada etapa, rodar a suíte inteira e registrar o resultado no
 | C6, parte do `MarkerStep` | — | — | fica para a etapa 7 |
 | PD-30, teste no Colab | `2922d37` | — (notebook + resultados) | limiares padrão +0,031 de Dice no treino; diâmetro ≈ 0 |
 | PD-30, parâmetros no `CellposeStep` | `fdd08c0` | 95: 91 ok, 3 falhas conhecidas (PD-11), 1 pulado | `diam_mean=None`, `flow_threshold=0.4`, `min_size=15` |
+| Etapa 4: Dmap por núcleo (PD-06) | `308ba92` | 100: 96 ok, 3 falhas conhecidas (PD-11), 1 pulado | idêntico à medição da base em 37/37 e 14/14 |
+| Etapa 5: regeração dos `.npy` | `0cc2d7f` (autor, no Colab) | conferência dos dados: nenhuma falha (§17) | 37 + 14; Dice do Cellpose 0,845 (treino) / 0,837 (teste) |
 | C7, parte do Cellpose (PD-31) + PD-34 (a) | `64a624f` (validado pelo autor) | 94: 90 ok, 3 falhas conhecidas (PD-11), 1 pulado | `flows`/`styles` fora; `cellpose_prob` e `RGBAStep(alpha=...)`; notebook não executado (precisa de GPU) |
 | C7, resto (PD-17, PD-20, PD-31) | — | — | — |
 | C8 | — | — | — |
@@ -750,7 +752,7 @@ o valor no seu centro:
 da imagem inteira foi um erro de implementação); não serve para reproduzir os exp. 1–6, que também usaram o GT antigo, 30 imagens
 e outros limiares do Cellpose (o código antigo continua no git); e nada em `src/` ou nos testes o usava.
 
-### 16.6 Aplicação (2026-10-06; aguardando validação, sem commit)
+### 16.6 Aplicação (2026-10-06, `308ba92`, validada pelo autor)
 - `distance_map_step.py`: `compute_distance_map` (binário, máximo da imagem) deu lugar a `compute_instance_distance_map(labels)`
   (EDT por rótulo num recorte com 1 px de margem; valida que a entrada é 2D de inteiros). O `DistanceMapStep` lê
   `instances_key="ground_truth_instances"` e levanta `KeyError` sem ela.
@@ -764,3 +766,41 @@ e outros limiares do Cellpose (o código antigo continua no git); e nada em `src
   a máscara por instância não é salva.
 - ⚠️ Os notebooks antigos `experiment_1/2` e `test_e2e_pipeline` chamam `DistanceMapStep()` sobre o GT binário e deixariam de
   rodar com o código atual; ficam para a poda da PD-10.
+
+---
+
+## 17. Etapa 5 — dados regerados (2026-10-07)
+
+### 17.1 Procedência ✅
+- Gerado pelo autor no Colab e enviado como `0cc2d7f` ("chore: rodando pre-processamento"), cujo pai é `308ba92`: o código usado é
+  o da etapa 4. O commit mexe só em `data_source/MoNuSegPreprocessed/` (263 arquivos).
+- `meta.json`: 37 + 14, `rgba_alpha: "mask"`, `distance_map` por núcleo, chaves com `cellpose_prob`. ⚠️ Ele ainda não registra o
+  commit, as versões nem os parâmetros do Cellpose (item 2 da revisão do notebook). Os parâmetros ficam provados pela conferência
+  abaixo: o Dice por imagem no treino é **idêntico** (diferença máx. 4e-14) ao da config. `padrao` da PD-30, e difere em até 0,08 do
+  `atual`.
+- Tamanho: `MoNuSegPreprocessed/` passou de 1,1 GB para 1,4 GB (PD-21).
+
+### 17.2 Conferência (script `verifica_regeracao.py`, scratchpad) ✅ — nenhuma falha
+Para cada uma das 51 imagens:
+- `image` idêntica ao `.tif`;
+- `ground_truth` idêntico ao GT da etapa 1 (`xml_to_instance_mask > 0`);
+- `distance_map` idêntico ao mapa por núcleo, e o centro de todo núcleo vale 0;
+- `rgba`: RGB = imagem/255 e alpha = máscara do Cellpose;
+- `cellpose_prob` em [0, 1].
+
+Tipos: `image` uint8 (1000,1000,3); `segmentation` uint16; `cellpose_prob` float16; `rgba` float32 (1000,1000,4); `ground_truth`
+uint8; `distance_map` float32.
+
+### 17.3 Números novos ✅
+
+| | Treino (37) | Teste (14) |
+|---|---|---|
+| Dice do Cellpose × GT (média ± desvio por imagem) | **0,845 ± 0,030** | **0,837 ± 0,034** |
+| Instâncias do Cellpose / núcleos anotados | 0,93 | 1,09 |
+| Pixels das máscaras com `cellpose_prob ≥ 0,5` | 100% | 100% |
+| Pixels com `cellpose_prob > 0,5` fora de máscaras | 1,45% (máx. 3,07%) | 1,40% (máx. 2,93%) |
+
+- **Linha de base nova (PD-01):** 0,837 no teste, contra 0,810 com o GT e os limiares antigos. É a régua para os próximos
+  experimentos. Os números dos exp. 1–6 são do GT antigo.
+- No teste, o Cellpose acha **mais** instâncias que núcleos anotados (1,09). ❓ Pode ser que ele divida núcleos ou ache núcleos não
+  anotados; não foi investigado.

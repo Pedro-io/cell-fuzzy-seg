@@ -19,12 +19,12 @@
 
 | ID | Sev. | Área | Resumo | Status |
 |---|---|---|---|---|
-| [PD-01](#pd-01) | 🔴 | Resultados | O pipeline é pior que o Cellpose sozinho (Dice 0,648 × 0,810) | Aberta |
+| [PD-01](#pd-01) | 🔴 | Resultados | O pipeline é pior que o Cellpose sozinho (Dice 0,648 × 0,810) | Aberta; linha de base nova (2026-10-07): Cellpose 0,837 no teste |
 | [PD-02](#pd-02) | 🟠 | Metodologia | O teste oficial é usado como validação e para escolher configurações | Aberta (proposta: k-fold) |
 | [PD-03](#pd-03) | 🟠 | Metodologia | Os experimentos de isolamento E2/E3/E5 nunca foram executados | Parcial: E3 (oráculo) executado em 2026-09-27 |
 | [PD-04](#pd-04) | 🟠 | Modelo | O scribble negativo é o complemento denso do marcador (provável erro) | Decidida: só positivo (confirmado pelo oráculo) |
 | [PD-05](#pd-05) | 🟡 | Resolução | O ScribblePrompt trabalha em 128²: o núcleo mediano vira ~3 px | Aberta; o oráculo recomenda 256² |
-| [PD-06](#pd-06) | 🟠 | Dados/Loss | O mapa de distância é normalizado pelo máximo da imagem, não por núcleo | Aplicada (2026-10-06), aguardando validação; o peso do DMap precisa ser recalibrado |
+| [PD-06](#pd-06) | 🟠 | Dados/Loss | O mapa de distância é normalizado pelo máximo da imagem, não por núcleo | ✅ Resolvida (2026-10-06, `308ba92`); falta recalibrar o peso do DMap (fase 2) |
 | [PD-07](#pd-07) | 🟠 | Dados | O GT binário funde núcleos (−25% de componentes no treino) | Parcial: a máscara por instância alimenta o Dmap (2026-10-06); o GT binário continua fundindo (intencional) |
 | [PD-08](#pd-08) | 🟡 | Treino | A aumentação é estática e não há shuffle | Decidida: módulo em `src/` com aumentação por época |
 | [PD-09](#pd-09) | 🟡 | Treino | Os runs provavelmente validaram com a BatchNorm em `train()` | Aberta |
@@ -41,7 +41,7 @@
 | [PD-20](#pd-20) | ⚪ | Git | `.pyc` e `egg-info` versionados | Aberta |
 | [PD-21](#pd-21) | 🟡 | Git | 1,6 GB de dados no git, incluindo 1,1 GB de `.npy` derivados | Adiada (decisão do autor) |
 | [PD-22](#pd-22) | ⚪ | Referências | Falta o artigo do Cellpose-SAM | Aberta |
-| [PD-23](#pd-23) | 🟠 | Dados | 16.966 núcleos anotados no treino × "~22.000" oficiais | Parcial (2026-09-29): faltavam 7 das 37 imagens de treino; dados reorganizados; falta regerar os `.npy` do treino |
+| [PD-23](#pd-23) | 🟠 | Dados | 16.966 núcleos anotados no treino × "~22.000" oficiais | Parcial (2026-10-07): faltavam 7 das 37 imagens de treino; dados reorganizados e `.npy` regerados (`0cc2d7f`); falta refazer as contagens do 01-dados §4 do treino |
 | [PD-24](#pd-24) | 🟡 | Dados | 3 imagens de treino em 20× (0,5 µm/px): núcleos com metade do tamanho | Aberta |
 | [PD-25](#pd-25) | 🟡 | Dados | Rasterização: o `fillPoly` engorda o GT em ~10% (o `int()` não é o problema); 5 polígonos com 2 vértices e área 0 | ✅ Resolvida (2026-09-29) |
 | [PD-26](#pd-26) | ⚪ | Dados | `Binary_masks`/`Binary_masks_instance` não vêm do download oficial e não são usadas | ✅ Resolvida (2026-09-29): removidas |
@@ -82,6 +82,10 @@ O melhor experimento (exp. 4) tem Dice 0,648 / IoU 0,481 nas 14 imagens de teste
 persistidos). Enquanto isso não se inverter, o TCC não mostra ganho.
 **Próximos passos:** colocar o Cellpose como linha de base em todo notebook; rodar o E3 (PD-03), que diz qual é o melhor
 resultado possível com o ScribblePrompt; atacar PD-04, PD-05 e PD-06, que são as causas prováveis. ❓
+**Linha de base nova (2026-10-07, dados regerados em `0cc2d7f`)** ✅: com o GT novo (etapa 1), as 37 imagens de treino e os
+limiares padrão do Cellpose (PD-30), o Cellpose sozinho dá **Dice 0,845 ± 0,030 no treino** e **0,837 ± 0,034 no teste**
+(média por imagem, máscara > 0 contra o GT). Era 0,810 no teste com o GT e os limiares antigos. Os números dos exp. 1 a 6
+(0,648 no melhor) são do GT antigo e não são diretamente comparáveis a esta linha de base; a régua do pipeline subiu.
 **Onde:** [00-visao-geral.md §7](00-visao-geral.md#7-estado-atual-dos-experimentos).
 
 ### PD-02
@@ -166,7 +170,7 @@ borda do recorte (36,1% de pixels baratos); com 1 px de margem, o resultado é i
 imagem. Proposta de código no 09 §16.3; aguarda decisão do autor.
 **Decisões do autor (2026-10-06):** só o mapa **por núcleo** (o da imagem inteira é removido, não vira opção); não salvar
 `ground_truth_instances`; a borda da imagem continua não contando como fundo.
-**Aplicada (2026-10-06, aguardando validação):** `compute_instance_distance_map` + `DistanceMapStep(instances_key="ground_truth_instances")`,
+**✅ Resolvida (2026-10-06, `308ba92`, validada pelo autor):** `compute_instance_distance_map` + `DistanceMapStep(instances_key="ground_truth_instances")`,
 sem *fallback*; o notebook de pré-processamento leva a máscara por instância até o step e registra `distance_map` no `meta.json`.
 Conferido nos dados reais: idêntico à medição da base em 37/37 e 14/14 imagens (33,3% / 33,6% de pixels baratos). **Falta:**
 regerar os dados (etapa 5) e recalibrar o peso do DMap na fase 2.
@@ -373,8 +377,9 @@ restaurado e atualizado (37 imagens, 24.140 regiões, alterações em relação 
 `datasets.yml` sem mudanças (com dublês de `torch` e `cellpose.io`), acha **37 pares no treino e 14 no teste**. Nenhum código mudou.
 **Origem do download (informada pelo autor, 2026-09-29):** página oficial de dados do desafio,
 <https://monuseg.grand-challenge.org/Data/>. Registrada no `data_source/README.md`.
-**Continua aberto:** regerar o `MoNuSegPreprocessed/train` com as 37 imagens (etapa 5 do plano) e refazer os números do treino
-(01-dados §4) na etapa 1.
+**Regerado (2026-10-07, `0cc2d7f`):** o `MoNuSegPreprocessed/` tem as 37 + 14 imagens (ver 09 §17).
+**Continua aberto:** refazer os números do treino
+(01-dados §4) com as 37 imagens.
 
 ### PD-24
 **🟡 Três imagens de treino têm outra escala.** ✅
@@ -572,6 +577,10 @@ com `float16` em disco. As variantes (b) (máscara + probabilidade, 5 canais) e 
 **Falta:** regerar os dados (etapa 5) e a **ablação** `"mask"` × `"prob"` na fase 2. A escolha do alpha na hora de carregar os
 dados, sem refazer o `rgba`, fica para o módulo da PD-19. ❓ Ainda não foi medido quantos pixels têm probabilidade alta fora de
 qualquer máscara do Cellpose (a máscara também depende dos fluxos, do `flow_threshold` e do `min_size`).
+**Medido nos dados regerados (2026-10-07)** ✅: 100% dos pixels das máscaras do Cellpose têm `cellpose_prob ≥ 0,5`, e só **1,45%**
+(treino) e **1,40%** (teste) dos pixels com `cellpose_prob > 0,5` ficam fora de qualquer máscara (no máximo 3,1% numa imagem). As
+variantes `"mask"` e `"prob"` diferem pouco em **onde** há núcleo; a diferença da `"prob"` está sobretudo na **confiança**
+dentro e em volta das máscaras.
 
 ### PD-35
 **⚪ Acoplamento implícito a atributos internos.** ✅
