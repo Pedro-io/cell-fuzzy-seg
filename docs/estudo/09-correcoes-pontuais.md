@@ -1078,3 +1078,71 @@ dataset. ✅ inventário feito com `grep` em `src/`.
   19:56:01 | [kfold] fold 1: melhor Dice 0.4577 na época 2
   ```
 
+### 18.13 Resultado do experimento-base e próximos experimentos (2026-10-07/08)
+**Resultado do `base_dice_tv`** (rodado pelo autor no Colab, commit `f08bc1d`, GPU; ✅ lido nas saídas do notebook — ⚠️ a pasta
+`docs/estudo/resultados/base_dice_tv/` ficou no Colab e ainda não está no repositório):
+
+| | Pipeline (Dice + TV 0,001) | Cellpose | Diferença pareada (IC 95%) | Melhora / piora | Wilcoxon |
+|---|---|---|---|---|---|
+| Validação (5 *folds*, 37 imagens) | 0,775 ± 0,046 | 0,845 | −0,070 (−0,081 a −0,060) | 0 / 37 | p = 1,5e-11 |
+| **Teste (14 imagens)** | **0,777 ± 0,036** | **0,837** | **−0,060 (−0,078 a −0,043)** | 1 / 13 | p = 2,4e-4 |
+
+| *Fold* | Melhor época | Parou em | Dice de validação | Cellpose no *fold* |
+|---|---|---|---|---|
+| 1 | 74 | 94 | 0,754 | 0,836 |
+| 2 | 82 | 102 | 0,783 | 0,844 |
+| 3 | 196 | 200 (limite) | 0,780 | 0,859 |
+| 4 | 35 | 55 | 0,764 | 0,844 |
+| 5 | 62 | 82 | 0,793 | 0,844 |
+
+Treino final: 74 épocas (mediana). ~4,5 s por época na T4.
+- **Leitura:** grande salto em relação ao exp. 4 (0,648, com o GT antigo; não comparável diretamente), mas o pipeline **ainda piora a
+  própria entrada** em ~0,06 de Dice (PD-01). Validação ≈ teste (0,775 × 0,777): a escolha da época pelo Dice de validação não
+  inflou o resultado.
+- **O limite de épocas e a paciência** (pergunta do autor): economizaram ~metade do tempo (533 épocas em vez de 1.000) sem sinal
+  de perda: as curvas chegam a um platô por volta da época 60–100, e o único *fold* que chegou a 200 ganhou +0,004 nas últimas
+  100. Ponto de atenção: o *fold* 4 parou na época 55 depois de uma queda (0,764 → 0,722) que, com 7 imagens de validação, pode
+  ser ruído; o *fold* 3 teve queda parecida e se recuperou. Recomendação: manter 200/20 (ou 30, ~10–20% mais tempo).
+
+**Pedidos do autor (2026-10-07):**
+1. **Visualização** da imagem, dos marcadores e da segmentação, para ver se deu certo. Feito: seção nova "Imagens do teste" nos
+   notebooks de experimento — três imagens de teste (pior, mediana e melhor diferença em relação ao Cellpose), com imagem, GT,
+   Cellpose, marcadores, scribble positivo e segmentação, num recorte central de 400 px, salva como `figura_teste.png` na pasta do
+   experimento. Para isso, `run_final` passou a devolver também o pipeline treinado (`(linhas, histórico, pipeline)`).
+2. **Experimento sem o TV** (`base_dice`). Hipótese do autor (❓): nos experimentos antigos o TV atrapalhou, porque a suavização junta
+   os marcadores de núcleos vizinhos; a figura serve de contraexemplo. 📜 No 06, o exp. 6 (com TV e Border) ficou em 0,578 e o exp. 4
+   (sem os dois) em 0,648, mas os dois termos entraram juntos, então o efeito do TV não estava isolado.
+3. **Outros experimentos combinando perdas.**
+
+**Escala de cada termo** (✅ medida nos `.npy`, batches de 4, marcadores binários, peso 1):
+
+| Termo | marcador ≈ núcleo inteiro (Cellpose ou GT) | miolo (33% da área) |
+|---|---|---|
+| Size | 0,95–1,00 | 0,33 |
+| DMap (por núcleo) | 0,59 | 0,10 |
+| TV | ~200 | ~140 |
+| Border | 0,04 | 0,01 |
+
+Com o peso 0,001, o **TV vale ~0,14–0,20**, da mesma ordem que a perda de Dice convergida (~0,2): ele pesa bastante e favorece
+marcadores suaves e contínuos, o que é coerente com a hipótese do autor. Com os pesos da tese divididos por λ_seg (Size 0,1, DMap
+3,3e-4, TV 3,3e-4), o Size tem efeito real (~0,03–0,1), o DMap fica praticamente nulo (~0,0002) e o TV vale ~3× menos que no base.
+
+**Experimentos criados** (mesma configuração do base, só a perda muda; cada um em `notebooks/experiments/<nome>.ipynb`, resultados em
+`docs/estudo/resultados/<nome>/`):
+
+| Experimento | Perdas | Pergunta |
+|---|---|---|
+| `base_dice_tv` | Dice + TV 0,001 | (feito) o teto prático com TV |
+| `base_dice` | Dice | o TV atrapalha? (pareado com o `base_dice_tv`) |
+| `dice_size` | Dice + Size 0,1 (proporção da tese) | quanto custa pedir marcador pequeno |
+| `dice_dmap` | Dice + DMap 0,1 (mapa por núcleo) | quanto custa pedir marcador no centro |
+| `rmse` | RMSE | Dice ou RMSE (decisão: um ou outro) |
+| `tese` | Dice + Size 0,1 + DMap 1/3000 + TV 1/3000 | a combinação da tese, com os pesos dela |
+
+As regularizações vão **sobre o Dice puro**, e não sobre o Dice + TV como previa a sequência da PD-44, para cada termo ser medido
+sem a interferência do TV, que está sob suspeita. Os pesos do DMap (0,1, para ter efeito) e do Size (0,1, o da tese) vêm da tabela
+de escala acima. ❓ Cada experimento leva ~45–60 min numa T4; os seis somam ~5 h. Ordem sugerida: `base_dice` → `dice_dmap` →
+`dice_size` → `tese` → `rmse`.
+- **Ensaios a seco** (CPU, redes reais, versão reduzida): `base_dice` e `tese` rodam inteiros, com a figura (~2 MB, dpi 80) e o
+  resumo; as perdas e os nomes dos seis notebooks foram conferidos a partir do próprio texto de cada um.
+

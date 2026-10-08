@@ -18,7 +18,15 @@ final com todas elas e uma única avaliação nas 14 de teste, sempre ao lado do
 
 | Notebook | Experimento |
 |---|---|
-| `base_dice_tv.ipynb` | **Experimento-base:** só soft Dice + TV (0,001), ScribblePrompt em 256² no modo `positive` (τ = 0,5), MarkerUNet com alpha = máscara do Cellpose. Resultados em `docs/estudo/resultados/base_dice_tv/`. Precisa de GPU. |
+| `base_dice_tv.ipynb` | **Experimento-base:** soft Dice + TV (0,001), ScribblePrompt em 256² no modo `positive` (τ = 0,5), MarkerUNet com alpha = máscara do Cellpose. |
+| `base_dice.ipynb` | igual ao base, **sem o TV** (só Dice). |
+| `dice_size.ipynb` | Dice + Size (0,1). |
+| `dice_dmap.ipynb` | Dice + DMap (0,1; mapa por núcleo). |
+| `rmse.ipynb` | RMSE no lugar do Dice. |
+| `tese.ipynb` | combinação da tese: Dice + Size (0,1) + DMap (1/3000) + TV (1/3000). |
+
+Todos usam a mesma configuração (só a perda muda), precisam de GPU e gravam em `docs/estudo/resultados/<nome>/`, com uma figura
+de três imagens de teste (imagem, GT, Cellpose, marcadores, scribble positivo e segmentação).
 
 > Os experimentos 1 a 6, anteriores a esse módulo, estão no histórico do git (por exemplo,
 > `git show df0a30f:notebooks/experiments/experiment_4.ipynb`); os resultados e a análise deles estão em

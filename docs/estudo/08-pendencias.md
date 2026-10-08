@@ -19,7 +19,7 @@
 
 | ID | Sev. | Área | Resumo | Status |
 |---|---|---|---|---|
-| [PD-01](#pd-01) | 🔴 | Resultados | O pipeline é pior que o Cellpose sozinho (Dice 0,648 × 0,810) | Aberta; linha de base nova (2026-10-07): Cellpose 0,837 no teste |
+| [PD-01](#pd-01) | 🔴 | Resultados | O pipeline é pior que o Cellpose sozinho (Dice 0,648 × 0,810) | Aberta; linha de base nova: Cellpose 0,837 no teste; experimento-base 0,777 (2026-10-07) |
 | [PD-02](#pd-02) | 🟠 | Metodologia | O teste oficial é usado como validação e para escolher configurações | k-fold implementado (2026-10-07); vale quando os experimentos passarem a usá-lo |
 | [PD-03](#pd-03) | 🟠 | Metodologia | Os experimentos de isolamento E2/E3/E5 nunca foram executados | Parcial: E3 (oráculo) executado em 2026-09-27 |
 | [PD-04](#pd-04) | 🟠 | Modelo | O scribble negativo é o complemento denso do marcador (provável erro) | Decidida: só positivo (confirmado pelo oráculo) |
@@ -62,7 +62,7 @@
 | [PD-41](#pd-41) | 🟠 | Loss | `BorderTerm` pune marcadores sobre 16–17% dos pixels de núcleo real | Aberta |
 | [PD-42](#pd-42) | ⚪ | Docs | Docstring do `LossComposer` diz que o Size olha a predição (olha os marcadores) | Aberta |
 | [PD-43](#pd-43) | 🟡 | Loss | Com GT vazio: DMap e TV dividem por zero; Size perde a normalização | Aberta (latente) |
-| [PD-44](#pd-44) | 🟠 | Experimento | Plano do experimento-base "só Dice + TV" (256², só positivos) | Notebook pronto (2026-10-07, `notebooks/experiments/base_dice_tv.ipynb`); falta rodar no Colab |
+| [PD-44](#pd-44) | 🟠 | Experimento | Plano do experimento-base "só Dice + TV" (256², só positivos) | Rodado (2026-10-07): teste 0,777 × Cellpose 0,837; experimentos de perdas criados (09 §18.13) |
 | [PD-45](#pd-45) | ⚪ | Treino | Médias por época são por batch, não por imagem (o último batch tem 2 imagens) | Aberta |
 | [PD-46](#pd-46) | 🟡 | Treino | Não há seleção do melhor modelo nem early stopping; avalia-se a última época | Implementada (2026-10-07): `BestModelCallback`; vale quando os notebooks passarem a usá-la |
 | [PD-47](#pd-47) | 🟡 | Publicação | Resultados (oráculo e próximos experimentos) precisam ser salvos e reproduzíveis para o artigo | Parcial: registro dos experimentos implementado (2026-10-07); falta o oráculo |
@@ -86,6 +86,8 @@ resultado possível com o ScribblePrompt; atacar PD-04, PD-05 e PD-06, que são 
 limiares padrão do Cellpose (PD-30), o Cellpose sozinho dá **Dice 0,845 ± 0,030 no treino** e **0,837 ± 0,034 no teste**
 (média por imagem, máscara > 0 contra o GT). Era 0,810 no teste com o GT e os limiares antigos. Os números dos exp. 1 a 6
 (0,648 no melhor) são do GT antigo e não são diretamente comparáveis a esta linha de base; a régua do pipeline subiu.
+**Experimento-base (2026-10-07, 09 §18.13):** Dice + TV, ScribblePrompt 256² positivo, k-fold → **0,777 no teste** contra 0,837 do
+Cellpose (diferença pareada −0,060, IC 95% −0,078 a −0,043; melhora 1 de 14 imagens). O pipeline continua abaixo da própria entrada.
 **Onde:** [00-visao-geral.md §7](00-visao-geral.md#7-estado-atual-dos-experimentos).
 
 ### PD-02

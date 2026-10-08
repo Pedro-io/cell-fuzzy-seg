@@ -122,9 +122,10 @@ def test_final_epochs_is_the_median_of_best_epochs():
 def test_run_final_trains_on_all_and_evaluates_the_test_once(data):
     train, test = data
 
-    rows, history = run_final(Factory(), train, test, CONFIG, num_epochs=2)
+    rows, history, pipeline = run_final(Factory(), train, test, CONFIG, num_epochs=2)
 
     assert [r["id"] for r in rows] == ["te0", "te1"]
     assert all("cellpose_dice" in r for r in rows)
     assert history["epochs_run"] == 2
     assert history["val_loss"] == []  # sem validação no treino final
+    assert pipeline.steps[0].model.model.training is False  # devolvido em modo de avaliação

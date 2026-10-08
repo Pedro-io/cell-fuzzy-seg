@@ -185,12 +185,12 @@ def run_final(
     config: TrainConfig,
     num_epochs: int,
     extra_callbacks: Sequence[TrainerCallback] = (),
-) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+) -> Tuple[List[Dict[str, Any]], Dict[str, Any], Any]:
     """Treina com todas as imagens de treino por ``num_epochs`` épocas e avalia o teste uma vez.
 
     Returns:
-        ``(linhas, histórico)``: as métricas por imagem do teste (com a linha de base do Cellpose) e o
-        histórico do treino.
+        ``(linhas, histórico, pipeline)``: as métricas por imagem do teste (com a linha de base do
+        Cellpose), o histórico do treino e o pipeline treinado (para visualizar as predições).
     """
     pipeline, _, history, _ = _train(
         factory, train_samples, list(train_samples), None, config, seed=config.seed + config.k,
@@ -198,4 +198,4 @@ def run_final(
     )
     test_loader = make_loader(PreprocessedDataset(test_samples), config.batch_size, shuffle=False)
     rows = evaluate(pipeline, test_loader, threshold=config.threshold, device=config.device)
-    return rows, history
+    return rows, history, pipeline
