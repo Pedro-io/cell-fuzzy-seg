@@ -28,6 +28,8 @@ final com todas elas e uma única avaliação nas 14 de teste, sempre ao lado do
 Todos usam a mesma configuração (só a perda muda), precisam de GPU e gravam em `docs/estudo/resultados/<nome>/`, com uma figura
 de três imagens de teste (imagem, GT, Cellpose, marcadores, scribble positivo e segmentação).
 
+| `varredura_perdas.ipynb` | **Varredura** de 9 combinações de perdas e pesos com o mesmo protocolo, **só validação cruzada (sem teste)**. Grava cada candidato assim que termina (no Google Drive, no Colab) e retoma de onde parou; no fim, tabela comparativa pareada contra o Dice puro, com empates marcados, e escolha da época pela curva média. |
+
 > Os experimentos 1 a 6, anteriores a esse módulo, estão no histórico do git (por exemplo,
 > `git show df0a30f:notebooks/experiments/experiment_4.ipynb`); os resultados e a análise deles estão em
 > `docs/estudo/06-experimentos.md`.

@@ -1146,3 +1146,41 @@ de escala acima. ❓ Cada experimento leva ~45–60 min numa T4; os seis somam ~
 - **Ensaios a seco** (CPU, redes reais, versão reduzida): `base_dice` e `tese` rodam inteiros, com a figura (~2 MB, dpi 80) e o
   resumo; as perdas e os nomes dos seis notebooks foram conferidos a partir do próprio texto de cada um.
 
+### 18.14 Varredura de perdas e pesos (2026-10-08)
+**Discussão com o autor que levou a ela:**
+- **O que a validação cruzada diz:** estima a qualidade de uma **configuração de treino** (não de um modelo) em imagens que o
+  modelo não viu, com 37 predições fora do treino, uma por imagem. Serve para comparar configurações sem olhar o teste e para
+  escolher as épocas. Limites: a melhor época é escolhida pela mesma validação que é relatada (um pouco otimista: no base, 0,775
+  na validação × 0,777 no teste); *folds* pequenos (7–8 imagens); uma única divisão e semente.
+- **O que muda entre os *folds*** ✅ (`kfold.py`): quais imagens são de treino e de validação (`make_folds`, semente 42); a
+  inicialização do decoder da MarkerUNet (o encoder parte sempre dos mesmos pesos do ImageNet) e a aumentação e a ordem dos
+  batches (semente `42 + fold`). Nada mais. Como a semente é a mesma em todos os experimentos, cada *fold* tem as mesmas imagens
+  e sementes em todos eles: só a perda muda, e a comparação pareada é justa.
+- **É a validação cruzada "do livro"?** Sim na estrutura (candidatos = configurações; média dos *folds*; retreino com tudo;
+  teste uma vez). A diferença está nas épocas: cada *fold* escolhe a própria, e o livro escolheria uma única época pela **curva
+  média** entre *folds*. A varredura calcula as duas para comparar.
+- **Cuidado principal:** os notebooks de experimento avaliam o teste no fim; com vários experimentos, escolher pelo teste o
+  transforma em validação (PD-02). A escolha tem de ser pela validação cruzada. A chave `RODAR_TESTE` nos notebooks de
+  experimento ficou **para o autor decidir**.
+
+**Pedido do autor:** fazer a varredura num notebook só, **sem remover o que já existe**, e commitar e fazer o push para ele rodar.
+
+**O notebook** — [notebooks/experiments/varredura_perdas.ipynb](../../notebooks/experiments/varredura_perdas.ipynb):
+- **Candidatos definidos antes de rodar**, um fator por vez em volta do Dice puro: `dice` (referência), `tv_3e-4`, `tv_1e-3`,
+  `size_0.03`, `size_0.1`, `dmap_0.03`, `dmap_0.1`, `rmse` e `tese` (pesos da tese / λ_seg). Pesos escolhidos pela tabela de escala do
+  §18.13.
+- **Configuração idêntica à dos experimentos** (`TrainConfig(k=5, max_epochs=200, patience=20, lr=1e-4, batch 4, seed 42)`): mesmos
+  *folds* e mesma curva de `lr`, para os resultados se compararem com o `base_dice_tv` e o `dice_size`. Reduzir as épocas mudaria
+  o *cosine schedule* e quebraria a comparação.
+- **Sem teste.** Cada candidato roda só o `run_kfold` e é gravado com `save_run` (sem `teste.csv`).
+- **Resistente a desconexão:** no Colab, `RESULTS_DIR` fica no Google Drive (`MyDrive/cell-fuzzy-seg/varredura`); cada candidato é
+  gravado assim que termina; ao rodar de novo, os que já têm `resumo.json` são pulados e uma pasta incompleta é refeita. Memória da
+  GPU liberada entre candidatos.
+- **Tabela comparativa lida do disco** (`varredura_resumo.csv`): Dice de validação ± desvio e diferença para o Cellpose; diferença
+  pareada por imagem contra o `dice`, com IC 95% por *bootstrap*, melhora/piora e Wilcoxon; **empate** se o IC cruza o zero ou
+  |Δ| < 0,01 (aí vale o mais simples); época pela **curva média** (até a menor época em que algum *fold* parou) e o Dice nela, ao
+  lado da mediana das melhores épocas. Mais um gráfico (`varredura.png`).
+- No fim, copia para `docs/estudo/resultados/varredura/` e baixa um zip **que já inclui a pasta** (descompactar em
+  `docs/estudo/resultados/`).
+- ❓ **Tempo:** ~35–50 min por candidato numa T4; os 9 somam ~5–7 h. Se a sessão cair, basta rodar de novo.
+
