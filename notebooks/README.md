@@ -55,6 +55,7 @@ Análises exploratórias, inspeção de dados e validações pontuais (não faze
 | `groud_truth_monuseg.ipynb` | Inspeção das anotações (XML → máscara) do ground truth. |
 | `inspecao_pipeline.ipynb` | **Conferência antes de um treino longo:** lê uma imagem do disco, mostra as entradas, monta o pipeline do experimento-base (MarkerUNet + ScribblePrompt no modo `positive`, 256²), confere gradiente, congelamento e scribbles, e faz um teste de sobreajuste nessa imagem, com o Cellpose ao lado. Roda em CPU (~3 min). |
 | `oraculo_scribbleprompt.ipynb` | **Oráculo da rede final** (sem treino): entrega ao ScribblePrompt marcadores tirados do GT e mede o Dice por modo do canal negativo e por resolução. Roda em CPU. |
+| `oraculo_negativo.ipynb` | **Oráculo com negativo do Cellpose** (sem treino): marcadores do GT e do Cellpose × canais negativos (zero, complemento, fundo do Cellpose denso e esparso, fundo do GT) × 128²/256² × limiar de saída × recorte pelo Cellpose, com as imagens em 20× separadas; resultados em `docs/estudo/resultados/oraculo_negativo/`. Roda em CPU (~20 min). |
 | `cellpose_parametros.ipynb` | Teste do diâmetro e dos limiares do Cellpose nas 37 imagens de treino; resultados em `docs/estudo/resultados/`. Precisa de GPU. |
 
 ## Fluxo recomendado

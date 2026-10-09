@@ -1,0 +1,42 @@
+{
+  "split": "train",
+  "n_imagens": 37,
+  "resolucoes": [
+    [
+      128,
+      128
+    ],
+    [
+      256,
+      256
+    ]
+  ],
+  "limiares": [
+    0.5,
+    0.6,
+    0.7,
+    0.8,
+    0.9
+  ],
+  "raios_recorte": [
+    null,
+    3,
+    8
+  ],
+  "imagens_20x": [
+    "TCGA-HE-7128-01Z-00-DX1",
+    "TCGA-HE-7129-01Z-00-DX1",
+    "TCGA-HE-7130-01Z-00-DX1"
+  ],
+  "checkpoint_sha256": "43f57ee8fa8ec529c31be281e06749f9e629b30157bbbcc9baf200cddec1acbe",
+  "procedencia": {
+    "commit": "d90ce99eded0fdfd5288e94223932124001fe93e",
+    "mudancas_locais_em_src": false,
+    "python": "3.12.13",
+    "torch": "2.11.0+cu128",
+    "numpy": "2.0.2",
+    "gpu": "Tesla T4",
+    "criado_em": "2026-10-09 18:09:45"
+  },
+  "duracao_s": 562.7
+}
