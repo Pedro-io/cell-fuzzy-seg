@@ -1184,3 +1184,8 @@ de escala acima. ❓ Cada experimento leva ~45–60 min numa T4; os seis somam ~
   `docs/estudo/resultados/`).
 - ❓ **Tempo:** ~35–50 min por candidato numa T4; os 9 somam ~5–7 h. Se a sessão cair, basta rodar de novo.
 
+**Removido pelo autor (2026-10-08), sem ter rodado:** nas palavras dele, "não faria sentido para o nosso cenário". Depois disso, o
+oráculo com negativo ([11-oraculos.md](11-oraculos.md), PD-52) indicou que o excesso de segmentação vem de onde a MarkerUNet
+coloca os marcadores (❓ a confirmar). O notebook continua no histórico:
+`git show d90ce99:notebooks/experiments/varredura_perdas.ipynb`.
+
