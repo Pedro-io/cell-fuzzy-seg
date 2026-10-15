@@ -1,0 +1,33 @@
+{
+  "nome": "base_negativo",
+  "descricao": {
+    "perdas": "soft Dice (1,0) + TV (0.001)",
+    "rede_final": "ScribblePrompt-UNet v1 congelado, scribble_mode=positive, tau=0.5, input_size=(256, 256), negativo = fundo do Cellpose (faixa livre de 3 px)",
+    "marker_net": "MarkerUNet (smp Unet, resnet34 ImageNet, 4 canais)",
+    "rgba_alpha": "mask",
+    "aumentacao": "rot90 + flips, sorteada a cada época"
+  },
+  "config": {
+    "k": 5,
+    "batch_size": 4,
+    "max_epochs": 200,
+    "patience": 20,
+    "min_delta": 0.0,
+    "lr": 0.0001,
+    "grad_clip": 1.0,
+    "threshold": 0.5,
+    "seed": 42,
+    "device": "cuda",
+    "log_every": 10
+  },
+  "final_epochs": 68,
+  "procedencia": {
+    "commit": "dfabaa5d6eb0d3eca61f69a3f8d5aaa846e92931",
+    "mudancas_locais_em_src": false,
+    "python": "3.12.13",
+    "torch": "2.11.0+cu128",
+    "numpy": "2.0.2",
+    "gpu": "Tesla T4",
+    "criado_em": "2026-10-15 17:42:28"
+  }
+}

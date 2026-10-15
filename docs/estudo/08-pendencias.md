@@ -70,7 +70,7 @@
 | [PD-49](#pd-49) | 🟠 | Modelo/Experimento | Só positivo: um fundo ≥ 1e-3 no canal positivo faz o ScribblePrompt marcar a imagem inteira; a sigmoid da MarkerUNet nunca dá 0 | Implementada (2026-10-07): modo `positive` com corte em τ; aguarda validação |
 | [PD-50](#pd-50) | ⚪ | Código | Código, testes e notebooks citam a história do projeto (PD-nn, "investigação, P5", "C2", "regra 23") | Aberta (regra do autor, 2026-10-01) |
 | [PD-51](#pd-51) | ⚪ | Dados | Uma região de área ~0 é classificada de forma diferente conforme a versão do numpy (só muda o log) | Aberta |
-| [PD-52](#pd-52) | 🔴 | Resultados | O pipeline perde para o Cellpose por **precisão** (0,73 × 0,87): segmenta ~17% a mais que o GT | Aberta; diagnóstico (2026-10-15): marcadores no lugar certo; o inchaço vem dos valores suaves do marcador; o negativo do Cellpose leva a 0,802 sem retreinar |
+| [PD-52](#pd-52) | 🔴 | Resultados | O pipeline perde para o Cellpose por **precisão** (0,73 × 0,87): segmenta ~17% a mais que o GT | Aberta; diagnóstico (2026-10-15): marcadores no lugar certo; o inchaço vem dos valores suaves do marcador. Treino com o negativo do Cellpose: 0,808 (Cellpose 0,845), mas o marcador perde a forma |
 
 ---
 
@@ -1050,3 +1050,27 @@ validação 0,773 (o registrado era 0,775), e cada imagem foi prevista pelo mode
   oráculo, essas imagens não perdem (PD-24).
 **Próximo passo:** treinar com o negativo do Cellpose e com a entrada do ScribblePrompt em blocos 256 → 128², que no oráculo de
 resolução deixa o miolo equilibrado mesmo sem negativo (PD-40). A mudança em `src/` será discutida com o autor antes.
+
+**Treino com o negativo do Cellpose (`base_negativo`, 2026-10-15)** ✅ — `docs/estudo/resultados/base_negativo/` (commit `dfabaa5`,
+T4). O experimento-base com uma única diferença: o ScribblePrompt recebe o fundo do Cellpose (faixa livre de 3 px) como canal
+negativo fixo, também no treino (09 §18.16). Mesmos *folds* e sementes do `base_dice_tv`, então a comparação é pareada:
+
+| | `base_dice_tv` | `base_negativo` | Cellpose |
+|---|---|---|---|
+| Validação (37): Dice | 0,775 | **0,808** | 0,845 |
+| Precisão / revocação | 0,727 / 0,838 | 0,750 / 0,879 | 0,867 / 0,826 |
+| Massa | 1,17 | 1,18 | 0,96 |
+| Marcador ≥ 0,5 (área da imagem) | 9,0% | 22,8% | — |
+| Teste (14): Dice | 0,777 | **0,803** | 0,837 |
+
+- **Ganho sobre o base:** +0,033 na validação (34/37 imagens melhoram; Wilcoxon p = 6,5·10⁻⁹) e +0,026 no teste (12/14). As três
+  imagens em 20× melhoram (0,68/0,77/0,68 → 0,72/0,79/0,75).
+- **Ainda abaixo do Cellpose:** −0,037 na validação (2/37 melhores; p = 7,3·10⁻¹¹) e −0,034 no teste (1/14). O ganho veio da
+  revocação; a massa continua 1,18 (o inchaço fica dentro da faixa livre).
+- ❓ **O marcador perdeu a forma.** Na `figura_teste.png`, o marcador virou um campo quase uniforme na imagem inteira (com uma ou
+  outra mancha), em vez de um borrão por núcleo; os 22,8% acima de 0,5 vêm desse campo encostado em 0,5. Quem desenha a
+  segmentação passa a ser o negativo do Cellpose com a imagem. Coerente com o diagnóstico: o negativo aplicado **sem retreinar**
+  já dava 0,802, e treinar com ele acrescentou +0,006. Os modelos não foram salvos; a uniformidade não foi medida em números.
+- **Leitura para o TCC:** o ganho é real, mas não vem de marcadores aprendidos; com esse negativo, o pipeline se aproxima de "o
+  ScribblePrompt refinando o Cellpose". Fica registrado para a discussão do rumo (PD-40, caminho d).
+**Próximo passo (decidido, 09 §18.15):** passo 2, treino por recortes sem o negativo.

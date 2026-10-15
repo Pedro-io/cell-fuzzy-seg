@@ -464,7 +464,7 @@ seção. No fim de cada etapa, rodar a suíte inteira e registrar o resultado no
 | C7, parte do Cellpose (PD-31) + PD-34 (a) | `64a624f` (validado pelo autor) | 94: 90 ok, 3 falhas conhecidas (PD-11), 1 pulado | `flows`/`styles` fora; `cellpose_prob` e `RGBAStep(alpha=...)`; notebook não executado (precisa de GPU) |
 | C7, resto (PD-17, PD-20, PD-31) | — | — | — |
 | C8 (PD-44 código, PD-49) | — (aguardando validação do autor) | 143: 139 ok, 3 falhas conhecidas (PD-11), 1 pulado | modo `positive` (τ = 0,5) e `input_size`; idêntico ao oráculo com piso de 0,01 |
-| Passo 1: negativo do Cellpose no pipeline (§18.16) | — (aguardando validação do autor) | 157: 153 ok, 3 falhas conhecidas (PD-11), 1 pulado | `cellpose_negative` na leitura, `"negative"` na rede final, `negative_key` no passo; notebook `base_negativo` testado em CPU com 1 época |
+| Passo 1: negativo do Cellpose no pipeline (§18.16) | `dfabaa5` (validado pelo autor) | 157: 153 ok, 3 falhas conhecidas (PD-11), 1 pulado | `cellpose_negative` na leitura, `"negative"` na rede final, `negative_key` no passo; notebook `base_negativo` testado em CPU com 1 época |
 
 ---
 
@@ -1205,7 +1205,7 @@ e a imagem reduzida para 256² limita as duas redes (a MarkerUNet também recebe
 2. **O negativo do Cellpose é calculado na leitura dos dados**, para acompanhar a aumentação.
 3. **Ordem, uma mudança por vez:** (1) só o negativo, ainda em 256²; (2) recortes, sem o negativo; (3) os dois juntos.
 
-### 18.16 Passo 1 — negativo do Cellpose no pipeline (2026-10-15, aguardando validação do autor)
+### 18.16 Passo 1 — negativo do Cellpose no pipeline (2026-10-15, `dfabaa5`, validado pelo autor)
 
 **O que muda** ✅:
 - [preprocessed_dataset.py](../../src/data/load/preprocessed_dataset.py): `cellpose_negative(segmentation, radius)` devolve 1 nos
@@ -1229,3 +1229,6 @@ troca o canal negativo, mantém o gradiente do positivo e rejeita formato errado
 ela e falha sem a chave). Suíte: 157 casos, 153 ok, 3 falhas conhecidas (PD-11), 1 pulado. `ruff` sem avisos. O notebook rodou
 em CPU de ponta a ponta numa versão reduzida (10 imagens, 1 época): *folds*, treino final, teste, registro e figura.
 
+**Resultado (2026-10-15)** ✅ — `docs/estudo/resultados/base_negativo/`, executado pelo autor no Colab (T4, commit `dfabaa5`, `src/`
+sem mudanças locais; épocas do treino final: 68). Validação 0,808 (base 0,775; Cellpose 0,845) e teste 0,803 (base 0,777;
+Cellpose 0,837). O marcador aprendido perdeu a forma (campo quase uniforme); detalhes e leitura na PD-52.
