@@ -101,12 +101,14 @@ def evaluate(
         ground_truth_key: Chave do ground truth no batch.
         baseline_key: Chave da máscara do Cellpose no batch; suas métricas entram com o prefixo
             ``"cellpose_"``. ``None`` ou chave ausente: sem linha de base.
-        markers_key: Chave dos marcadores na saída; se presente, entra ``marker_fraction`` (fração de
-            pixels com marcador ``>= threshold``).
+        markers_key: Chave dos marcadores na saída. Se presente, entram ``marker_fraction`` (fração de
+            pixels com marcador ``>= threshold``), ``marker_mean_nucleo`` e ``marker_mean_fundo`` (valor
+            médio do marcador dentro e fora do ground truth; ``NaN`` se a região estiver vazia). A
+            diferença entre as duas médias mostra se o marcador ainda distingue núcleo de fundo.
 
     Returns:
         Uma linha (``dict``) por imagem, com ``"id"``, as métricas da predição e, quando houver, as da
-        linha de base e ``marker_fraction``.
+        linha de base e as dos marcadores.
     """
     _set_training_mode(pipeline, False)
     rows: List[Dict[str, Any]] = []
@@ -124,6 +126,9 @@ def evaluate(
                 base = binary_metrics(baseline[b, 0] > 0, ground_truth[b, 0], threshold=0.5)
                 row.update({f"cellpose_{name}": value for name, value in base.items()})
             if markers is not None:
-                row["marker_fraction"] = float((markers[b, 0] >= threshold).mean())
+                marker, nucleus = markers[b, 0], ground_truth[b, 0] > 0
+                row["marker_fraction"] = float((marker >= threshold).mean())
+                row["marker_mean_nucleo"] = float(marker[nucleus].mean()) if nucleus.any() else float("nan")
+                row["marker_mean_fundo"] = float(marker[~nucleus].mean()) if (~nucleus).any() else float("nan")
             rows.append(row)
     return rows

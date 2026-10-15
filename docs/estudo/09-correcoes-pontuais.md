@@ -465,6 +465,7 @@ seção. No fim de cada etapa, rodar a suíte inteira e registrar o resultado no
 | C7, resto (PD-17, PD-20, PD-31) | — | — | — |
 | C8 (PD-44 código, PD-49) | — (aguardando validação do autor) | 143: 139 ok, 3 falhas conhecidas (PD-11), 1 pulado | modo `positive` (τ = 0,5) e `input_size`; idêntico ao oráculo com piso de 0,01 |
 | Passo 1: negativo do Cellpose no pipeline (§18.16) | `dfabaa5` (validado pelo autor) | 157: 153 ok, 3 falhas conhecidas (PD-11), 1 pulado | `cellpose_negative` na leitura, `"negative"` na rede final, `negative_key` no passo; notebook `base_negativo` testado em CPU com 1 época |
+| Contraste do marcador + `negativo_sem_tv` (§18.17) | — (aguardando validação do autor) | 158: 154 ok, 3 falhas conhecidas (PD-11), 1 pulado | `marker_mean_nucleo`/`marker_mean_fundo` no `evaluate`; notebook testado em CPU com 1 época |
 
 ---
 
@@ -1232,3 +1233,30 @@ em CPU de ponta a ponta numa versão reduzida (10 imagens, 1 época): *folds*, t
 **Resultado (2026-10-15)** ✅ — `docs/estudo/resultados/base_negativo/`, executado pelo autor no Colab (T4, commit `dfabaa5`, `src/`
 sem mudanças locais; épocas do treino final: 68). Validação 0,808 (base 0,775; Cellpose 0,845) e teste 0,803 (base 0,777;
 Cellpose 0,837). O marcador aprendido perdeu a forma (campo quase uniforme); detalhes e leitura na PD-52.
+
+### 18.17 Por que o marcador perdeu a forma, e o experimento sem TV (2026-10-15, aguardando validação do autor)
+
+**Pergunta do autor:** a perda não está direcionando a MarkerUNet? **Base** (✅ código e medições; a combinação dos quatro é ❓):
+1. A única pressão sobre o marcador é o Dice da segmentação final; o experimento-base não tem Size nem DMap (PD-44).
+2. Com o negativo do Cellpose (~65% da imagem), onde o negativo já apaga a saída o Dice não depende do marcador: gradiente ~0.
+3. Abaixo de τ = 0,5 o canal positivo é exatamente zero, e o gradiente do Dice também (teste
+   `test_positive_mode_gradient_flows_only_above_threshold`): ali só o TV age sobre o marcador.
+4. O TV com peso 0,001 vale ~0,14–0,20 para um marcador do tamanho do núcleo, a ordem da perda de Dice (~0,2; §18.13), e é zero
+   num campo constante.
+Sem o negativo (`base_dice_tv`), um positivo uniforme inundaria a imagem, e o Dice obriga o marcador a se localizar; com o
+negativo, localizar rende pouco Dice e o TV vence. *Correção:* a figura do `base_negativo` já usa a escala fixa 0–1 (não é
+escala automática); o marcador vale de fato ~0,5 em quase toda a imagem. Fica em aberto se há um padrão de contraste mínimo.
+
+**O que muda** ✅:
+- [metrics.py](../../src/evaluation/metrics.py): o `evaluate` acrescenta `marker_mean_nucleo` e `marker_mean_fundo`, a média do
+  marcador dentro e fora do GT (`NaN` se a região estiver vazia). Entram no `folds.csv` e no `teste.csv` de todo experimento.
+- [negativo_sem_tv.ipynb](../../notebooks/experiments/negativo_sem_tv.ipynb): o `base_negativo` sem o TV (só Dice); mesmos *folds* e
+  sementes. A figura do teste ganha o marcador com o contraste esticado (percentis 1–99) e o canal positivo esticado (0 ao
+  máximo), com o intervalo no título. Os notebooks já executados não foram alterados.
+
+**Testes** ✅: +1 (contraste do marcador dentro e fora do GT) e a asserção nova no teste do `evaluate`. Suíte: 158 casos, 154 ok,
+3 falhas conhecidas (PD-11), 1 pulado. O notebook rodou em CPU numa versão reduzida (10 imagens, 1 época).
+
+**Comparações planejadas:** `negativo_sem_tv` × `base_negativo` (o TV achata o marcador com o negativo?) e `base_dice` × `base_dice_tv`
+(o TV atrapalha sem o negativo?; em execução pelo autor).
+

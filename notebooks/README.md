@@ -21,6 +21,7 @@ final com todas elas e uma única avaliação nas 14 de teste, sempre ao lado do
 | `base_dice_tv.ipynb` | **Experimento-base:** soft Dice + TV (0,001), ScribblePrompt em 256² no modo `positive` (τ = 0,5), MarkerUNet com alpha = máscara do Cellpose. |
 | `base_dice.ipynb` | igual ao base, **sem o TV** (só Dice). |
 | `base_negativo.ipynb` | igual ao base, com o **negativo do Cellpose** (pixels a mais de 3 px de qualquer máscara do Cellpose) como canal negativo fixo do ScribblePrompt. |
+| `negativo_sem_tv.ipynb` | igual ao `base_negativo`, **sem o TV** (só Dice); a figura mostra também o marcador com o contraste esticado. |
 | `dice_size.ipynb` | Dice + Size (0,1). |
 | `dice_dmap.ipynb` | Dice + DMap (0,1; mapa por núcleo). |
 | `rmse.ipynb` | RMSE no lugar do Dice. |

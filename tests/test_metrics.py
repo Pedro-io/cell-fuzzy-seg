@@ -128,6 +128,7 @@ def test_evaluate_rows_metrics_baseline_and_side_effects():
     assert rows[0]["dice"] == pytest.approx(4 / 5)
     assert rows[0]["cellpose_dice"] == pytest.approx(2 / 3)
     assert rows[0]["marker_fraction"] == 1.0
+    assert rows[0]["marker_mean_nucleo"] == pytest.approx(0.8) and rows[0]["marker_mean_fundo"] == pytest.approx(0.8)
     assert step.modes == [False]                 # avaliação em modo eval
     assert step.grad_enabled == [False, False]  # sem gradiente
     assert torch.equal(batches[0]["segmentation"], torch.full((2, 1, 2, 2), -1.0))  # batch intacto
@@ -141,3 +142,21 @@ def test_evaluate_without_baseline():
     rows = evaluate(FakePipeline([step]), [batch])
 
     assert not any(k.startswith("cellpose_") for k in rows[0])
+
+
+class MarkerStep2x2(RecordingStep):
+    """Como o RecordingStep, mas com um marcador alto na linha de cima (o núcleo do GT) e baixo embaixo."""
+
+    def __call__(self, data):
+        data = super().__call__(data)
+        n = data["ground_truth"].shape[0]
+        data["markers"] = torch.tensor([[0.7, 0.6], [0.2, 0.0]]).expand(n, 1, 2, 2).clone()
+        return data
+
+
+def test_evaluate_marker_contrast_inside_and_outside_the_ground_truth():
+    rows = evaluate(FakePipeline([MarkerStep2x2(torch.ones(1, 1, 2, 2))]), [_batch(["a"])])
+
+    assert rows[0]["marker_mean_nucleo"] == pytest.approx(0.65)
+    assert rows[0]["marker_mean_fundo"] == pytest.approx(0.1)
+    assert rows[0]["marker_fraction"] == pytest.approx(0.5)
