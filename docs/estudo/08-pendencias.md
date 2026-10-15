@@ -42,7 +42,7 @@
 | [PD-21](#pd-21) | 🟡 | Git | 1,6 GB de dados no git, incluindo 1,1 GB de `.npy` derivados | Adiada (decisão do autor) |
 | [PD-22](#pd-22) | ⚪ | Referências | Falta o artigo do Cellpose-SAM | Aberta |
 | [PD-23](#pd-23) | 🟠 | Dados | 16.966 núcleos anotados no treino × "~22.000" oficiais | Parcial (2026-10-07): faltavam 7 das 37 imagens de treino; dados reorganizados e `.npy` regerados (`0cc2d7f`); falta refazer as contagens do 01-dados §4 do treino |
-| [PD-24](#pd-24) | 🟡 | Dados | 3 imagens de treino em 20× (0,5 µm/px): núcleos com metade do tamanho | Remedida (2026-10-08): Cellpose −0,01 nessas imagens; oráculo em 256² sem perda; em 128² perde muito |
+| [PD-24](#pd-24) | 🟡 | Dados | 3 imagens de treino em 20× (0,5 µm/px): núcleos com metade do tamanho | Remedida (2026-10-08): Cellpose −0,01 nessas imagens; oráculo em 256² sem perda; em 128² perde muito. 2026-10-15: no pipeline treinado a perda é da MarkerUNet |
 | [PD-25](#pd-25) | 🟡 | Dados | Rasterização: o `fillPoly` engorda o GT em ~10% (o `int()` não é o problema); 5 polígonos com 2 vértices e área 0 | ✅ Resolvida (2026-09-29) |
 | [PD-26](#pd-26) | ⚪ | Dados | `Binary_masks`/`Binary_masks_instance` não vêm do download oficial e não são usadas | ✅ Resolvida (2026-09-29): removidas |
 | [PD-27](#pd-27) | 🟡 | Licença | Repositório público redistribui o MoNuSeg sem atribuição; `LICENSE` vazio | Parcial: atribuição feita; falta a licença do código |
@@ -58,7 +58,7 @@
 | [PD-37](#pd-37) | ⚪ | Resolução | Reduções bilineares sem antialias: o ScribblePrompt lê 6,6% dos pixels | ✅ Encerrada: o antialias piora (oráculo) |
 | [PD-38](#pd-38) | 🟡 | Modelo/Treino | 24,4 M parâmetros treinados, sem congelar nada, com 30 imagens | Decidida: ablação |
 | [PD-39](#pd-39) | ⚪ | Ideia | ScribblePrompt-SAM como rede final (via `mask_input`) | Adiada (decisão do autor) |
-| [PD-40](#pd-40) | 🔴 | Resultados | Com marcadores do tipo da tese, o ScribblePrompt não alcança o Cellpose nem com o marcador ideal | Aberta; oráculo refeito (2026-10-08): o negativo do Cellpose leva o miolo a 0,820 (Cellpose 0,845) |
+| [PD-40](#pd-40) | 🔴 | Resultados | Com marcadores do tipo da tese, o ScribblePrompt não alcança o Cellpose nem com o marcador ideal | Aberta; oráculo refeito (2026-10-08): o negativo do Cellpose leva o miolo a 0,820 (Cellpose 0,845). 2026-10-15: com entrada 1024² + negativo, o miolo passa (0,852); sem negativo, blocos 256 → 128² dão 0,808 |
 | [PD-41](#pd-41) | 🟠 | Loss | `BorderTerm` pune marcadores sobre 16–17% dos pixels de núcleo real | Aberta |
 | [PD-42](#pd-42) | ⚪ | Docs | Docstring do `LossComposer` diz que o Size olha a predição (olha os marcadores) | Aberta |
 | [PD-43](#pd-43) | 🟡 | Loss | Com GT vazio: DMap e TV dividem por zero; Size perde a normalização | Aberta (latente) |
@@ -70,7 +70,7 @@
 | [PD-49](#pd-49) | 🟠 | Modelo/Experimento | Só positivo: um fundo ≥ 1e-3 no canal positivo faz o ScribblePrompt marcar a imagem inteira; a sigmoid da MarkerUNet nunca dá 0 | Implementada (2026-10-07): modo `positive` com corte em τ; aguarda validação |
 | [PD-50](#pd-50) | ⚪ | Código | Código, testes e notebooks citam a história do projeto (PD-nn, "investigação, P5", "C2", "regra 23") | Aberta (regra do autor, 2026-10-01) |
 | [PD-51](#pd-51) | ⚪ | Dados | Uma região de área ~0 é classificada de forma diferente conforme a versão do numpy (só muda o log) | Aberta |
-| [PD-52](#pd-52) | 🔴 | Resultados | O pipeline perde para o Cellpose por **precisão** (0,73 × 0,87): segmenta ~17% a mais que o GT | Aberta (2026-10-08): o oráculo indica marcadores mal colocados, não vazamento do ScribblePrompt |
+| [PD-52](#pd-52) | 🔴 | Resultados | O pipeline perde para o Cellpose por **precisão** (0,73 × 0,87): segmenta ~17% a mais que o GT | Aberta; diagnóstico (2026-10-15): marcadores no lugar certo; o inchaço vem dos valores suaves do marcador; o negativo do Cellpose leva a 0,802 sem retreinar |
 
 ---
 
@@ -424,6 +424,10 @@ oráculo em [oraculo_negativo.ipynb](../../notebooks/exploration/oraculo_negativ
   não perde nessas imagens, ❓ a perda vem dos marcadores aprendidos (PD-52), não da escala na camada de segmentação.
 **Leitura:** com 256² e diâmetro estimado, as opções (a) e (b) não são mais necessárias; fica a (c). Severidade mantida em 🟡
 até ver os marcadores aprendidos nessas imagens.
+
+**Marcadores aprendidos e blocos (2026-10-15)** ✅ — no diagnóstico (PD-52), o pipeline treinado dá 0,695 nessas três imagens
+contra 0,780 nas outras; o miolo do GT nas mesmas condições, 0,788. A perda é da MarkerUNet, não da camada de segmentação. No
+oráculo de resolução (PD-40), com blocos 256 → 128², o miolo sem negativo dá 0,850 nelas. A severidade continua 🟡.
 
 ### PD-25
 **⚪ Detalhes da rasterização.** ✅
@@ -780,6 +784,38 @@ escolhidos nas mesmas 37 imagens, então os valores são um pouco otimistas. Em 
    externa de fundo melhor que a dele. O caminho (d) ganha força: a MarkerUNet teria de **corrigir** o Cellpose, e o ganho
    possível está no que o Cellpose erra.
 
+**Oráculo de resolução e blocos (2026-10-15)** ✅ — [oraculo_resolucao.ipynb](../../notebooks/exploration/oraculo_resolucao.ipynb),
+executado pelo autor no Colab (T4, ~8 min; resultados só nas saídas do notebook, sem CSV). Mesmos marcadores e negativos do
+oráculo acima (só GT inteiro, miolo e centros; zero e `cp_fundo_r3`). Muda o que entra no ScribblePrompt: a imagem inteira em
+256², 512² ou 1024², ou **blocos sobrepostos** (1/4 do lado) combinados por média ponderada com janela de Hann. Método e definições
+em [11-oraculos.md §7](11-oraculos.md). Dice no limiar 0,5, 37 imagens, Cellpose 0,845; entre parênteses, as imagens que
+superam o Cellpose no melhor limiar:
+
+| Marcador + negativo | imagem 256² | imagem 512² | imagem 1024² | blocos 128 → 128² | blocos 256 → 256² | blocos 256 → 128² |
+|---|---|---|---|---|---|---|
+| miolo, sem negativo | 0,754 (2) | 0,794 (7) | 0,691 (5) | 0,586 (0) | 0,580 (0) | **0,808** (14) |
+| miolo + fundo do Cellpose | 0,820 (2) | 0,823 (3) | **0,852** (27) | 0,745 (0) | 0,737 (0) | 0,836 (9) |
+| centros, sem negativo | 0,542 (0) | 0,672 (1) | 0,732 (1) | 0,315 (0) | 0,311 (0) | **0,751** (2) |
+| centros + fundo do Cellpose | 0,786 (0) | 0,769 (0) | **0,825** (3) | 0,684 (0) | 0,669 (0) | 0,795 (0) |
+| GT inteiro, sem negativo | 0,839 (37) | 0,727 (25) | 0,444 (0) | 0,940 (37) | 0,942 (37) | 0,698 (22) |
+| GT inteiro + fundo do Cellpose | 0,841 (34) | 0,860 (37) | 0,820 (26) | 0,833 (34) | 0,832 (34) | 0,864 (37) |
+
+**Leituras:**
+1. **Um marcador pequeno passa do Cellpose:** miolo + fundo do Cellpose com a imagem inteira em 1024², Dice 0,852 (27/37). Isso
+   revê a leitura 1 do oráculo anterior ("nenhum marcador pequeno alcança o Cellpose") e a ❓ da leitura 2 ("o teto tende a ser o
+   próprio Cellpose"): com o negativo do Cellpose, o miolo passa dele. Sem negativo, porém, a 1024² inunda (GT inteiro: massa 3,66,
+   Dice 0,444; miolo: massa 1,88).
+2. **Sem negativo, blocos 256 → 128² é o modo equilibrado:** miolo 0,754 → 0,808 com massa 1,02; centros 0,542 → 0,751. Com o
+   negativo, 0,836. É o único modo que vai bem com e sem negativo.
+3. **Blocos na resolução original quase não expandem:** miolo com massa 0,42; por isso o GT inteiro dá 0,94 (a rede devolve o
+   marcador). Na figura, cada núcleo fica com um anel de falso negativo.
+4. ❓ **Leitura do mecanismo:** a expansão parece ter um alcance mais ou menos fixo em pixels da **entrada** e crescer com o tamanho
+   da entrada. Em 128² de entrada (o tamanho de treino do ScribblePrompt) e núcleo de ~11 px (blocos 256 → 128²), o alcance bate
+   com a distância entre o miolo e a borda; com o núcleo a ~21 px (blocos na resolução original), não alcança; com a entrada de
+   1024², muito acima do tamanho de treino, inunda.
+5. Ressalva: marcadores binários e ideais. O pipeline treinado aprende marcadores suaves e fracos (PD-52), que a rede expande de
+   outro jeito; o ganho só se confirma treinando.
+
 ### PD-41
 **🟠 O `BorderTerm` pune marcadores sobre núcleos reais.** ✅ (medido)
 [border_loss.py](../../src/losses/border_loss.py) pune qualquer marcador nos `border_size=50` px de cada borda. Em 1000², essa
@@ -873,6 +909,9 @@ publicado, e o oráculo entra como resultado ([06-experimentos.md §6](06-experi
    figuras. A execução salva é a do autor no Colab (T4, 2026-10-09, ~9 min). Ela bate com uma execução independente em CPU
    (2026-10-08) nas 33.300 linhas: diferença máxima de 7·10⁻⁵ na precisão e de 2·10⁻⁵ no Dice. As figuras foram geradas
    em CPU, com as células do próprio notebook. Falta salvar o oráculo antigo (`oraculo_scribbleprompt.ipynb`).
+   **Diagnóstico dos marcadores e oráculo de resolução (2026-10-15):** rodados com `SALVAR_RESULTADOS = False`, a pedido do
+   autor (avaliar no próprio Colab); o registro são as saídas dos notebooks. Para virar material de artigo, rodar de novo com
+   `SALVAR_RESULTADOS = True`.
 2. **Próximos experimentos:** para cada run, salvar a configuração completa (JSON), o commit, o checkpoint do melhor modelo e as
    métricas **por imagem e por *fold***. Isso entra no módulo da PD-19.
 3. **Linha de base:** relatar o Cellpose, com os parâmetros usados, em todas as tabelas (PD-01).
@@ -988,3 +1027,26 @@ Colab T4, conferido em CPU). Método, definições e figuras: [11-oraculos.md](1
   centros 0,542 → 0,786) e piora o GT inteiro (0,915 → 0,878), porque corta núcleos que o Cellpose não achou.
 **Próximo passo proposto:** inspecionar os marcadores aprendidos (onde estão os falsos positivos) e treinar o experimento-base com
 o negativo `cp_fundo_r3`.
+
+**Diagnóstico dos marcadores aprendidos (2026-10-15)** ✅ —
+[diagnostico_marcadores.ipynb](../../notebooks/exploration/diagnostico_marcadores.ipynb), executado pelo autor no Colab (T4, commit
+`3f9168d`; resultados só nas saídas do notebook, sem CSV). O experimento-base foi retreinado nos mesmos 5 *folds*, com Dice médio de
+validação 0,773 (o registrado era 0,775), e cada imagem foi prevista pelo modelo do *fold* em que ficou de fora (37 imagens).
+- **A hipótese ❓ acima (marcadores no lugar errado) está errada.** 91,5% da massa do canal positivo cai dentro do GT, 4,3% na
+  faixa de até 3 px e 4,2% mais longe; 87% dos componentes do GT recebem marcador. A figura do `dice_size` já mostrava o mesmo.
+- **O excesso é inchaço e fusão.** 61,5% dos falsos positivos estão a até 3 px do GT, 22,8% de 3 a 8 px e só 15,7% mais longe.
+  28% dos componentes da saída cobrem 2 ou mais componentes do GT; no Cellpose, 7%.
+- **Os valores suaves do marcador causam a expansão (H2 ✅).** O mesmo canal positivo binarizado (1 onde é > 0) sub-segmenta:
+  massa 0,73, precisão 0,853, revocação 0,620, Dice 0,711, o padrão do miolo do GT (0,754, massa 0,65). Aprendido, ele dá massa
+  1,18 e Dice 0,773. ❓ Na figura, o canal positivo aparece quase preto na escala de 0 a 1, ou seja, tem amplitude baixa. A
+  MarkerUNet parece ter aprendido "toques fracos" que o ScribblePrompt expande muito, fora da distribuição de scribbles 0/1 em que
+  ele foi treinado. A amplitude não foi medida em números.
+- **O limiar de saída não resolve (H1 ✗).** No limiar 0,6, a massa cai para 1,02, mas o Dice fica igual (0,772): a precisão sobe
+  para 0,774 e a revocação desce para 0,779. A borda é borrada: 44,5% dos pixels a 1–2 px fora do GT passam de 0,5 (no miolo do GT,
+  4,9%).
+- **O negativo do Cellpose ajuda (H3 ✅), mesmo sem retreinar.** Com o marcador aprendido, Dice 0,773 → **0,802** (precisão 0,760,
+  revocação 0,852); com o binarizado, 0,801 (massa 1,00). Ainda fica 0,043 abaixo do Cellpose, e nenhuma imagem passa dele.
+- **Imagens em 20×:** o pipeline dá 0,695 nelas, contra 0,780 nas outras (Cellpose: 0,836 e 0,846). A perda é da MarkerUNet; no
+  oráculo, essas imagens não perdem (PD-24).
+**Próximo passo:** treinar com o negativo do Cellpose e com a entrada do ScribblePrompt em blocos 256 → 128², que no oráculo de
+resolução deixa o miolo equilibrado mesmo sem negativo (PD-40). A mudança em `src/` será discutida com o autor antes.

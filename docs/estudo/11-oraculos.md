@@ -9,7 +9,8 @@ Um **oráculo** é um experimento sem rede treinada: a MarkerUNet é substituíd
 Cellpose, e só a camada de segmentação (o ScribblePrompt congelado) roda. Ele responde: *se a MarkerUNet acertasse um marcador
 deste tipo, até onde o pipeline chegaria?* É um teto para o pipeline e um diagnóstico de onde ele perde.
 
-Este documento descreve o oráculo **com negativo do Cellpose** (2026-10-08/09), feito com os dados atuais. O oráculo anterior
+Este documento descreve o oráculo **com negativo do Cellpose** (2026-10-08/09, §1–§6), o oráculo de **resolução e blocos**
+(2026-10-15, §7) e o **diagnóstico dos marcadores aprendidos** (2026-10-15, §8), todos com os dados atuais. O oráculo anterior
 (2026-09-27, GT antigo, 30 imagens) está na PD-40 e no [03-modelos.md §8](03-modelos.md); os números dele não devem ser usados no
 texto sem refazer.
 
@@ -177,12 +178,14 @@ borda volta, com algum excesso (verde).
 
 ## 5. Leituras
 
-1. **Nenhum marcador pequeno alcança o Cellpose com o ScribblePrompt, nem perfeito.** ✅ O melhor é o miolo com o fundo do
-   Cellpose: 0,820, superando o Cellpose em 2 de 37 imagens. Isso responde a pergunta 1 e mantém a PD-40.
+1. **Em 256², nenhum marcador pequeno alcança o Cellpose com o ScribblePrompt, nem perfeito.** ✅ O melhor é o miolo com o fundo
+   do Cellpose: 0,820, superando o Cellpose em 2 de 37 imagens. *Revisto no §7:* com a entrada em 1024² e o mesmo negativo, o
+   miolo passa do Cellpose (0,852, 27/37).
 2. **Sem negativo, um marcador pequeno bem colocado sub-segmenta; ele não vaza.** ✅ O miolo tem quase a mesma área dos marcadores
    do `base_dice_tv` (8,4% contra 9,0%), mas dá massa 0,65 e precisão 0,963. O pipeline treinado dá massa 1,17 e precisão 0,727.
-   ❓ Então o excesso do pipeline vem de **onde** a MarkerUNet põe o marcador (fundo, entre núcleos), e não de a camada expandir
-   um marcador correto (pergunta 2, PD-52). Para confirmar, falta ver os marcadores aprendidos.
+   ~~❓ Então o excesso do pipeline vem de **onde** a MarkerUNet põe o marcador (fundo, entre núcleos), e não de a camada expandir
+   um marcador correto (pergunta 2, PD-52).~~ *Refutado pelo diagnóstico (§8):* os marcadores aprendidos caem nos núcleos (91,5%
+   da massa); o que faz a rede inchar é o valor suave e fraco do marcador aprendido.
 3. **O negativo do Cellpose ajuda muito os marcadores pequenos, mas prende o resultado ao Cellpose.** ✅ O miolo sobe de 0,754
    para 0,820, e os centros de 0,542 para 0,786. Mas nenhuma configuração que só usa informação do Cellpose passa dele (a melhor
    dá 0,837), e com o GT inteiro o negativo do Cellpose **piora** (0,915 → 0,878), porque corta núcleos que o Cellpose não achou.
@@ -209,7 +212,116 @@ borda volta, com algum excesso (verde).
 
 ---
 
-## 7. Dúvidas para validar
+## 7. Oráculo de resolução e blocos (2026-10-15)
+
+### 7.1 Pergunta e método ✅
+
+A imagem de 1000² chega ao ScribblePrompt reduzida para 256²: pixelada, com o núcleo mediano em ~5 px. Aumentar a entrada, ou
+segmentar em **blocos** com menos redução, melhora a segmentação a partir de marcadores conhecidos sem fazer marcadores grandes
+vazarem?
+
+- **Notebook:** [oraculo_resolucao.ipynb](../../notebooks/exploration/oraculo_resolucao.ipynb), executado pelo autor no Colab (T4,
+  ~8 min). Os resultados estão nas saídas do notebook; nenhum CSV foi salvo.
+- **Marcadores e negativos:** os do §3, restritos a `gt`, `miolo` e `centros`, e a `zero` e `cp_fundo_r3`. Mesmas 37 imagens de
+  treino. A execução com a imagem inteira em 256² reproduz exatamente o oráculo do §4 (conferido numa imagem: 0,7241 nos dois).
+- **Modos:**
+
+| Modo | O que entra na rede | Núcleo mediano na entrada (40×) | Chamadas por imagem |
+|---|---|---|---|
+| imagem 256² | a imagem inteira reduzida para 256² (o pipeline atual) | ~5 px | 1 |
+| imagem 512² | a imagem inteira reduzida para 512² | ~11 px | 1 |
+| imagem 1024² | a imagem inteira, levemente ampliada para 1024² | ~22 px | 1 |
+| blocos 128 → 128² | blocos de 128 × 128 px da imagem original, sem redução | ~21 px | 121 (11 × 11) |
+| blocos 256 → 256² | blocos de 256 × 256 px, sem redução | ~21 px | 25 (5 × 5) |
+| blocos 256 → 128² | blocos de 256 × 256 px reduzidos para 128² | ~11 px | 25 (5 × 5) |
+
+- **Blocos:** cada bloco recebe o seu pedaço da imagem e dos canais positivo e negativo e é segmentado sozinho. Blocos vizinhos se
+  sobrepõem em 1/4 do lado (blocos de 256 px começam a cada 192 px; o último encosta na borda). As probabilidades são coladas de
+  volta por média ponderada com uma janela de Hann (peso mínimo 0,05), que dá menos peso à borda de cada bloco, onde a rede vê
+  menos contexto. É a estratégia de blocos sobrepostos da U-Net (*overlap-tile*) e da inferência por janela deslizante de
+  ferramentas como o nnU-Net e o MONAI 📖 (❓ referências ainda não reunidas em `docs/papers/`).
+- **Tempo por chamada na T4:** 0,04 s (256²), 0,11 s (512²), 0,45 s (1024²), 0,63 s (blocos 128), 0,67 s (blocos 256 → 256²) e
+  0,16 s (blocos 256 → 128²).
+
+### 7.2 Resultados ✅
+
+Dice médio no limiar 0,5; entre parênteses, as imagens (de 37) que superam o Cellpose (0,845) no melhor limiar.
+
+| Marcador + negativo | imagem 256² | imagem 512² | imagem 1024² | blocos 128 → 128² | blocos 256 → 256² | blocos 256 → 128² |
+|---|---|---|---|---|---|---|
+| miolo, sem negativo | 0,754 (2) | 0,794 (7) | 0,691 (5) | 0,586 (0) | 0,580 (0) | **0,808** (14) |
+| miolo + fundo do Cellpose | 0,820 (2) | 0,823 (3) | **0,852** (27) | 0,745 (0) | 0,737 (0) | 0,836 (9) |
+| centros, sem negativo | 0,542 (0) | 0,672 (1) | 0,732 (1) | 0,315 (0) | 0,311 (0) | **0,751** (2) |
+| centros + fundo do Cellpose | 0,786 (0) | 0,769 (0) | **0,825** (3) | 0,684 (0) | 0,669 (0) | 0,795 (0) |
+| GT inteiro, sem negativo | 0,839 (37) | 0,727 (25) | 0,444 (0) | 0,940 (37) | 0,942 (37) | 0,698 (22) |
+| GT inteiro + fundo do Cellpose | 0,841 (34) | 0,860 (37) | 0,820 (26) | 0,833 (34) | 0,832 (34) | 0,864 (37) |
+
+Massa (previsto / GT) no limiar 0,5:
+
+| Marcador + negativo | imagem 256² | imagem 512² | imagem 1024² | blocos 128 → 128² | blocos 256 → 256² | blocos 256 → 128² |
+|---|---|---|---|---|---|---|
+| miolo, sem negativo | 0,65 | 0,91 | 1,88 | 0,42 | 0,41 | 1,02 |
+| miolo + fundo do Cellpose | 0,93 | 0,93 | 1,06 | 1,10 | 1,07 | 0,94 |
+| GT inteiro, sem negativo | 1,38 | 1,79 | 3,66 | 1,13 | 1,13 | 1,93 |
+
+Nas três imagens em 20×, com blocos 256 → 128², o miolo sem negativo dá 0,850, e o miolo com o negativo dá 0,839.
+
+### 7.3 Leituras
+
+1. **Pela primeira vez, um marcador pequeno passa do Cellpose.** ✅ O miolo com o fundo do Cellpose e a imagem inteira em 1024²
+   dá 0,852 e supera o Cellpose em 27 de 37 imagens. Isso revê a leitura 1 do §5 e a ❓ da leitura 3 ("o teto tende a ser o
+   próprio Cellpose"). Sem negativo, porém, a 1024² inunda: o GT inteiro chega a massa 3,66 (Dice 0,444).
+2. **Sem negativo, blocos 256 → 128² é o modo equilibrado.** ✅ O miolo vai de 0,754 para 0,808, com massa 1,02, e os centros de
+   0,542 para 0,751. Com o negativo, chega a 0,836. É o único modo que vai bem com e sem negativo.
+3. **Blocos sem redução quase não expandem o marcador.** ✅ O miolo fica com massa 0,42 (anéis de falso negativo em volta de cada
+   núcleo), e o GT inteiro dá 0,94: a rede devolve o marcador que recebeu.
+4. ❓ **Mecanismo provável:** a expansão tem um alcance mais ou menos fixo em pixels da **entrada** e cresce com o tamanho da
+   entrada. Em 128² de entrada (o tamanho de treino do ScribblePrompt 📖) com o núcleo em ~11 px, o alcance bate com a distância
+   entre o miolo e a borda. Com o núcleo em ~21 px, não alcança. Com a entrada em 1024², muito acima do tamanho de treino, inunda.
+5. **Ressalva:** os marcadores são binários e ideais. O pipeline treinado aprende marcadores suaves e fracos, que a rede expande
+   de outro jeito (§8). O ganho só se confirma treinando.
+
+---
+
+## 8. Diagnóstico dos marcadores aprendidos (2026-10-15)
+
+Não é um oráculo, e sim o contraponto dele: o que a MarkerUNet treinada de fato entrega ao ScribblePrompt.
+
+- **Notebook:** [diagnostico_marcadores.ipynb](../../notebooks/exploration/diagnostico_marcadores.ipynb), executado pelo autor no
+  Colab (T4, ~32 min de treino). Os resultados estão nas saídas do notebook.
+- **Método:** o experimento-base (soft Dice + TV, 256², modo `positive`) foi retreinado nos mesmos 5 *folds*, com Dice médio de
+  validação 0,773 (o registrado era 0,775). Cada uma das 37 imagens foi prevista pelo modelo do *fold* em que ficou de fora. Sem
+  retreinar, foram testados: o limiar de saída; o canal positivo **binarizado** (1 onde é > 0); e o fundo do Cellpose a 3 px como
+  negativo.
+
+**Resultados** ✅ (Cellpose: Dice 0,845, precisão 0,867, revocação 0,826):
+
+| Condição | Dice | Precisão | Revocação | Massa |
+|---|---|---|---|---|
+| aprendido (o pipeline) | 0,773 | 0,725 | 0,839 | 1,18 |
+| aprendido, limiar 0,6 | 0,772 | 0,774 | 0,779 | 1,02 |
+| aprendido binarizado | 0,711 | 0,853 | 0,620 | 0,73 |
+| aprendido + fundo do Cellpose | **0,802** | 0,760 | 0,852 | 1,13 |
+| aprendido binarizado + fundo do Cellpose | 0,801 | 0,807 | 0,801 | 1,00 |
+| miolo do GT (oráculo, mesmas imagens) | 0,754 | 0,963 | 0,622 | 0,65 |
+
+- **Onde cai o marcador:** 91,5% da massa do canal positivo dentro do GT, 4,3% a até 3 px e 4,2% mais longe; 87% dos componentes
+  do GT recebem marcador.
+- **Onde ficam os falsos positivos:** 61,5% a até 3 px do GT (inchaço da borda), 22,8% de 3 a 8 px e 15,7% mais longe.
+- **Fusão:** 28% dos componentes da saída cobrem 2 ou mais componentes do GT; no Cellpose, 7%.
+- **Imagens em 20×:** 0,695, contra 0,780 nas outras.
+
+**Leituras:**
+1. **Os marcadores estão no lugar certo.** ✅ O excesso de segmentação é inchaço da borda e fusão de núcleos vizinhos.
+2. **O valor suave do marcador faz a rede expandir.** ✅ Binarizado, o mesmo marcador sub-segmenta como o miolo do oráculo. ❓ Na
+   figura, o canal positivo tem amplitude baixa; a MarkerUNet parece ter aprendido "toques fracos" que o ScribblePrompt expande
+   muito, fora da distribuição de scribbles 0/1 em que ele foi treinado. A amplitude não foi medida em números.
+3. **O limiar de saída não resolve:** troca precisão por revocação e mantém o Dice. A borda da saída é borrada.
+4. **O negativo do Cellpose é o único ganho sem retreinar** (+0,03), mas não alcança o Cellpose.
+
+---
+
+## 9. Dúvidas para validar
 
 1. O raio 3 px da faixa livre foi escolhido a dedo (≈ 1/7 do diâmetro de um núcleo de 40×). Vale testar 1–2 px, ou um raio
    proporcional ao diâmetro de cada imagem?
