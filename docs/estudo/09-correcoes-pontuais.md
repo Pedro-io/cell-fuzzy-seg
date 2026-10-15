@@ -464,6 +464,7 @@ seção. No fim de cada etapa, rodar a suíte inteira e registrar o resultado no
 | C7, parte do Cellpose (PD-31) + PD-34 (a) | `64a624f` (validado pelo autor) | 94: 90 ok, 3 falhas conhecidas (PD-11), 1 pulado | `flows`/`styles` fora; `cellpose_prob` e `RGBAStep(alpha=...)`; notebook não executado (precisa de GPU) |
 | C7, resto (PD-17, PD-20, PD-31) | — | — | — |
 | C8 (PD-44 código, PD-49) | — (aguardando validação do autor) | 143: 139 ok, 3 falhas conhecidas (PD-11), 1 pulado | modo `positive` (τ = 0,5) e `input_size`; idêntico ao oráculo com piso de 0,01 |
+| Passo 1: negativo do Cellpose no pipeline (§18.16) | — (aguardando validação do autor) | 157: 153 ok, 3 falhas conhecidas (PD-11), 1 pulado | `cellpose_negative` na leitura, `"negative"` na rede final, `negative_key` no passo; notebook `base_negativo` testado em CPU com 1 época |
 
 ---
 
@@ -1186,6 +1187,45 @@ de escala acima. ❓ Cada experimento leva ~45–60 min numa T4; os seis somam ~
 
 **Removido pelo autor (2026-10-08), sem ter rodado:** nas palavras dele, "não faria sentido para o nosso cenário". Depois disso, o
 oráculo com negativo ([11-oraculos.md](11-oraculos.md), PD-52) indicou que o excesso de segmentação vem de onde a MarkerUNet
-coloca os marcadores (❓ a confirmar). O notebook continua no histórico:
+coloca os marcadores (❓; refutado depois pelo diagnóstico dos marcadores, PD-52: eles caem nos núcleos). O notebook continua no histórico:
 `git show d90ce99:notebooks/experiments/varredura_perdas.ipynb`.
+
+### 18.15 Próxima fase: negativo do Cellpose e recortes (decisões do autor, 2026-10-15)
+
+**Base:** o diagnóstico dos marcadores aprendidos e o oráculo de resolução (PD-52, PD-40; [11-oraculos.md](11-oraculos.md) §7–§8).
+O inchaço vem dos valores suaves do marcador e da falta de freio; o negativo do Cellpose ajuda mesmo sem retreinar (0,773 → 0,802);
+e a imagem reduzida para 256² limita as duas redes (a MarkerUNet também recebe a imagem inteira em 256²). No oráculo, blocos
+256 → 128² equilibram o miolo sem negativo (0,808), e a entrada 1024² com o negativo passa do Cellpose (0,852).
+
+**Decisões (autor):**
+1. **Recortes no pipeline inteiro (opção b):** treino com recortes aleatórios de 256 px da imagem original (a MarkerUNet vê o
+   recorte sem redução; o ScribblePrompt, o mesmo recorte em 128²) e avaliação da imagem inteira por blocos sobrepostos. Motivo
+   do autor: "nunca gostei de reduzir tanto a imagem na unet". A alternativa descartada era pôr blocos só na entrada do
+   ScribblePrompt.
+2. **O negativo do Cellpose é calculado na leitura dos dados**, para acompanhar a aumentação.
+3. **Ordem, uma mudança por vez:** (1) só o negativo, ainda em 256²; (2) recortes, sem o negativo; (3) os dois juntos.
+
+### 18.16 Passo 1 — negativo do Cellpose no pipeline (2026-10-15, aguardando validação do autor)
+
+**O que muda** ✅:
+- [preprocessed_dataset.py](../../src/data/load/preprocessed_dataset.py): `cellpose_negative(segmentation, radius)` devolve 1 nos
+  pixels a mais de `radius` px de qualquer máscara do Cellpose (dilatação por disco). `load_preprocessed(..., negative_radius=r)`
+  acrescenta `cellpose_negative` à amostra; `None` (padrão) não acrescenta nada. O `PreprocessedDataset` devolve o canal como
+  `(1, H, W)` e a aumentação o gira junto com as outras chaves.
+- [scribble_prompting_network.py](../../src/models/networks/final_segmentation/scribble_prompting_network.py): `forward` aceita a chave
+  opcional `"negative"`, que substitui o canal negativo do `scribble_mode` (o positivo não muda; o negativo entra sem gradiente);
+  formato diferente do positivo → `ValueError`.
+- [frozen_segmentation_step.py](../../src/pipeline/steps/inference/frozen_segmentation_step.py): `negative_key` (padrão `None`)
+  repassa `data[negative_key]` à rede final como `"negative"`; chave ausente → `KeyError`.
+- [base_negativo.ipynb](../../notebooks/experiments/base_negativo.ipynb): cópia do `base_dice_tv` com `NEGATIVE_RADIUS = 3`,
+  `load_preprocessed(..., negative_radius=3)` e `FrozenSegmentationStep(..., negative_key=NEGATIVE_KEY)`; mesma configuração e
+  sementes, então os *folds* são os mesmos e a comparação com o `base_dice_tv` é pareada. Como os outros notebooks de
+  experimento, avalia o teste uma vez no fim (a chave `RODAR_TESTE` continua pendente).
+
+**Desligado, nada muda:** sem `negative_radius` e sem `negative_key`, o pipeline é o mesmo de antes.
+
+**Testes** ✅: 8 novos (o canal negativo e a faixa livre; leitura só quando pedido; o negativo acompanha a aumentação; a rede final
+troca o canal negativo, mantém o gradiente do positivo e rejeita formato errado; o passo repassa a chave, não repassa nada sem
+ela e falha sem a chave). Suíte: 157 casos, 153 ok, 3 falhas conhecidas (PD-11), 1 pulado. `ruff` sem avisos. O notebook rodou
+em CPU de ponta a ponta numa versão reduzida (10 imagens, 1 época): *folds*, treino final, teste, registro e figura.
 

@@ -204,6 +204,9 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
                   ou tensor ``(N, 1, H, W)``/``(N, 3, H, W)``).
                 - ``"scribbles"``: marcadores da MarkerNet (numpy ``(H, W)`` ou
                   tensor ``(N, 1, H, W)``/``(N, 2, H, W)``).
+                - ``"negative"`` (opcional): canal negativo fixo (numpy ``(H, W)``
+                  ou tensor ``(N, 1, H, W)``), em ``[0, 1]``. Substitui o canal
+                  negativo produzido por ``scribble_mode``; o positivo não muda.
 
         Returns:
             Máscara de segmentação ``(N, 1, H, W)`` em ``[0, 1]`` (sigmoid).
@@ -212,6 +215,7 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
 
         Raises:
             KeyError: Se ``"image"`` ou ``"scribbles"`` estiverem ausentes.
+            ValueError: Se ``"negative"`` não tiver o formato do canal positivo.
         """
         if not isinstance(data, dict) or "image" not in data or "scribbles" not in data:
             raise KeyError("ScribblePromptingNetwork.forward espera um dict com 'image' e 'scribbles'.")
@@ -220,6 +224,14 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
 
         img = self._prepare_image(data["image"], device)  # (N, 1, H, W) [0, 1]
         scribbles = self._prepare_scribbles(data["scribbles"], device)  # (N, 2, H, W) [0, 1]
+        if data.get("negative") is not None:
+            negative = self._prepare_negative(data["negative"], device)
+            if negative.shape != scribbles[:, :1].shape:
+                raise ValueError(
+                    f"O canal negativo {tuple(negative.shape)} não tem o formato do positivo "
+                    f"{tuple(scribbles[:, :1].shape)}."
+                )
+            scribbles = torch.cat([scribbles[:, :1], negative], dim=1)
         original_size = tuple(img.shape[-2:])
 
         inputs = self._rescale_inputs({"img": img, "scribbles": scribbles}, self.input_size)
@@ -353,6 +365,29 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
             s = self._expand_scribble_channels(s)
 
         return s.to(device)
+
+    @staticmethod
+    def _prepare_negative(negative: Any, device: torch.device) -> torch.Tensor:
+        """Converte o canal negativo fixo em tensor ``(N, 1, H, W)`` float, sem gradiente.
+
+        Args:
+            negative: Numpy ``(H, W)`` ou tensor ``(H, W)``/``(1, H, W)``/``(N, 1, H, W)``.
+            device: Dispositivo de destino.
+
+        Returns:
+            Tensor ``(N, 1, H, W)``.
+        """
+        if isinstance(negative, torch.Tensor):
+            n = negative.detach().float()
+        else:
+            n = torch.from_numpy(np.ascontiguousarray(np.asarray(negative, dtype=np.float32)))
+        if n.ndim == 2:
+            n = n[None, None]
+        elif n.ndim == 3:
+            n = n[None]
+        elif n.ndim != 4:
+            raise ValueError(f"Dimensões do canal negativo não suportadas: {tuple(n.shape)}")
+        return n.to(device)
 
     def _expand_scribble_channels(self, s: torch.Tensor) -> torch.Tensor:
         """Expande 1 canal de scribbles para 2 canais conforme ``scribble_mode``.

@@ -94,3 +94,41 @@ def test_base_final_segmentation_is_abstract():
 def test_dummy_final_network_is_base_network():
     net = DummyFinalNetwork()
     assert isinstance(net, BaseNetwork)
+
+
+class RecordingFinalNetwork(DummyFinalNetwork):
+    """Rede final dummy que guarda o dicionário recebido."""
+
+    def forward(self, data):
+        self.received = dict(data)
+        return super().forward(data)
+
+
+def test_negative_key_is_passed_to_the_final_network_as_negative():
+    net = RecordingFinalNetwork()
+    step = FrozenSegmentationStep(final_network=net, negative_key="cellpose_negative")
+    negative = torch.ones(1, 1, 8, 8)
+
+    step.forward({"image": torch.zeros(1, 1, 8, 8), "markers": torch.zeros(1, 1, 8, 8), "cellpose_negative": negative})
+
+    assert net.received["negative"] is negative
+
+
+def test_without_negative_key_nothing_extra_is_passed():
+    net = RecordingFinalNetwork()
+    FrozenSegmentationStep(final_network=net).forward(
+        {"image": torch.zeros(1, 1, 8, 8), "markers": torch.zeros(1, 1, 8, 8), "cellpose_negative": torch.ones(1, 1, 8, 8)}
+    )
+
+    assert "negative" not in net.received
+
+
+def test_missing_negative_key_raises_key_error():
+    step = FrozenSegmentationStep(final_network=DummyFinalNetwork(), negative_key="cellpose_negative")
+
+    try:
+        step.forward({"image": torch.zeros(1, 1, 8, 8), "markers": torch.zeros(1, 1, 8, 8)})
+    except KeyError as e:
+        assert "cellpose_negative" in str(e)
+    else:
+        raise AssertionError("Expected KeyError when the negative key is missing")

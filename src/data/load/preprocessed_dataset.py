@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 import numpy as np
 import torch
+from scipy import ndimage
 from torch.utils.data import DataLoader, Dataset
 
 DEFAULT_ROOT = os.path.join("data_source", "MoNuSegPreprocessed")
@@ -25,6 +26,33 @@ _DISK_KEYS = {
     "segmentation": "cellpose_segmentation",
 }
 ALPHA_SOURCES = ("mask", "prob")
+NEGATIVE_KEY = "cellpose_negative"
+
+
+def cellpose_negative(segmentation: np.ndarray, radius: int) -> np.ndarray:
+    """Canal negativo fixo derivado do Cellpose: 1 onde não há núcleo, com uma margem livre.
+
+    Vale 1 nos pixels a mais de ``radius`` px (distância euclidiana) de qualquer máscara do Cellpose
+    e 0 no resto: dentro das máscaras e numa faixa de ``radius`` px em volta delas, onde a rede final
+    decide sozinha onde fica a borda.
+
+    Args:
+        segmentation: Segmentação do Cellpose ``(H, W)`` (instâncias ou binária; ``> 0`` é núcleo).
+        radius: Largura da faixa livre, em px. ``0``: o negativo encosta nas máscaras.
+
+    Returns:
+        Array ``(H, W)`` float32 com valores 0/1.
+
+    Raises:
+        ValueError: Se ``radius`` for negativo.
+    """
+    if radius < 0:
+        raise ValueError(f"radius deve ser >= 0, recebido {radius}.")
+    nuclei = segmentation > 0
+    if radius > 0:
+        y, x = np.ogrid[-radius:radius + 1, -radius:radius + 1]
+        nuclei = ndimage.binary_dilation(nuclei, structure=x * x + y * y <= radius * radius)
+    return (~nuclei).astype(np.float32)
 
 
 def load_preprocessed(
@@ -32,6 +60,7 @@ def load_preprocessed(
     root: str = DEFAULT_ROOT,
     ids: Optional[Sequence[str]] = None,
     alpha: str = "mask",
+    negative_radius: Optional[int] = None,
 ) -> Dict[str, Dict[str, np.ndarray]]:
     """Lê do disco as amostras pré-processadas de um split.
 
@@ -41,18 +70,23 @@ def load_preprocessed(
         ids: Ids a carregar. ``None``: todos os ids presentes em ``<root>/<split>/image``.
         alpha: Origem do 4º canal do ``rgba``: ``"mask"`` mantém o que está salvo (a máscara binária
             do Cellpose); ``"prob"`` o troca pela probabilidade do Cellpose (``cellpose_prob``).
+        negative_radius: Se informado, acrescenta ``cellpose_negative`` ``(H, W)`` float32, o canal
+            negativo de :func:`cellpose_negative` com essa faixa livre (em px). ``None``: não acrescenta.
 
     Returns:
         Dicionário ``id -> amostra``, em que cada amostra tem ``image`` ``(H, W, 3)`` uint8, ``rgba``
         ``(H, W, 4)`` float32, ``ground_truth`` ``(H, W)``, ``distance_map`` ``(H, W)`` float32 e
-        ``cellpose_segmentation`` ``(H, W)`` (instâncias do Cellpose).
+        ``cellpose_segmentation`` ``(H, W)`` (instâncias do Cellpose), e ``cellpose_negative`` quando
+        ``negative_radius`` é informado.
 
     Raises:
-        ValueError: Se ``alpha`` não for uma das opções.
+        ValueError: Se ``alpha`` não for uma das opções ou ``negative_radius`` for negativo.
         FileNotFoundError: Se algum arquivo esperado não existir.
     """
     if alpha not in ALPHA_SOURCES:
         raise ValueError(f"alpha deve ser um de {ALPHA_SOURCES}, recebido {alpha!r}.")
+    if negative_radius is not None and negative_radius < 0:
+        raise ValueError(f"negative_radius deve ser >= 0, recebido {negative_radius}.")
 
     base = os.path.join(root, split)
     if ids is None:
@@ -68,6 +102,8 @@ def load_preprocessed(
             prob = np.load(os.path.join(base, "cellpose_prob", f"{image_id}.npy"))
             sample["rgba"] = sample["rgba"].copy()
             sample["rgba"][..., 3] = prob.astype(np.float32)
+        if negative_radius is not None:
+            sample[NEGATIVE_KEY] = cellpose_negative(sample["cellpose_segmentation"], negative_radius)
         samples[image_id] = sample
     return samples
 
@@ -93,10 +129,10 @@ class PreprocessedDataset(Dataset):
 
     Com ``augment=True``, cada acesso sorteia uma rotação de 90° (k ∈ {0, 1, 2, 3}) e espelhamentos
     horizontal e vertical (probabilidade 0,5 cada), aplicados juntos à imagem, ao RGBA, ao ground
-    truth, ao mapa de distância e à segmentação do Cellpose. Como o ``DataLoader`` acessa cada amostra
-    uma vez por época, cada época vê uma aumentação nova. O sorteio usa um gerador próprio com
-    ``seed``: a mesma semente repete a mesma sequência. Use ``num_workers=0`` no ``DataLoader``
-    para que a sequência seja reproduzível.
+    truth, ao mapa de distância, à segmentação do Cellpose e, quando houver, ao canal negativo. Como
+    o ``DataLoader`` acessa cada amostra uma vez por época, cada época vê uma aumentação nova. O
+    sorteio usa um gerador próprio com ``seed``: a mesma semente repete a mesma sequência. Use
+    ``num_workers=0`` no ``DataLoader`` para que a sequência seja reproduzível.
 
     Args:
         samples: Amostras carregadas por :func:`load_preprocessed` (``id -> amostra``).
@@ -132,13 +168,14 @@ class PreprocessedDataset(Dataset):
         Returns:
             Dicionário com ``id`` (str) e os tensores ``image`` ``(3, H, W)`` float32 em [0, 255],
             ``rgba`` ``(4, H, W)`` float32, ``ground_truth`` ``(1, H, W)`` float32, ``distance_map``
-            ``(1, H, W)`` float32 e ``cellpose_segmentation`` ``(1, H, W)`` int32.
+            ``(1, H, W)`` float32 e ``cellpose_segmentation`` ``(1, H, W)`` int32; com o canal negativo
+            carregado, também ``cellpose_negative`` ``(1, H, W)`` float32.
         """
         image_id = self.ids[index]
         sample = self.samples[image_id]
         if self.augment:
             sample = _augment(sample, self._rng)
-        return {
+        item = {
             "id": image_id,
             "image": torch.from_numpy(np.ascontiguousarray(sample["image"].transpose(2, 0, 1))).float(),
             "rgba": torch.from_numpy(np.ascontiguousarray(sample["rgba"].transpose(2, 0, 1))).float(),
@@ -146,6 +183,9 @@ class PreprocessedDataset(Dataset):
             "distance_map": torch.from_numpy(sample["distance_map"].astype(np.float32))[None],
             "cellpose_segmentation": torch.from_numpy(sample["cellpose_segmentation"].astype(np.int32))[None],
         }
+        if NEGATIVE_KEY in sample:
+            item[NEGATIVE_KEY] = torch.from_numpy(sample[NEGATIVE_KEY].astype(np.float32))[None]
+        return item
 
 
 def collate_samples(samples: List[Dict[str, Any]]) -> Dict[str, Any]:

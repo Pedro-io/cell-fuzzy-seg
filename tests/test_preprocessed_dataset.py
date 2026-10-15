@@ -5,7 +5,9 @@ import pytest
 import torch
 
 from src.data.load.preprocessed_dataset import (
+    NEGATIVE_KEY,
     PreprocessedDataset,
+    cellpose_negative,
     collate_samples,
     load_preprocessed,
     make_loader,
@@ -128,3 +130,39 @@ def test_collate_and_loader(root):
     assert sorted(order(3)) == ["a", "b", "c"]      # cada imagem uma vez por época
     loader = make_loader(dataset, 2, shuffle=False)
     assert [b["id"] for b in loader] == [["a", "b"], ["c"]]
+
+
+def test_cellpose_negative_leaves_a_free_band_around_the_nuclei():
+    seg = np.zeros((9, 9), np.int32)
+    seg[4, 4] = 3
+
+    touching = cellpose_negative(seg, radius=0)
+    banded = cellpose_negative(seg, radius=2)
+
+    assert touching.dtype == np.float32 and touching.sum() == 80 and touching[4, 4] == 0
+    assert banded[4, 6] == 0 and banded[4, 7] == 1   # a 2 px: faixa livre; a 3 px: negativo
+    assert banded[6, 6] == 1                         # diagonal: distância 2,83 > 2
+    with pytest.raises(ValueError, match="radius"):
+        cellpose_negative(seg, radius=-1)
+
+
+def test_load_adds_the_negative_only_when_asked(root):
+    assert NEGATIVE_KEY not in load_preprocessed("train", root=root, ids=["a"])["a"]
+    sample = load_preprocessed("train", root=root, ids=["a"], negative_radius=0)["a"]
+
+    np.testing.assert_array_equal(sample[NEGATIVE_KEY], (sample["cellpose_segmentation"] == 0).astype(np.float32))
+    with pytest.raises(ValueError, match="negative_radius"):
+        load_preprocessed("train", root=root, negative_radius=-1)
+
+
+def test_negative_follows_the_augmentation(root):
+    samples = load_preprocessed("train", root=root, negative_radius=0)
+    dataset = PreprocessedDataset(samples, augment=True, seed=0)
+
+    for _ in range(12):
+        item = dataset[0]
+        assert item[NEGATIVE_KEY].dtype == torch.float32
+        np.testing.assert_array_equal(item[NEGATIVE_KEY][0].numpy(),
+                                      (item["cellpose_segmentation"][0].numpy() == 0).astype(np.float32))
+    plain = PreprocessedDataset(samples)
+    assert collate_samples([plain[0], plain[1]])[NEGATIVE_KEY].shape == (2, 1, H, W)

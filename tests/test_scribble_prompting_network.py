@@ -290,3 +290,43 @@ def test_input_size_sets_the_network_resolution(fake_scribbleprompt):
 def test_input_size_must_be_divisible_by_16(fake_scribbleprompt):
     with pytest.raises(ValueError, match="divisíveis por 16"):
         ScribblePromptingNetwork(input_size=(250, 256))
+
+
+def _unet_input(net, data):
+    """Entrada (N, 5, h, w) que chega à UNet: [img, caixa, positivo, negativo, máscara]."""
+    seen = {}
+    handle = net.unet.register_forward_hook(lambda module, args, out: seen.setdefault("x", args[0].detach()))
+    try:
+        net(data)
+    finally:
+        handle.remove()
+    return seen["x"]
+
+
+def test_fixed_negative_replaces_the_mode_negative_channel(fake_scribbleprompt):
+    net = ScribblePromptingNetwork(scribble_mode="positive", positive_threshold=0.5)
+    scribbles = torch.full((1, 1, 128, 128), 0.75)
+    negative = torch.zeros(1, 1, 128, 128)
+    negative[..., :64] = 1.0
+
+    x = _unet_input(net, {"image": torch.rand(1, 1, 128, 128), "scribbles": scribbles, "negative": negative})
+
+    assert torch.allclose(x[:, 2], torch.full((1, 128, 128), 0.5))   # positivo: (0,75 − τ)/(1 − τ)
+    assert torch.equal(x[:, 3:4], negative)                          # negativo: o canal fixo
+
+
+def test_fixed_negative_keeps_the_gradient_to_the_scribbles(fake_scribbleprompt):
+    net = ScribblePromptingNetwork(scribble_mode="positive", positive_threshold=0.5)
+    scribbles = torch.full((1, 1, 32, 32), 0.8, requires_grad=True)
+
+    net({"image": torch.rand(1, 1, 32, 32), "scribbles": scribbles, "negative": np.ones((32, 32), np.float32)}).sum().backward()
+
+    assert scribbles.grad is not None and scribbles.grad.abs().sum() > 0
+
+
+def test_fixed_negative_must_match_the_positive_shape(fake_scribbleprompt):
+    net = ScribblePromptingNetwork(scribble_mode="positive")
+
+    with pytest.raises(ValueError, match="negativo"):
+        net({"image": torch.rand(1, 1, 32, 32), "scribbles": torch.rand(1, 1, 32, 32),
+             "negative": torch.ones(1, 1, 16, 16)})
