@@ -134,14 +134,22 @@ class PreprocessedDataset(Dataset):
     sorteio usa um gerador próprio com ``seed``: a mesma semente repete a mesma sequência. Use
     ``num_workers=0`` no ``DataLoader`` para que a sequência seja reproduzível.
 
+    Com ``crop_size``, cada acesso devolve um recorte ``crop_size × crop_size`` em posição sorteada
+    (depois da aumentação), igual em todas as chaves, e cada imagem aparece ``crops_per_image``
+    vezes por época: o dataset tem ``len(ids) × crops_per_image`` itens, e o item ``i`` é um recorte da
+    imagem ``ids[i // crops_per_image]``.
+
     Args:
         samples: Amostras carregadas por :func:`load_preprocessed` (``id -> amostra``).
         ids: Ids deste dataset, na ordem de acesso. ``None``: todos os de ``samples``.
         augment: Se ``True``, sorteia a aumentação a cada acesso.
-        seed: Semente do gerador da aumentação.
+        seed: Semente do gerador da aumentação e dos recortes.
+        crop_size: Lado do recorte, em pixels. ``None``: a imagem inteira.
+        crops_per_image: Recortes de cada imagem por época (só com ``crop_size``).
 
     Raises:
         KeyError: Se algum id não estiver em ``samples``.
+        ValueError: Se ``crop_size`` ou ``crops_per_image`` forem inválidos.
     """
 
     def __init__(
@@ -150,17 +158,37 @@ class PreprocessedDataset(Dataset):
         ids: Optional[Sequence[str]] = None,
         augment: bool = False,
         seed: Optional[int] = None,
+        crop_size: Optional[int] = None,
+        crops_per_image: int = 1,
     ) -> None:
         self.samples = samples
         self.ids = list(samples) if ids is None else list(ids)
         missing = [i for i in self.ids if i not in samples]
         if missing:
             raise KeyError(f"Ids ausentes das amostras carregadas: {missing}")
+        if crop_size is not None and crop_size <= 0:
+            raise ValueError(f"crop_size deve ser positivo ou None, recebido {crop_size}.")
+        if crops_per_image < 1 or (crop_size is None and crops_per_image != 1):
+            raise ValueError(
+                f"crops_per_image deve ser >= 1 e só vale com crop_size, recebido {crops_per_image}."
+            )
         self.augment = augment
+        self.crop_size = crop_size
+        self.crops_per_image = crops_per_image
         self._rng = np.random.default_rng(seed)
 
     def __len__(self) -> int:
-        return len(self.ids)
+        return len(self.ids) * self.crops_per_image
+
+    def _crop(self, sample: Mapping[str, np.ndarray]) -> Dict[str, np.ndarray]:
+        """Recorte ``crop_size × crop_size`` em posição sorteada, o mesmo em todas as chaves."""
+        h, w = sample["ground_truth"].shape[:2]
+        if self.crop_size > min(h, w):
+            raise ValueError(f"crop_size {self.crop_size} maior que a imagem ({h} × {w}).")
+        y = int(self._rng.integers(0, h - self.crop_size + 1))
+        x = int(self._rng.integers(0, w - self.crop_size + 1))
+        window = (slice(y, y + self.crop_size), slice(x, x + self.crop_size))
+        return {key: np.ascontiguousarray(array[window]) for key, array in sample.items()}
 
     def __getitem__(self, index: int) -> Dict[str, Any]:
         """Devolve a amostra como tensores ``(C, H, W)``.
@@ -171,10 +199,12 @@ class PreprocessedDataset(Dataset):
             ``(1, H, W)`` float32 e ``cellpose_segmentation`` ``(1, H, W)`` int32; com o canal negativo
             carregado, também ``cellpose_negative`` ``(1, H, W)`` float32.
         """
-        image_id = self.ids[index]
+        image_id = self.ids[index // self.crops_per_image]
         sample = self.samples[image_id]
         if self.augment:
             sample = _augment(sample, self._rng)
+        if self.crop_size is not None:
+            sample = self._crop(sample)
         item = {
             "id": image_id,
             "image": torch.from_numpy(np.ascontiguousarray(sample["image"].transpose(2, 0, 1))).float(),

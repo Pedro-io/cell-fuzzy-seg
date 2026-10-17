@@ -176,3 +176,24 @@ def test_run_final_saves_the_final_model(data, tmp_path):
     assert meta["num_epochs"] == 2 and sorted(meta["train_ids"]) == sorted(train)
     again = evaluate(pipeline, make_loader(PreprocessedDataset(test), 2, shuffle=False))
     assert [r["dice"] for r in again] == pytest.approx([r["dice"] for r in rows])
+
+
+def test_run_kfold_with_crops_trains_on_crops_and_evaluates_whole_images_in_tiles(data):
+    from src.pipeline.tiled_pipeline import TiledPipeline
+
+    train, _ = data
+    crop = 8
+
+    class CropFactory(Factory):
+        def __call__(self):
+            net, pipeline, composer = super().__call__()
+            pipeline.steps[0].target_size = crop
+            return net, TiledPipeline(pipeline, tile_size=crop), composer
+
+    config = TrainConfig(k=3, batch_size=4, max_epochs=2, patience=None, lr=1e-3, device="cpu", log_every=100,
+                         crop_size=crop, crops_per_image=2)
+
+    folds = run_kfold(CropFactory(), train, list(train), config)
+
+    assert sorted(r["id"] for f in folds for r in f.rows) == sorted(train)   # avaliação por imagem inteira
+    assert all(0.0 <= r["dice"] <= 1.0 for f in folds for r in f.rows)

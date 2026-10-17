@@ -45,6 +45,10 @@ class TrainConfig:
         seed: Semente base (divisão dos *folds*, inicialização, aumentação e embaralhamento).
         device: Dispositivo do treino.
         log_every: Intervalo, em épocas, dos logs do ``TrainingLoop``.
+        crop_size: Se informado, o treino usa recortes ``crop_size × crop_size`` em posição sorteada
+            (a validação e o teste continuam com a imagem inteira; para avaliá-la em blocos do mesmo
+            tamanho, envolva o pipeline num ``TiledPipeline``). ``None``: imagem inteira.
+        crops_per_image: Recortes de cada imagem de treino por época (só com ``crop_size``).
     """
 
     k: int = 5
@@ -58,6 +62,8 @@ class TrainConfig:
     seed: int = 42
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
     log_every: int = 10
+    crop_size: Optional[int] = None
+    crops_per_image: int = 1
 
 
 @dataclass
@@ -111,7 +117,8 @@ def _train(
     model, pipeline, composer = factory()
 
     train_loader = make_loader(
-        PreprocessedDataset(samples, train_ids, augment=True, seed=seed),
+        PreprocessedDataset(samples, train_ids, augment=True, seed=seed, crop_size=config.crop_size,
+                            crops_per_image=config.crops_per_image if config.crop_size else 1),
         config.batch_size, shuffle=True, seed=seed,
     )
     val_loader = None

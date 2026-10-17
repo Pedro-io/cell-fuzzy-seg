@@ -35,7 +35,8 @@ class TotalVariationLoss(nn.Module):
         Returns:
             Perda de variação total ponderada e escalar.
         """
-        normalization = torch.sqrt(y_true.sum())
+        # Lote sem nenhum pixel de núcleo (possível com recortes): evita dividir por zero.
+        normalization = torch.sqrt(y_true.sum().clamp_min(1.0))
         h_tv = torch.sum(torch.abs(y_pred[:, :, 1:, :] - y_pred[:, :, :-1, :]) ** self.power)
         w_tv = torch.sum(torch.abs(y_pred[:, :, :, 1:] - y_pred[:, :, :, :-1]) ** self.power)
         return self.weight * (h_tv + w_tv) / normalization

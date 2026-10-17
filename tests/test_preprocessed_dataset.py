@@ -166,3 +166,38 @@ def test_negative_follows_the_augmentation(root):
                                       (item["cellpose_segmentation"][0].numpy() == 0).astype(np.float32))
     plain = PreprocessedDataset(samples)
     assert collate_samples([plain[0], plain[1]])[NEGATIVE_KEY].shape == (2, 1, H, W)
+
+
+def test_crops_have_the_requested_size_and_are_the_same_window_in_every_key(root):
+    samples = load_preprocessed("train", root=root, negative_radius=0)
+    dataset = PreprocessedDataset(samples, augment=True, seed=0, crop_size=4, crops_per_image=3)
+
+    assert len(dataset) == 3 * 3
+    assert [dataset.ids[i // 3] for i in range(len(dataset))] == ["a"] * 3 + ["b"] * 3 + ["c"] * 3
+    for index in range(len(dataset)):
+        item = dataset[index]
+        seg = item["cellpose_segmentation"][0].numpy().astype(np.float32)
+        assert seg.shape == (4, 4)
+        np.testing.assert_array_equal(item["rgba"][0].numpy(), seg)
+        np.testing.assert_array_equal(item["ground_truth"][0].numpy(), (seg > 20).astype(np.float32))
+        np.testing.assert_array_equal(item[NEGATIVE_KEY][0].numpy(), (seg == 0).astype(np.float32))
+
+
+def test_crops_change_between_accesses_and_repeat_with_the_same_seed(root):
+    samples = load_preprocessed("train", root=root)
+    a = PreprocessedDataset(samples, seed=3, crop_size=3, crops_per_image=2)
+    b = PreprocessedDataset(samples, seed=3, crop_size=3, crops_per_image=2)
+
+    first = [a[0]["image"].numpy().tobytes() for _ in range(20)]
+    assert len(set(first)) > 1
+    assert first == [b[0]["image"].numpy().tobytes() for _ in range(20)]
+
+
+def test_crop_options_are_validated(root):
+    samples = load_preprocessed("train", root=root)
+    with pytest.raises(ValueError, match="crop_size"):
+        PreprocessedDataset(samples, crop_size=0)
+    with pytest.raises(ValueError, match="crops_per_image"):
+        PreprocessedDataset(samples, crops_per_image=2)
+    with pytest.raises(ValueError, match="maior que a imagem"):
+        PreprocessedDataset(samples, crop_size=50)[0]

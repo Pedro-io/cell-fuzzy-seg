@@ -46,6 +46,7 @@ class DistanceMapLoss(nn.Module):
         assert y_pred.size() == distance_map.size(), (
             f"y_pred {y_pred.size()} and distance_map {distance_map.size()} must have the same shape."
         )
-        normalization = y_true.sum()
+        # Lote sem nenhum pixel de núcleo (possível com recortes): evita dividir por zero.
+        normalization = y_true.sum().clamp_min(1.0)
         loss = torch.mul(y_pred, distance_map).sum() / normalization
         return self.weight * loss
