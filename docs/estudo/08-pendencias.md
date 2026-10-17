@@ -20,15 +20,15 @@
 | ID | Sev. | Área | Resumo | Status |
 |---|---|---|---|---|
 | [PD-01](#pd-01) | 🔴 | Resultados | O pipeline é pior que o Cellpose sozinho (Dice 0,648 × 0,810) | Aberta; linha de base nova: Cellpose 0,837 no teste; experimento-base 0,777 (2026-10-07) |
-| [PD-02](#pd-02) | 🟠 | Metodologia | O teste oficial é usado como validação e para escolher configurações | k-fold implementado (2026-10-07); vale quando os experimentos passarem a usá-lo |
+| [PD-02](#pd-02) | 🟠 | Metodologia | O teste oficial é usado como validação e para escolher configurações | ✅ Resolvida (2026-10-07, módulo de k-fold): as configurações são escolhidas pela validação cruzada; fica a decisão da chave `RODAR_TESTE` |
 | [PD-03](#pd-03) | 🟠 | Metodologia | Os experimentos de isolamento E2/E3/E5 nunca foram executados | Parcial: E3 (oráculo) executado em 2026-09-27 |
-| [PD-04](#pd-04) | 🟠 | Modelo | O scribble negativo é o complemento denso do marcador (provável erro) | Decidida: só positivo (confirmado pelo oráculo) |
+| [PD-04](#pd-04) | 🟠 | Modelo | O scribble negativo é o complemento denso do marcador (provável erro) | ✅ Resolvida: o complemento denso foi abandonado (modo `positive`, `df0a30f`); o negativo agora é opcional e vem do Cellpose (`dfabaa5`) |
 | [PD-05](#pd-05) | 🟡 | Resolução | O ScribblePrompt trabalha em 128²: o núcleo mediano vira ~3 px | `input_size` configurável (2026-10-07); o experimento-base usa 256² |
 | [PD-06](#pd-06) | 🟠 | Dados/Loss | O mapa de distância é normalizado pelo máximo da imagem, não por núcleo | ✅ Resolvida (2026-10-06, `308ba92`); falta recalibrar o peso do DMap (fase 2) |
 | [PD-07](#pd-07) | 🟠 | Dados | O GT binário funde núcleos (−25% de componentes no treino) | Parcial: a máscara por instância alimenta o Dmap (2026-10-06); o GT binário continua fundindo (intencional) |
-| [PD-08](#pd-08) | 🟡 | Treino | A aumentação é estática e não há shuffle | Implementada no módulo (2026-10-07); vale quando os notebooks passarem a usá-lo |
-| [PD-09](#pd-09) | 🟡 | Treino | Os runs provavelmente validaram com a BatchNorm em `train()` | Aberta |
-| [PD-10](#pd-10) | 🟡 | Reprodutibilidade | Checkpoints não salvos, saídas velhas, markdowns desatualizados | Aberta |
+| [PD-08](#pd-08) | 🟡 | Treino | A aumentação é estática e não há shuffle | ✅ Resolvida (2026-10-07): aumentação sorteada a cada época e ordem embaralhada no `PreprocessedDataset`/`make_loader`, usados por todos os experimentos |
+| [PD-09](#pd-09) | 🟡 | Treino | Os runs provavelmente validaram com a BatchNorm em `train()` | ✅ Encerrada: afeta só os exp. 1–6 (legados, GT antigo); desde `ef7d731` a validação roda em modo de avaliação |
+| [PD-10](#pd-10) | 🟡 | Reprodutibilidade | Checkpoints não salvos, saídas velhas, markdowns desatualizados | Parcial: resultados salvos por `save_run` (config, commit, métricas por imagem); faltam os checkpoints dos modelos |
 | [PD-11](#pd-11) | ⚪ | Testes | Os testes e a docstring do `ObjectSizeLoss` descrevem a fórmula antiga | Aberta |
 | [PD-12](#pd-12) | 🟡 | Loss | Size/DMap/TV são normalizados pela soma do batch inteiro | Aberta |
 | [PD-13](#pd-13) | 🟡 | Loss | Desbalanceamento de classes não tratado (P8) | Aberta |
@@ -37,7 +37,7 @@
 | [PD-16](#pd-16) | 🟡 | Robustez | Fallbacks silenciosos (GT como entrada; rede "dummy") | Parcial (2026-10-01): notebook de pré-processamento corrigido; falta o `MarkerStep` |
 | [PD-17](#pd-17) | ⚪ | Código morto | `pipeline_test.py` está quebrado | Aberta |
 | [PD-18](#pd-18) | ⚪ | Config | Partes de `datasets.yml` não são usadas | Aberta |
-| [PD-19](#pd-19) | 🟡 | Dados | Dois caminhos de carregamento; `MonusegPreprocessedDataset` não lê do disco | Em andamento: peças 1 (métricas) e 2 (dataset) feitas; classe antiga removida |
+| [PD-19](#pd-19) | 🟡 | Dados | Dois caminhos de carregamento; `MonusegPreprocessedDataset` não lê do disco | ✅ Resolvida (2026-10-07): módulo completo (métricas, dataset, callbacks, k-fold, registro); classe antiga removida |
 | [PD-20](#pd-20) | ⚪ | Git | `.pyc` e `egg-info` versionados | Aberta |
 | [PD-21](#pd-21) | 🟡 | Git | 1,6 GB de dados no git, incluindo 1,1 GB de `.npy` derivados | Adiada (decisão do autor) |
 | [PD-22](#pd-22) | ⚪ | Referências | Falta o artigo do Cellpose-SAM | Aberta |
@@ -62,15 +62,52 @@
 | [PD-41](#pd-41) | 🟠 | Loss | `BorderTerm` pune marcadores sobre 16–17% dos pixels de núcleo real | Aberta |
 | [PD-42](#pd-42) | ⚪ | Docs | Docstring do `LossComposer` diz que o Size olha a predição (olha os marcadores) | Aberta |
 | [PD-43](#pd-43) | 🟡 | Loss | Com GT vazio: DMap e TV dividem por zero; Size perde a normalização | Aberta (latente) |
-| [PD-44](#pd-44) | 🟠 | Experimento | Plano do experimento-base "só Dice + TV" (256², só positivos) | Rodado (2026-10-07): teste 0,777 × Cellpose 0,837; experimentos de perdas criados (09 §18.13) |
+| [PD-44](#pd-44) | 🟠 | Experimento | Plano do experimento-base "só Dice + TV" (256², só positivos) | ✅ Executada (2026-10-07): validação 0,775, teste 0,777 × Cellpose 0,837; seguida por `dice_size`, `base_negativo` e outros |
 | [PD-45](#pd-45) | ⚪ | Treino | Médias por época são por batch, não por imagem (o último batch tem 2 imagens) | Aberta |
-| [PD-46](#pd-46) | 🟡 | Treino | Não há seleção do melhor modelo nem early stopping; avalia-se a última época | Implementada (2026-10-07): `BestModelCallback`; vale quando os notebooks passarem a usá-la |
+| [PD-46](#pd-46) | 🟡 | Treino | Não há seleção do melhor modelo nem early stopping; avalia-se a última época | ✅ Resolvida (2026-10-07): `BestModelCallback` com parada antecipada, usado por `run_kfold` em todos os experimentos |
 | [PD-47](#pd-47) | 🟡 | Publicação | Resultados (oráculo e próximos experimentos) precisam ser salvos e reproduzíveis para o artigo | Parcial: registro dos experimentos (2026-10-07) e oráculo com negativo (2026-10-08) salvos; falta salvar o oráculo antigo |
 | [PD-48](#pd-48) | 🟡 | Testes | Testes cobrem a "tubulação" com dummies; nada de redes reais, dados, métricas ou valores das losses; sem execução automática | Aberta |
-| [PD-49](#pd-49) | 🟠 | Modelo/Experimento | Só positivo: um fundo ≥ 1e-3 no canal positivo faz o ScribblePrompt marcar a imagem inteira; a sigmoid da MarkerUNet nunca dá 0 | Implementada (2026-10-07): modo `positive` com corte em τ; aguarda validação |
+| [PD-49](#pd-49) | 🟠 | Modelo/Experimento | Só positivo: um fundo ≥ 1e-3 no canal positivo faz o ScribblePrompt marcar a imagem inteira; a sigmoid da MarkerUNet nunca dá 0 | ✅ Resolvida (`df0a30f`, validada pelo autor): modo `positive` com corte em τ |
 | [PD-50](#pd-50) | ⚪ | Código | Código, testes e notebooks citam a história do projeto (PD-nn, "investigação, P5", "C2", "regra 23") | Aberta (regra do autor, 2026-10-01) |
 | [PD-51](#pd-51) | ⚪ | Dados | Uma região de área ~0 é classificada de forma diferente conforme a versão do numpy (só muda o log) | Aberta |
 | [PD-52](#pd-52) | 🔴 | Resultados | O pipeline perde para o Cellpose por **precisão** (0,73 × 0,87): segmenta ~17% a mais que o GT | Aberta; diagnóstico (2026-10-15): marcadores no lugar certo; o inchaço vem dos valores suaves do marcador. Treino com o negativo do Cellpose: 0,808 (Cellpose 0,845), mas o marcador perde a forma |
+
+---
+
+## Plano de ataque (combinado com o autor em 2026-10-17)
+
+**Regra:** um bloco de cada vez, e dentro dele um item de cada vez. Só depois de fechar um bloco se passa ao seguinte.
+
+**A — antes de rodar mais experimentos** (vale para todo resultado novo)
+1. ✅ Atualizar o índice deste documento (2026-10-17).
+2. PD-02: a chave `RODAR_TESTE` proposta para os notebooks de experimento. O autor prefere **não** acrescentá-la (notebooks mais
+   simples); a forma de garantir que o teste não escolha configurações fica a definir.
+3. PD-10: salvar os modelos treinados (cada *fold* e o final). Decidido salvar; o desenho será discutido antes.
+4. PD-15: conferir o SHA-256 do checkpoint do ScribblePrompt no download (a explicar ao autor quando chegar a vez).
+
+**B — experimentos** (precisam do Colab)
+5. Rodar de novo o `base_dice` e rodar o `negativo_sem_tv`: o TV achata o marcador?
+6. Passo 2: recortes sem o negativo (desenho dos detalhes validado antes do código).
+7. Passo 3: recortes com o negativo.
+8. Conforme 5–7: marcador quase binário (*straight-through*) ou a volta do Size e do DMap.
+9. Decisão de rumo do autor (PD-40/PD-52, caminho d).
+
+**C — ablações já decididas**, sobre a melhor configuração
+10. PD-36/PD-38: normalização ImageNet e congelamento do encoder.
+11. PD-34: probabilidade do Cellpose no lugar da máscara.
+12. `dice_dmap`, `tese` e `rmse`, se ainda fizerem sentido.
+
+**D — código e higiene**
+13. Rápidos: PD-11, PD-17, PD-20, PD-31, PD-42, PD-14.
+14. Médios: PD-16, PD-33, PD-50, PD-43.
+15. A decidir com o autor: PD-12, PD-13, PD-45; e encerrar a PD-03 (coberta pelos oráculos).
+
+**E — publicação e documentação**
+16. PD-47: rodar de novo o diagnóstico e o oráculo de resolução com `SALVAR_RESULTADOS = True`; salvar o oráculo antigo.
+17. PD-23 (contagens do 01 §4), PD-27 (licença do código), PD-22 (referência do Cellpose-SAM).
+18. Notas do autor nos docs 00–03 e o doc 10 de insights.
+
+Adiadas por decisão do autor: PD-21 e PD-39.
 
 ---
 
@@ -102,6 +139,7 @@ não tem custo computacional relevante.
 **Implementado (2026-10-07, aguardando validação; 09 §18.8):** `src/training/kfold.py` — `make_folds(ids, k, seed)` (por
 imagem, sem estratificação, decisão do autor), `run_kfold` (um modelo novo por *fold*, avaliado na época de melhor Dice de
 validação) e `run_final` (treino com as 37 pelo número de épocas da mediana das melhores épocas e **uma** avaliação no teste).
+**Atualização (2026-10-17):** todos os notebooks de experimento (`base_dice_tv`, `dice_size`, `base_negativo`, …) usam `run_kfold` nas 37 imagens de treino e avaliam o teste uma vez no fim. Fica em aberto só a decisão do autor sobre a chave `RODAR_TESTE` (não olhar o teste enquanto se escolhe configurações).
 
 ### PD-03
 **🟠 Os experimentos de isolamento nunca foram executados.** ✅
@@ -130,6 +168,7 @@ marcador (33% da área do GT), a precisão é 0,99 e o recall 0,30 (Dice 0,452 e
 do marcador (recall 0,52, Dice 0,668). **Contraponto:** quando o marcador já é o GT inteiro, tirar o negativo faz a rede
 segmentar demais (massa 1,47× o GT, Dice 0,796 contra 0,873). O ganho do "só positivo" é para marcadores pequenos, que são
 justamente o que a tese quer.
+**Atualização (2026-10-17):** o modo `positive` (`df0a30f`) substituiu o complemento denso nos experimentos novos; um negativo fixo do Cellpose ficou disponível como opção (`dfabaa5`, PD-52).
 
 ### PD-05
 **🟡 (era 🟠) Resolução: o núcleo mediano vira ~3 px na entrada do ScribblePrompt.** ✅ (medido)
@@ -208,12 +247,14 @@ mesmos 8 batches, com as mesmas rotações e flips e na mesma ordem.
 **Decisão (2026-09-27):** fica no módulo de dados/treino em `src/` da PD-19, e não copiado em cada notebook.
 **Implementada (2026-10-07, aguardando validação):** `PreprocessedDataset(augment=True, seed=...)` sorteia rot90 + flips a cada
 acesso (a cada época) e `make_loader(shuffle=True, seed=...)` embaralha a ordem; ver 09 §18.6.
+**Atualização (2026-10-17):** a aumentação por época e o embaralhamento com semente (`PreprocessedDataset`, `make_loader`) são usados por todos os notebooks de experimento desde o `base_dice_tv`.
 
 ### PD-09
 **🟡 Os runs provavelmente validaram com a BatchNorm em modo treino.** ❓
 O controle `train()`/`eval()` por modo entrou em `ef7d731` (22/09). Os runs são de 14/08 a 12/09. Se o Colab usou o código da
 época, a validação usou as estatísticas do lote e ainda atualizou as *running stats* com imagens de teste.
 **Ação:** reavaliar em `eval()` o melhor modelo, o que depende de PD-10 (checkpoints).
+**Atualização (2026-10-17):** o `Trainer` põe os passos em modo de avaliação na validação (`_set_pipeline_training_mode`, desde `ef7d731`) e o `evaluate` também. Os exp. 1–6 ficam como estão: são do GT antigo e foram substituídos pelos experimentos novos; reavaliá-los não muda nenhuma decisão.
 
 ### PD-10
 **🟡 Reprodutibilidade dos experimentos.** ✅
@@ -231,6 +272,7 @@ substituídos pelo módulo de treino da PD-19; recuperáveis com `git show df0a3
 `notebooks/README.md` foi reescrito. O `exploration/test_e2e_pipeline.ipynb` (que deixou de rodar com o Dmap por núcleo e ainda tinha o *fallback* do GT no lugar do
 Cellpose) também foi removido e substituído pelo `exploration/inspecao_pipeline.ipynb` (09 §18.10). **Falta** decidir
 `analise_image`, `groud_truth_monuseg` e o tutorial `preprocessamento_monuseg`.
+**Atualização (2026-10-17):** o `save_run` grava configuração, procedência e métricas por imagem de cada experimento. Os modelos treinados continuam não sendo salvos, o que impediu medir o marcador do `base_negativo` depois do treino (PD-52).
 
 ### PD-11
 **⚪ Os testes e a docstring do Size descrevem a fórmula antiga.** ✅ (executado em 2026-09-27: os 3 testes falham, como previsto)
@@ -324,6 +366,7 @@ mantido para o tutorial.
 **Andamento (2026-10-07):** peça 1 (métricas, `ba0b85c`) e peça 2 (dataset, aguardando validação; 09 §18.6). O
 `MonusegPreprocessedDataset` foi **removido** (decisão do autor: remover o código não usado conforme for encontrado), junto com
 o seu teste, as citações nas docstrings do `PreprocessingPipeline` e a seção 7 do tutorial `preprocessamento_monuseg.ipynb`.
+**Atualização (2026-10-17):** as cinco peças do módulo estão prontas e em uso (09 §18.5–§18.9), e o `MonusegPreprocessedDataset` foi removido.
 
 ### PD-20
 **⚪ `.pyc` versionados.** ✅ Há arquivos em `src/**/__pycache__/` no git, apesar do `__pycache__/` no `.gitignore`.
@@ -868,6 +911,7 @@ tema 4). Depois, reintroduzi-las uma a uma para ver quanto cada uma custa.
 
 **O que muda no código:** o modo "só positivo" no `ScribblePromptingNetwork` (novo `scribble_mode`, ou montar `[m, 0]`) e um
 parâmetro de `input_size`. Nada nas losses.
+**Atualização (2026-10-17):** o plano foi executado (`base_dice_tv`, resultados em `docs/estudo/resultados/base_dice_tv/`). Os desdobramentos estão na PD-52.
 
 ### PD-45
 **⚪ As médias por época são por batch, não por imagem.** ✅
@@ -892,6 +936,7 @@ respeita ao fim da época. `restore_best()` carrega o melhor estado. Nada é gra
 depois, numa pasta na raiz do usuário).
 **Proposta:** um callback que guarde o estado de **melhor Dice na validação do *fold*** (nunca no teste, PD-02) e, opcionalmente,
 pare depois de N épocas sem melhora. Como o treino custa ~1,5 s por época, o custo é irrelevante.
+**Atualização (2026-10-17):** o `run_kfold` restaura o melhor modelo de cada *fold* e para após 20 validações sem melhora; todos os experimentos novos usam.
 
 ### PD-47
 **🟡 Resultados precisam ser salvos e reproduzíveis para a publicação.** Decisão do autor em 2026-09-27: o trabalho deve ser
@@ -956,6 +1001,7 @@ o que sobra.
 `ScribblePromptingNetwork`. Com o ScribblePrompt real (3 imagens, miolo do GT, 256²), o modo `positive` com um piso de 0,01 no
 marcador dá **Dice 0,729 e massa 0,61×, idênticos ao oráculo** (positivo = marcador cru); o *sharpening* com o mesmo piso inunda
 (Dice 0,421, massa 4,61×).
+**Atualização (2026-10-17):** o modo `positive` entrou em `df0a30f`, validado pelo autor, e é o usado em todos os experimentos desde o `base_dice_tv`.
 
 ### PD-50
 **⚪ O código cita a história do projeto em vez de só descrever o que faz.** ✅ (contado em 2026-10-01)

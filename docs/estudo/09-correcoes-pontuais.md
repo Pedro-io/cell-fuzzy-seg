@@ -463,7 +463,7 @@ seção. No fim de cada etapa, rodar a suíte inteira e registrar o resultado no
 | Etapa 5: regeração dos `.npy` | `0cc2d7f` (autor, no Colab) | conferência dos dados: nenhuma falha (§17) | 37 + 14; Dice do Cellpose 0,845 (treino) / 0,837 (teste) |
 | C7, parte do Cellpose (PD-31) + PD-34 (a) | `64a624f` (validado pelo autor) | 94: 90 ok, 3 falhas conhecidas (PD-11), 1 pulado | `flows`/`styles` fora; `cellpose_prob` e `RGBAStep(alpha=...)`; notebook não executado (precisa de GPU) |
 | C7, resto (PD-17, PD-20, PD-31) | — | — | — |
-| C8 (PD-44 código, PD-49) | — (aguardando validação do autor) | 143: 139 ok, 3 falhas conhecidas (PD-11), 1 pulado | modo `positive` (τ = 0,5) e `input_size`; idêntico ao oráculo com piso de 0,01 |
+| C8 (PD-44 código, PD-49) | `df0a30f` (validado pelo autor) | 143: 139 ok, 3 falhas conhecidas (PD-11), 1 pulado | modo `positive` (τ = 0,5) e `input_size`; idêntico ao oráculo com piso de 0,01 |
 | Passo 1: negativo do Cellpose no pipeline (§18.16) | `dfabaa5` (validado pelo autor) | 157: 153 ok, 3 falhas conhecidas (PD-11), 1 pulado | `cellpose_negative` na leitura, `"negative"` na rede final, `negative_key` no passo; notebook `base_negativo` testado em CPU com 1 época |
 | Contraste do marcador + `negativo_sem_tv` (§18.17) | — (aguardando validação do autor) | 158: 154 ok, 3 falhas conhecidas (PD-11), 1 pulado | `marker_mean_nucleo`/`marker_mean_fundo` no `evaluate`; notebook testado em CPU com 1 época |
 
