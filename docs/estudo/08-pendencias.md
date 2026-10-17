@@ -33,7 +33,7 @@
 | [PD-12](#pd-12) | 🟡 | Loss | Size/DMap/TV são normalizados pela soma do batch inteiro | Aberta |
 | [PD-13](#pd-13) | 🟡 | Loss | Desbalanceamento de classes não tratado (P8) | Aberta |
 | [PD-14](#pd-14) | ⚪ | Diagnóstico | `GradNormCallback` mede a norma depois do clipping | Aberta |
-| [PD-15](#pd-15) | 🟡 | Segurança | O checkpoint do ScribblePrompt é baixado sem verificação de hash | Aberta (hash de referência registrado) |
+| [PD-15](#pd-15) | 🟡 | Segurança | O checkpoint do ScribblePrompt é baixado sem verificação de hash | ✅ Resolvida (2026-10-17, validada pelo autor): `download_checkpoint` confere o SHA-256 e baixa para um `.part` |
 | [PD-16](#pd-16) | 🟡 | Robustez | Fallbacks silenciosos (GT como entrada; rede "dummy") | Parcial (2026-10-01): notebook de pré-processamento corrigido; falta o `MarkerStep` |
 | [PD-17](#pd-17) | ⚪ | Código morto | `pipeline_test.py` está quebrado | Aberta |
 | [PD-18](#pd-18) | ⚪ | Config | Partes de `datasets.yml` não são usadas | Aberta |
@@ -80,7 +80,7 @@
 
 **A — antes de rodar mais experimentos** (vale para todo resultado novo)
 1. ✅ Atualizar o índice deste documento (2026-10-17).
-2. PD-02: a chave `RODAR_TESTE` não será criada. **Decisão do autor (2026-10-17), opção (b):** os notebooks de experimento fazem só
+2. ✅ PD-02: a chave `RODAR_TESTE` não será criada. **Decisão do autor (2026-10-17), opção (b):** os notebooks de experimento fazem só
    a validação cruzada nas 37 imagens de treino (sem treino final, sem teste; figura com imagens da validação); um notebook final
    treina a configuração escolhida com as 37 e avalia as 14 de teste uma única vez. Os dados já estão separados (divisão oficial,
    sem sobreposição). Ressalva para o texto: o teste já foi usado como validação nos exp. 1–6 e foi visto nos experimentos novos.
@@ -90,10 +90,10 @@
    aprendizados; o `oraculo_scribbleprompt` (GT antigo) vai para `notebooks/exploration/legado/` com o mesmo aviso. `base_dice`,
    `negativo_sem_tv`, `dice_dmap`, `rmse` e `tese` (não rodados) são convertidos para a estrutura nova; as saídas parciais do
    `base_dice` e do `tese` são descartadas.
-3. PD-10: salvar os modelos treinados (cada *fold* e o final). **Decidido e aplicado (09 §18.18):** no Drive de quem roda, em
+3. ✅ PD-10: salvar os modelos treinados (cada *fold* e o final). **Decidido e aplicado (09 §18.18):** no Drive de quem roda, em
    float32, com `torch.save` (leitura com `weights_only=True`); a melhor época de cada *fold* e o modelo final. Por que os 5 e
    para que serve o final: [05-treinamento.md §7.2](05-treinamento.md).
-4. PD-15: conferir o SHA-256 do checkpoint do ScribblePrompt no download (a explicar ao autor quando chegar a vez).
+4. ✅ PD-15: conferir o SHA-256 do checkpoint do ScribblePrompt no download (explicado e aprovado; 09 §18.19).
 
 **B — experimentos** (precisam do Colab)
 5. Rodar de novo o `base_dice` e rodar o `negativo_sem_tv`: o TV achata o marcador?
@@ -327,6 +327,10 @@ SHA-256 `43f57ee8fa8ec529c31be281e06749f9e629b30157bbbcc9baf200cddec1acbe`. Ele 
 Vale conferir contra o arquivo que o Colab usou nos experimentos: o notebook do oráculo imprime o hash.
 Mitigação parcial: com torch ≥ 2.6, `torch.load` usa `weights_only=True` por padrão e recusa objetos arbitrários. O Colab
 atual já usa essa versão, e o `requirements.txt` só exige `torch>=2.1.0`.
+**Atualização (2026-10-17):** resolvida (09 §18.19). O `download_checkpoint` tem o SHA-256 esperado fixado no código
+(`CHECKPOINT_SHA256`), confere o arquivo existente antes de devolvê-lo (erro claro se não bater) e baixa para um
+`<nome>.part`, que só ganha o nome final depois de conferido. Motivo prático além da segurança: desde o bloco A, o checkpoint fica
+no Drive e sobrevive entre sessões, então um download interrompido seria reaproveitado em todos os experimentos seguintes.
 
 ### PD-16
 **🟡 Fallbacks silenciosos.** ✅

@@ -340,3 +340,58 @@ def test_scribble_channels_shows_what_the_mode_produces(fake_scribbleprompt):
     assert channels.shape == (1, 2, 1, 2)
     assert torch.allclose(channels[0, 0, 0], torch.tensor([0.0, 0.5]))
     assert torch.equal(channels[0, 1], torch.zeros(1, 2))
+
+
+def _fake_origin(monkeypatch, content, fail_after_write=False):
+    """Substitui o download por uma escrita local de ``content`` e fixa o SHA-256 esperado de ``b"pesos"``."""
+    import hashlib
+    import urllib.request
+
+    calls = []
+
+    def fake_urlretrieve(url, dest):
+        calls.append(url)
+        with open(dest, "wb") as f:
+            f.write(content)
+        if fail_after_write:
+            raise ConnectionError("conexão caiu")
+
+    monkeypatch.setattr(urllib.request, "urlretrieve", fake_urlretrieve)
+    monkeypatch.setitem(ScribblePromptingNetwork.CHECKPOINT_SHA256, "v1", hashlib.sha256(b"pesos").hexdigest())
+    return calls
+
+
+def test_download_checks_the_hash_and_reuses_a_verified_file(monkeypatch, tmp_path):
+    calls = _fake_origin(monkeypatch, b"pesos")
+
+    path = ScribblePromptingNetwork.download_checkpoint(str(tmp_path))
+    again = ScribblePromptingNetwork.download_checkpoint(str(tmp_path))
+
+    assert path == again and open(path, "rb").read() == b"pesos"
+    assert len(calls) == 1                                     # a segunda chamada não baixa
+    assert not list(tmp_path.glob("*.part"))
+
+
+def test_download_rejects_a_different_file_and_leaves_nothing(monkeypatch, tmp_path):
+    _fake_origin(monkeypatch, b"outro arquivo")
+
+    with pytest.raises(RuntimeError, match="SHA-256"):
+        ScribblePromptingNetwork.download_checkpoint(str(tmp_path))
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_interrupted_download_leaves_no_checkpoint(monkeypatch, tmp_path):
+    _fake_origin(monkeypatch, b"pes", fail_after_write=True)
+
+    with pytest.raises(ConnectionError):
+        ScribblePromptingNetwork.download_checkpoint(str(tmp_path))
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_existing_corrupted_checkpoint_raises_instead_of_being_used(monkeypatch, tmp_path):
+    calls = _fake_origin(monkeypatch, b"pesos")
+    (tmp_path / "ScribblePrompt_unet_v1_nf192_res128.pt").write_bytes(b"pela metade")
+
+    with pytest.raises(RuntimeError, match="Apague o arquivo"):
+        ScribblePromptingNetwork.download_checkpoint(str(tmp_path))
+    assert calls == []

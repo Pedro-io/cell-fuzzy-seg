@@ -25,6 +25,7 @@ diretório padrão ou em um caminho informado via ``checkpoint``. Use o método
 original) ou informe o caminho do arquivo baixado.
 """
 
+import hashlib
 import pathlib
 from typing import Any, Dict, Literal, Optional, Tuple
 
@@ -75,6 +76,10 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
             "https://www.dropbox.com/scl/fi/pnw88n05irnv5z1snlklr/"
             "ScribblePrompt_unet_v1_nf192_res128.pt?rlkey=dr8xvkf0wj2r082h1zzpcmz5o&dl=1"
         ),
+    }
+    # SHA-256 do checkpoint esperado em cada versão: download_checkpoint recusa qualquer outro arquivo.
+    CHECKPOINT_SHA256: Dict[str, str] = {
+        "v1": "43f57ee8fa8ec529c31be281e06749f9e629b30157bbbcc9baf200cddec1acbe",
     }
 
     def __init__(
@@ -435,31 +440,66 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
             "Use 'sharpened', 'dense_soft' ou 'positive'."
         )
 
+    @staticmethod
+    def _sha256(path: pathlib.Path) -> str:
+        digest = hashlib.sha256()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(1 << 20), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
+
     @classmethod
     def download_checkpoint(cls, dest_dir: str, version: Literal["v1"] = "v1") -> str:
-        """Baixa o checkpoint do ScribblePrompt para ``dest_dir``.
+        """Baixa o checkpoint do ScribblePrompt para ``dest_dir`` e confere o SHA-256.
 
-        Útil no Colab, onde os pesos precisam ser baixados antes de instanciar
-        a rede. Se o arquivo já existir, não baixa novamente.
+        Útil no Colab, onde os pesos precisam ser baixados antes de instanciar a rede. Se o
+        arquivo já existir, não baixa de novo, mas confere o SHA-256 antes de devolvê-lo. O download
+        vai para um arquivo temporário (``<nome>.part``) e só ganha o nome final depois de
+        conferido: um download interrompido ou um arquivo diferente na origem nunca vira o
+        checkpoint.
 
         Args:
             dest_dir: Diretório de destino do checkpoint.
             version: Versão do modelo (apenas ``"v1"``).
 
         Returns:
-            Caminho completo do checkpoint baixado.
+            Caminho completo do checkpoint conferido.
+
+        Raises:
+            RuntimeError: Se o arquivo existente ou o baixado não tiver o SHA-256 esperado.
         """
         import urllib.request
 
+        expected = cls.CHECKPOINT_SHA256[version]
         name = f"ScribblePrompt_unet_{version}_nf192_res128.pt"
         dest = pathlib.Path(dest_dir) / name
         if dest.exists():
-            logger.debug(f"[ScribblePromptingNetwork] Checkpoint já existe: {dest}")
+            found = cls._sha256(dest)
+            if found != expected:
+                raise RuntimeError(
+                    f"O checkpoint em {dest} não confere com o SHA-256 esperado (esperado "
+                    f"{expected[:12]}…, encontrado {found[:12]}…). "
+                    "Apague o arquivo para baixar de novo."
+                )
+            logger.debug(f"[ScribblePromptingNetwork] Checkpoint já existe e confere: {dest}")
             return str(dest)
 
         url = cls.CHECKPOINT_URLS[version]
         dest.parent.mkdir(parents=True, exist_ok=True)
+        partial = dest.with_name(dest.name + ".part")
         logger.info(f"[ScribblePromptingNetwork] Baixando checkpoint de {url}")
-        urllib.request.urlretrieve(url, dest)
-        logger.info(f"[ScribblePromptingNetwork] Checkpoint salvo em {dest}")
+        try:
+            urllib.request.urlretrieve(url, partial)
+            found = cls._sha256(partial)
+            if found != expected:
+                raise RuntimeError(
+                    f"O checkpoint baixado de {url} não confere com o SHA-256 esperado (esperado "
+                    f"{expected[:12]}…, recebido {found[:12]}…): o arquivo na origem mudou ou o "
+                    "download foi corrompido."
+                )
+            partial.replace(dest)
+        finally:
+            if partial.exists():
+                partial.unlink()
+        logger.info(f"[ScribblePromptingNetwork] Checkpoint conferido e salvo em {dest}")
         return str(dest)

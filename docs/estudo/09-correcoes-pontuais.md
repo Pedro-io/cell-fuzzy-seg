@@ -467,6 +467,7 @@ seção. No fim de cada etapa, rodar a suíte inteira e registrar o resultado no
 | Passo 1: negativo do Cellpose no pipeline (§18.16) | `dfabaa5` (validado pelo autor) | 157: 153 ok, 3 falhas conhecidas (PD-11), 1 pulado | `cellpose_negative` na leitura, `"negative"` na rede final, `negative_key` no passo; notebook `base_negativo` testado em CPU com 1 época |
 | Contraste do marcador + `negativo_sem_tv` (§18.17) | `19e41af` (validado pelo autor) | 158: 154 ok, 3 falhas conhecidas (PD-11), 1 pulado | `marker_mean_nucleo`/`marker_mean_fundo` no `evaluate`; notebook testado em CPU com 1 época |
 | Bloco A, itens 2 e 3: experimentos só com validação cruzada, modelos gravados, notebook final, legados (§18.18) | `97522a1` (código) e o commit seguinte (notebooks e docs), validados pelo autor | 169: 165 ok, 3 falhas conhecidas (PD-11), 1 pulado | `checkpoints.py`, `figures.py`, `models_dir` no k-fold; notebooks testados em CPU com 1 época |
+| Bloco A, item 4: SHA-256 do checkpoint do ScribblePrompt (PD-15, §18.19) | este commit (validado pelo autor) | 173: 169 ok, 3 falhas conhecidas (PD-11), 1 pulado | conferido com o checkpoint real |
 
 ---
 
@@ -1300,4 +1301,23 @@ avaliado) e recusou uma configuração diferente.
 
 **Pendente da rodada de notas:** o `00-visao-geral.md` e o `03-modelos.md` (§8 e o link do oráculo) citam caminhos que mudaram;
 não foram editados porque têm notas do autor.
+
+### 18.19 SHA-256 do checkpoint do ScribblePrompt (PD-15) (2026-10-17, validado pelo autor)
+
+**Base** (explicada ao autor e aprovada): o `download_checkpoint` reaproveitava qualquer arquivo com o nome do checkpoint, sem
+conferir, e o pacote do ScribblePrompt o abre com `torch.load` sem `weights_only` (✅ `scribbleprompt/models/unet.py`; no PyTorch
+≥ 2.6 o padrão já é o modo seguro, mas o `requirements.txt` aceita `torch>=2.1`). Riscos: (1) **download interrompido** — como o
+checkpoint agora fica no Drive (§18.18), um arquivo pela metade seria reaproveitado em todas as sessões seguintes, com erro ou,
+pior, pesos errados sem aviso; (2) **arquivo trocado na origem** (outra versão ou arquivo malicioso).
+
+**O que muda** ✅ ([scribble_prompting_network.py](../../src/models/networks/final_segmentation/scribble_prompting_network.py)):
+`CHECKPOINT_SHA256` com o hash esperado da v1 (`43f57ee8fa8e…acbe`, o medido em todas as execuções até aqui); o arquivo existente
+é conferido antes de ser devolvido (erro com "apague o arquivo para baixar de novo"); o download vai para `<nome>.part` e só é
+renomeado depois de conferido; um download que falha ou não confere não deixa arquivo nenhum. Custo: menos de 1 s por notebook.
+
+**Testes** ✅: +4 (download correto e reaproveitamento sem novo download; arquivo diferente na origem; download interrompido;
+arquivo existente corrompido). Suíte: 173 casos, 169 ok, 3 falhas conhecidas (PD-11), 1 pulado. `ruff` sem avisos. Conferido
+também com o checkpoint real, baixado do Dropbox.
+
+**Com isso, o bloco A do plano está completo.**
 
