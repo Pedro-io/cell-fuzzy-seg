@@ -4,8 +4,12 @@ Cada *fold* treina um modelo novo nas imagens de treino do *fold*, escolhe a ép
 validação (com parada antecipada opcional) e avalia, com esse modelo, as imagens de validação. O
 treino final usa todas as imagens de treino pelo número de épocas da mediana das melhores épocas dos
 *folds* e é avaliado **uma vez** no teste.
+
+Com ``models_dir``, os modelos são gravados (:mod:`src.training.checkpoints`): o da melhor época de
+cada *fold* como ``fold<k>.pt`` e o do treino final como ``final.pt``, cada um com um ``.json``.
 """
 
+import dataclasses
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
@@ -14,7 +18,9 @@ import torch
 
 from src.data.load.preprocessed_dataset import PreprocessedDataset, make_loader
 from src.evaluation.metrics import evaluate
+from src.evaluation.report import provenance
 from src.training.callbacks.best_model_callback import BestModelCallback
+from src.training.checkpoints import FINAL_NAME, ensure_new_models_dir, fold_name, save_checkpoint
 from src.training.trainer import Trainer, TrainerCallback
 from src.training.training_loop import TrainingLoop
 from src.utils.logger import logger
@@ -95,8 +101,12 @@ def _train(
     seed: int,
     num_epochs: int,
     extra_callbacks: Sequence[TrainerCallback],
-) -> Tuple[Any, Optional[BestModelCallback], Dict[str, Any], Optional[Any]]:
-    """Treina um modelo novo; devolve ``(pipeline, callback do melhor modelo, histórico, val_loader)``."""
+) -> Tuple[torch.nn.Module, Any, Optional[BestModelCallback], Dict[str, Any], Optional[Any]]:
+    """Treina um modelo novo.
+
+    Returns:
+        ``(modelo, pipeline, callback do melhor modelo, histórico, val_loader)``.
+    """
     torch.manual_seed(seed)
     model, pipeline, composer = factory()
 
@@ -123,7 +133,7 @@ def _train(
                       device=config.device, grad_clip=config.grad_clip)
     history = TrainingLoop(trainer, train_loader, val_loader, num_epochs=num_epochs,
                            log_every=config.log_every).run()
-    return pipeline, best, history, val_loader
+    return model, pipeline, best, history, val_loader
 
 
 def run_kfold(
@@ -132,6 +142,8 @@ def run_kfold(
     ids: Sequence[str],
     config: TrainConfig,
     extra_callbacks: Sequence[TrainerCallback] = (),
+    models_dir: Optional[str] = None,
+    overwrite: bool = False,
 ) -> List[FoldResult]:
     """Roda a validação cruzada: um modelo novo por *fold*, avaliado na época de melhor Dice.
 
@@ -141,18 +153,27 @@ def run_kfold(
         ids: Ids das imagens de treino que entram na validação cruzada.
         config: Hiperparâmetros.
         extra_callbacks: Callbacks adicionais (ex.: ``GradNormCallback``), repassados a todos os *folds*.
+        models_dir: Se informado, grava o modelo da melhor época de cada *fold* nessa pasta
+            (``fold<k>.pt`` + ``fold<k>.json``). ``None``: não grava.
+        overwrite: Se ``False``, recusa (antes de treinar) gravar por cima de modelos existentes.
 
     Returns:
         Um :class:`FoldResult` por *fold*, com as métricas por imagem da validação (cada linha com
         ``"fold"``), calculadas com o modelo da melhor época.
+
+    Raises:
+        FileExistsError: Se ``models_dir`` já tiver modelos dos *folds* e ``overwrite`` for
+            ``False``.
     """
+    if models_dir is not None:
+        ensure_new_models_dir(models_dir, [fold_name(k) for k in range(config.k)], overwrite)
     results = []
     folds = make_folds(ids, config.k, config.seed)
     for fold, val_ids in enumerate(folds):
         held_out = set(val_ids)
         train_ids = [i for i in ids if i not in held_out]
         logger.info(f"[kfold] fold {fold + 1}/{config.k}: {len(train_ids)} treino, {len(val_ids)} validação")
-        pipeline, best, history, val_loader = _train(
+        model, pipeline, best, history, val_loader = _train(
             factory, samples, train_ids, val_ids, config, seed=config.seed + fold,
             num_epochs=config.max_epochs, extra_callbacks=extra_callbacks,
         )
@@ -160,6 +181,13 @@ def run_kfold(
         rows = evaluate(pipeline, val_loader, threshold=config.threshold, device=config.device)
         for row in rows:
             row["fold"] = fold
+        if models_dir is not None:
+            save_checkpoint(model, models_dir, fold_name(fold), {
+                "fold": fold, "train_ids": train_ids, "val_ids": list(val_ids),
+                "best_epoch": best.best_epoch, "best_dice": best.best_dice,
+                "epochs_run": history["epochs_run"], "config": _config_dict(config),
+                "procedencia": provenance(),
+            })
         results.append(FoldResult(
             fold=fold, train_ids=train_ids, val_ids=list(val_ids), best_epoch=best.best_epoch,
             best_dice=best.best_dice, epochs_run=history["epochs_run"],
@@ -168,6 +196,10 @@ def run_kfold(
         ))
         logger.info(f"[kfold] fold {fold + 1}: melhor Dice {best.best_dice:.4f} na época {best.best_epoch}")
     return results
+
+
+def _config_dict(config: Any) -> Dict[str, Any]:
+    return dataclasses.asdict(config) if dataclasses.is_dataclass(config) else dict(config)
 
 
 def final_epochs(folds: Sequence[FoldResult]) -> int:
@@ -185,17 +217,39 @@ def run_final(
     config: TrainConfig,
     num_epochs: int,
     extra_callbacks: Sequence[TrainerCallback] = (),
+    models_dir: Optional[str] = None,
+    overwrite: bool = False,
 ) -> Tuple[List[Dict[str, Any]], Dict[str, Any], Any]:
     """Treina com todas as imagens de treino por ``num_epochs`` épocas e avalia o teste uma vez.
+
+    Args:
+        factory: Função que monta um experimento novo.
+        train_samples: Amostras de treino (todas entram no treino).
+        test_samples: Amostras de teste.
+        config: Hiperparâmetros.
+        num_epochs: Épocas do treino (ex.: :func:`final_epochs` da validação cruzada).
+        extra_callbacks: Callbacks adicionais.
+        models_dir: Se informado, grava o modelo treinado como ``final.pt`` + ``final.json``.
+        overwrite: Se ``False``, recusa (antes de treinar) gravar por cima de um ``final.pt``.
 
     Returns:
         ``(linhas, histórico, pipeline)``: as métricas por imagem do teste (com a linha de base do
         Cellpose), o histórico do treino e o pipeline treinado (para visualizar as predições).
+
+    Raises:
+        FileExistsError: Se ``models_dir`` já tiver ``final.pt`` e ``overwrite`` for ``False``.
     """
-    pipeline, _, history, _ = _train(
+    if models_dir is not None:
+        ensure_new_models_dir(models_dir, [FINAL_NAME], overwrite)
+    model, pipeline, _, history, _ = _train(
         factory, train_samples, list(train_samples), None, config, seed=config.seed + config.k,
         num_epochs=num_epochs, extra_callbacks=extra_callbacks,
     )
+    if models_dir is not None:
+        save_checkpoint(model, models_dir, FINAL_NAME, {
+            "train_ids": list(train_samples), "num_epochs": num_epochs,
+            "config": _config_dict(config), "procedencia": provenance(),
+        })
     test_loader = make_loader(PreprocessedDataset(test_samples), config.batch_size, shuffle=False)
     rows = evaluate(pipeline, test_loader, threshold=config.threshold, device=config.device)
     return rows, history, pipeline

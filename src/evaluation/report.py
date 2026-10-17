@@ -137,13 +137,15 @@ def save_run(
     - ``folds.csv``: métricas por imagem da validação de todos os *folds*;
     - ``folds_resumo.csv``: por *fold*, a melhor época, o melhor Dice e as épocas executadas;
     - ``curvas.csv``: por *fold* e época, a perda de treino e o Dice de validação;
+
+    (os três só quando há *folds*)
     - ``teste.csv``: métricas por imagem do teste (se houver);
     - ``resumo.json``: :func:`summarize` dos *folds* e do teste.
 
     Args:
         name: Nome da pasta do experimento.
         config: Configuração do treino (dataclass, como ``TrainConfig``, ou ``dict``).
-        folds: Resultados dos *folds* (``FoldResult``).
+        folds: Resultados dos *folds* (``FoldResult``); vazio no registro do treino final.
         test_rows: Métricas por imagem do teste (``None``: sem teste).
         final_epochs: Épocas do treino final.
         description: O que distingue o experimento (perdas e pesos, alpha, resolução...).
@@ -173,18 +175,20 @@ def save_run(
         json.dump(_json_safe(meta), f, indent=2, ensure_ascii=False, allow_nan=False)
 
     fold_rows = [row for fold in folds for row in fold.rows]
-    _write_csv(os.path.join(run_dir, "folds.csv"), fold_rows)
-    _write_csv(os.path.join(run_dir, "folds_resumo.csv"), [
-        {"fold": f.fold, "best_epoch": f.best_epoch, "best_dice": f.best_dice, "epochs_run": f.epochs_run,
-         "n_train": len(f.train_ids), "n_val": len(f.val_ids)}
-        for f in folds
-    ])
-    curves = []
-    for f in folds:
-        val_dice = {h["epoch"]: h["dice"] for h in f.val_dice_history}
-        for epoch, loss in enumerate(f.train_loss_history, start=1):
-            curves.append({"fold": f.fold, "epoch": epoch, "train_loss": loss, "val_dice": val_dice.get(epoch, "")})
-    _write_csv(os.path.join(run_dir, "curvas.csv"), curves)
+    if folds:
+        _write_csv(os.path.join(run_dir, "folds.csv"), fold_rows)
+        _write_csv(os.path.join(run_dir, "folds_resumo.csv"), [
+            {"fold": f.fold, "best_epoch": f.best_epoch, "best_dice": f.best_dice, "epochs_run": f.epochs_run,
+             "n_train": len(f.train_ids), "n_val": len(f.val_ids)}
+            for f in folds
+        ])
+        curves = []
+        for f in folds:
+            val_dice = {h["epoch"]: h["dice"] for h in f.val_dice_history}
+            for epoch, loss in enumerate(f.train_loss_history, start=1):
+                curves.append({"fold": f.fold, "epoch": epoch, "train_loss": loss,
+                               "val_dice": val_dice.get(epoch, "")})
+        _write_csv(os.path.join(run_dir, "curvas.csv"), curves)
 
     summary = {"folds": summarize(fold_rows) if fold_rows else None}
     if test_rows is not None:

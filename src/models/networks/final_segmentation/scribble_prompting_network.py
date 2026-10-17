@@ -366,6 +366,19 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
 
         return s.to(device)
 
+    def scribble_channels(self, markers: Any) -> torch.Tensor:
+        """Canais ``(N, 2, H, W)`` [positivo, negativo] que ``scribble_mode`` produz para os marcadores.
+
+        Útil para visualizar o que chega à rede. Não inclui o canal negativo fixo (``"negative"``).
+
+        Args:
+            markers: Marcadores (numpy ou tensor), como em ``data["scribbles"]``.
+
+        Returns:
+            Tensor ``(N, 2, H, W)`` no dispositivo da rede.
+        """
+        return self._prepare_scribbles(markers, next(self.unet.parameters()).device)
+
     @staticmethod
     def _prepare_negative(negative: Any, device: torch.device) -> torch.Tensor:
         """Converte o canal negativo fixo em tensor ``(N, 1, H, W)`` float, sem gradiente.

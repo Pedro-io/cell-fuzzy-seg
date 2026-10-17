@@ -3,12 +3,14 @@
 import numpy as np
 import pytest
 
-from src.data.load.preprocessed_dataset import load_preprocessed
+from src.data.load.preprocessed_dataset import PreprocessedDataset, load_preprocessed, make_loader
+from src.evaluation.metrics import evaluate
 from src.losses.loss_composer import LossComposer
 from src.losses.terms import DiceTerm
 from src.pipeline.steps.inference.frozen_segmentation_step import FrozenSegmentationStep
 from src.pipeline.steps.inference.marker_step import MarkerStep
 from src.pipeline.training_pipeline import TrainingPipeline
+from src.training.checkpoints import load_pipeline
 from src.training.kfold import TrainConfig, final_epochs, make_folds, run_final, run_kfold
 from tests.test_training_integration import DummyFinalNetwork, SmallMarkerNet
 
@@ -43,17 +45,23 @@ def data(tmp_path):
 
 
 class Factory:
-    """Monta um experimento novo a cada chamada e conta as chamadas."""
+    """Monta um experimento novo a cada chamada e conta as chamadas.
 
-    def __init__(self):
+    Com ``final_network``, todas as chamadas usam a mesma rede final, como nos notebooks (o
+    ScribblePrompt é uma instância congelada só); sem ela, cada chamada cria uma rede final nova.
+    """
+
+    def __init__(self, final_network=None):
         self.calls = 0
+        self.final_network = final_network
 
     def __call__(self):
         self.calls += 1
         net = SmallMarkerNet()
+        final = self.final_network if self.final_network is not None else DummyFinalNetwork()
         pipeline = TrainingPipeline([
             MarkerStep(model=net, differentiable=True, target_size=SIZE, device="cpu"),
-            FrozenSegmentationStep(final_network=DummyFinalNetwork(), device="cpu"),
+            FrozenSegmentationStep(final_network=final, device="cpu"),
         ])
         return net, pipeline, LossComposer([DiceTerm()])
 
@@ -129,3 +137,42 @@ def test_run_final_trains_on_all_and_evaluates_the_test_once(data):
     assert history["epochs_run"] == 2
     assert history["val_loss"] == []  # sem validação no treino final
     assert pipeline.steps[0].model.model.training is False  # devolvido em modo de avaliação
+
+
+def test_run_kfold_saves_each_fold_and_the_saved_model_reproduces_the_evaluation(data, tmp_path):
+    train, _ = data
+    final = DummyFinalNetwork()
+    models = str(tmp_path / "modelos")
+
+    folds = run_kfold(Factory(final), train, list(train), CONFIG, models_dir=models)
+
+    for f in folds:
+        pipeline, meta = load_pipeline(Factory(final), models, f"fold{f.fold}")
+        assert meta["val_ids"] == f.val_ids and meta["best_epoch"] == f.best_epoch
+        assert meta["config"]["k"] == CONFIG.k and "commit" in meta["procedencia"]
+        rows = evaluate(pipeline, make_loader(PreprocessedDataset(train, f.val_ids), 2, shuffle=False))
+        assert [r["dice"] for r in rows] == pytest.approx([r["dice"] for r in f.rows])
+
+
+def test_run_kfold_refuses_to_overwrite_models_before_training(data, tmp_path):
+    train, _ = data
+    models = str(tmp_path / "modelos")
+    run_kfold(Factory(), train, list(train), CONFIG, models_dir=models)
+    factory = Factory()
+
+    with pytest.raises(FileExistsError):
+        run_kfold(factory, train, list(train), CONFIG, models_dir=models)
+    assert factory.calls == 0  # recusou antes de treinar
+
+
+def test_run_final_saves_the_final_model(data, tmp_path):
+    train, test = data
+    models = str(tmp_path / "modelos")
+
+    final = DummyFinalNetwork()
+    rows, _, _ = run_final(Factory(final), train, test, CONFIG, num_epochs=2, models_dir=models)
+
+    pipeline, meta = load_pipeline(Factory(final), models, "final")
+    assert meta["num_epochs"] == 2 and sorted(meta["train_ids"]) == sorted(train)
+    again = evaluate(pipeline, make_loader(PreprocessedDataset(test), 2, shuffle=False))
+    assert [r["dice"] for r in again] == pytest.approx([r["dice"] for r in rows])

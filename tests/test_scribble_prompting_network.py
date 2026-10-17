@@ -330,3 +330,13 @@ def test_fixed_negative_must_match_the_positive_shape(fake_scribbleprompt):
     with pytest.raises(ValueError, match="negativo"):
         net({"image": torch.rand(1, 1, 32, 32), "scribbles": torch.rand(1, 1, 32, 32),
              "negative": torch.ones(1, 1, 16, 16)})
+
+
+def test_scribble_channels_shows_what_the_mode_produces(fake_scribbleprompt):
+    net = ScribblePromptingNetwork(scribble_mode="positive", positive_threshold=0.5)
+
+    channels = net.scribble_channels(torch.tensor([[[[0.25, 0.75]]]]))
+
+    assert channels.shape == (1, 2, 1, 2)
+    assert torch.allclose(channels[0, 0, 0], torch.tensor([0.0, 0.5]))
+    assert torch.equal(channels[0, 1], torch.zeros(1, 2))
