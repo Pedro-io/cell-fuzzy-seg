@@ -1355,3 +1355,7 @@ avaliando imagens inteiras em blocos; DMap e TV finitos num lote sem núcleo e i
 180 ok, 3 falhas conhecidas (PD-11), 1 pulado. `ruff` sem avisos. O `recortes.ipynb` rodou em CPU numa versão reduzida
 (10 imagens, 1 época): treino por recortes, validação em blocos, 5 modelos gravados, resultados e figura.
 
+**Resultado (2026-10-17)** ✅ — `docs/estudo/resultados/recortes/` (commit `b5455ad`, T4, ~1 h 40 min): validação cruzada 0,831, o
+melhor até aqui (+0,046 sobre o `base_dice`, 37/37 imagens; Cellpose 0,845). Detalhes, comparação com o `base_dice` e o
+`negativo_sem_tv` e leitura na PD-52. A estimativa de tempo (~1 h) ficou abaixo do real.
+

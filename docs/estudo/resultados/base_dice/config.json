@@ -1,0 +1,33 @@
+{
+  "nome": "base_dice",
+  "descricao": {
+    "perdas": "soft Dice (1,0), sem regularização do marcador",
+    "rede_final": "ScribblePrompt-UNet v1 congelado, scribble_mode=positive, tau=0.5, input_size=(256, 256)",
+    "marker_net": "MarkerUNet (smp Unet, resnet34 ImageNet, 4 canais)",
+    "rgba_alpha": "mask",
+    "aumentacao": "rot90 + flips, sorteada a cada época"
+  },
+  "config": {
+    "k": 5,
+    "batch_size": 4,
+    "max_epochs": 200,
+    "patience": 20,
+    "min_delta": 0.0,
+    "lr": 0.0001,
+    "grad_clip": 1.0,
+    "threshold": 0.5,
+    "seed": 42,
+    "device": "cuda",
+    "log_every": 10
+  },
+  "final_epochs": 135,
+  "procedencia": {
+    "commit": "2fc01fad10e06a04df1f75f5e6a2e924b741b46d",
+    "mudancas_locais_em_src": false,
+    "python": "3.12.13",
+    "torch": "2.11.0+cu128",
+    "numpy": "2.0.2",
+    "gpu": "Tesla T4",
+    "criado_em": "2026-10-17 17:07:11"
+  }
+}
