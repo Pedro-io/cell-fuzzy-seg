@@ -465,7 +465,8 @@ seção. No fim de cada etapa, rodar a suíte inteira e registrar o resultado no
 | C7, resto (PD-17, PD-20, PD-31) | — | — | — |
 | C8 (PD-44 código, PD-49) | `df0a30f` (validado pelo autor) | 143: 139 ok, 3 falhas conhecidas (PD-11), 1 pulado | modo `positive` (τ = 0,5) e `input_size`; idêntico ao oráculo com piso de 0,01 |
 | Passo 1: negativo do Cellpose no pipeline (§18.16) | `dfabaa5` (validado pelo autor) | 157: 153 ok, 3 falhas conhecidas (PD-11), 1 pulado | `cellpose_negative` na leitura, `"negative"` na rede final, `negative_key` no passo; notebook `base_negativo` testado em CPU com 1 época |
-| Contraste do marcador + `negativo_sem_tv` (§18.17) | — (aguardando validação do autor) | 158: 154 ok, 3 falhas conhecidas (PD-11), 1 pulado | `marker_mean_nucleo`/`marker_mean_fundo` no `evaluate`; notebook testado em CPU com 1 época |
+| Contraste do marcador + `negativo_sem_tv` (§18.17) | `19e41af` (validado pelo autor) | 158: 154 ok, 3 falhas conhecidas (PD-11), 1 pulado | `marker_mean_nucleo`/`marker_mean_fundo` no `evaluate`; notebook testado em CPU com 1 época |
+| Bloco A, itens 2 e 3: experimentos só com validação cruzada, modelos gravados, notebook final, legados (§18.18) | `97522a1` (código) e o commit seguinte (notebooks e docs), validados pelo autor | 169: 165 ok, 3 falhas conhecidas (PD-11), 1 pulado | `checkpoints.py`, `figures.py`, `models_dir` no k-fold; notebooks testados em CPU com 1 época |
 
 ---
 
@@ -1040,7 +1041,7 @@ O máximo, a paciência e a regra (mediana) ficam parametrizáveis.
   saída vem do download dos pesos ImageNet do encoder pelo `smp` e é inofensivo.
 
 ### 18.11 Notebook do experimento-base (PD-44) (2026-10-07, `53961f2`, validado pelo autor)
-[notebooks/experiments/base_dice_tv.ipynb](../../notebooks/experiments/base_dice_tv.ipynb), o primeiro experimento sobre o módulo:
+[notebooks/experiments/legado/base_dice_tv.ipynb](../../notebooks/experiments/legado/base_dice_tv.ipynb), o primeiro experimento sobre o módulo:
 - **Configuração** (decidida na PD-44): soft Dice + TV 0,001 (sem Size, DMap e Border); ScribblePrompt congelado em modo `positive`,
   τ = 0,5, entrada 256²; MarkerUNet (resnet34 ImageNet, 4 canais, alpha = máscara do Cellpose); `TrainConfig(k=5, batch_size=4,
   max_epochs=200, patience=20, lr=1e-4, grad_clip=1.0, seed=42)`.
@@ -1218,7 +1219,7 @@ e a imagem reduzida para 256² limita as duas redes (a MarkerUNet também recebe
   formato diferente do positivo → `ValueError`.
 - [frozen_segmentation_step.py](../../src/pipeline/steps/inference/frozen_segmentation_step.py): `negative_key` (padrão `None`)
   repassa `data[negative_key]` à rede final como `"negative"`; chave ausente → `KeyError`.
-- [base_negativo.ipynb](../../notebooks/experiments/base_negativo.ipynb): cópia do `base_dice_tv` com `NEGATIVE_RADIUS = 3`,
+- [base_negativo.ipynb](../../notebooks/experiments/legado/base_negativo.ipynb): cópia do `base_dice_tv` com `NEGATIVE_RADIUS = 3`,
   `load_preprocessed(..., negative_radius=3)` e `FrozenSegmentationStep(..., negative_key=NEGATIVE_KEY)`; mesma configuração e
   sementes, então os *folds* são os mesmos e a comparação com o `base_dice_tv` é pareada. Como os outros notebooks de
   experimento, avalia o teste uma vez no fim (a chave `RODAR_TESTE` continua pendente).
@@ -1259,4 +1260,44 @@ escala automática); o marcador vale de fato ~0,5 em quase toda a imagem. Fica e
 
 **Comparações planejadas:** `negativo_sem_tv` × `base_negativo` (o TV achata o marcador com o negativo?) e `base_dice` × `base_dice_tv`
 (o TV atrapalha sem o negativo?; em execução pelo autor).
+
+### 18.18 Experimentos só com validação cruzada, modelos gravados e notebook final (2026-10-17, `97522a1`, validado pelo autor)
+
+**Decisões do autor** (08, plano de ataque, bloco A):
+- **Item 2 (PD-02), opção (b):** sem a chave `RODAR_TESTE`. Os notebooks de experimento fazem só a validação cruzada; um notebook
+  final treina a configuração escolhida com as 37 imagens e avalia o teste uma única vez. Os notebooks que já rodaram e não seguem
+  essa estrutura vão para pastas `legado/`, com uma primeira célula dizendo o que não têm, o resultado e o que se aprendeu.
+- **Item 3 (PD-10):** gravar os modelos no Google Drive de quem roda, em float32, com `torch.save`; gravar a melhor época de cada
+  *fold* e o modelo final. Explicação de por que os 5 *folds* (e não só um) e de para que serve o modelo final:
+  [05-treinamento.md §7.2](05-treinamento.md).
+
+**O que muda** ✅:
+- [checkpoints.py](../../src/training/checkpoints.py) (novo): `save_checkpoint`/`load_checkpoint` (`.pt` com o `state_dict` e
+  `.json` com os metadados; leitura com `torch.load(..., weights_only=True)`), `load_pipeline(factory, pasta, nome)` (monta o
+  experimento, carrega os pesos e põe em modo de avaliação) e `ensure_new_models_dir` (recusa, antes de treinar, gravar por cima).
+- [kfold.py](../../src/training/kfold.py): `run_kfold(..., models_dir, overwrite)` grava `fold<k>.pt` (melhor época) com
+  `fold<k>.json` (*fold*, imagens de treino e validação, melhor época, Dice, configuração, procedência); `run_final(...,
+  models_dir, overwrite)` grava `final.pt`. Sem `models_dir`, nada muda. O `_train` passou a devolver também o modelo.
+- [report.py](../../src/evaluation/report.py): o `save_run` só grava os arquivos dos *folds* quando há *folds* (o notebook final
+  registra só o teste).
+- [figures.py](../../src/evaluation/figures.py) (novo): `pick_cases` (pior, mediana e melhor imagem contra o Cellpose) e
+  `prediction_figure` (sete painéis por imagem, com o marcador esticado), no lugar das ~40 linhas copiadas em cada notebook.
+- [scribble_prompting_network.py](../../src/models/networks/final_segmentation/scribble_prompting_network.py): método público
+  `scribble_channels(markers)`, usado pela figura no lugar do método privado.
+- Notebooks: `base_dice`, `negativo_sem_tv`, `dice_dmap`, `rmse` e `tese` regerados na estrutura nova (mesma perda e negativo de
+  antes; as saídas parciais do `base_dice` e do `tese` foram descartadas). Novo `experimento_final.ipynb`, que confere a
+  configuração copiada contra o `config.json` do experimento escolhido e recusa seguir se forem diferentes. Movidos com `git mv`:
+  `base_dice_tv`, `dice_size` e `base_negativo` para `notebooks/experiments/legado/`, e `oraculo_scribbleprompt` para
+  `notebooks/exploration/legado/`, cada um com a célula de aviso. `notebooks/README.md` reescrito para a estrutura nova.
+
+**Testes** ✅: +11 (gravação e leitura com metadados; arquivo ausente; recusa de objetos arbitrários no carregamento; montagem do
+pipeline em modo de avaliação; recusa de sobrescrever; o modelo gravado de cada *fold* reproduz a avaliação; recusa antes de
+treinar; o modelo final gravado reproduz o teste; escolha das imagens da figura; figura com uma linha por imagem; canais do
+`scribble_channels`). Suíte: 169 casos, 165 ok, 3 falhas conhecidas (PD-11), 1 pulado. `ruff` sem avisos. Em CPU, numa versão
+reduzida (10 imagens, 1 época): `base_dice` e `negativo_sem_tv` rodaram de ponta a ponta (5 modelos de ~98 MB gravados, pasta de
+resultados sem teste, figura da validação), e o `experimento_final` rodou sobre o `base_dice` (conferência ok, `final.pt`, teste
+avaliado) e recusou uma configuração diferente.
+
+**Pendente da rodada de notas:** o `00-visao-geral.md` e o `03-modelos.md` (§8 e o link do oráculo) citam caminhos que mudaram;
+não foram editados porque têm notas do autor.
 

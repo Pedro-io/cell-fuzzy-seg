@@ -172,7 +172,70 @@ config completa, para que qualquer run futuro seja auditável". **Sugestão prá
 
 ---
 
-## 7. Decisões (2026-09-27)
+## 7. Protocolo de avaliação atual: validação cruzada, modelos gravados e teste final (2026-10-17)
+
+> Escrito para servir de base à seção de método do texto. As seções 3, 5 e 6 descrevem os exp. 1–6 (legados); esta descreve o
+> protocolo dos experimentos atuais. Decisões do autor em 2026-10-17 (08, plano de ataque, bloco A, itens 2 e 3).
+
+### 7.1 Divisão dos dados ✅
+
+O MoNuSeg vem dividido em **37 imagens de treino** e **14 de teste** (divisão oficial, sem imagens em comum; conferido em
+`data_source/MoNuSegPreprocessed/`). O teste nunca entra na escolha de configurações:
+
+- **Escolha da configuração:** validação cruzada em 5 *folds* sobre as 37 imagens de treino. Cada *fold* separa 7 ou 8 imagens
+  para validar e treina com as outras 29 ou 30. A divisão é aleatória com semente fixa (42), igual em todos os experimentos, então
+  as comparações entre experimentos são pareadas por imagem.
+- **Avaliação final:** a configuração escolhida é treinada com as 37 imagens e avaliada nas 14 de teste **uma única vez**
+  (`experimento_final.ipynb`).
+
+### 7.2 Os modelos dos *folds* e o modelo final servem a coisas diferentes ✅
+
+**Os 5 modelos dos *folds* avaliam a configuração; não são o modelo que se usa.** Cada um treinou sem 7 ou 8 imagens. Para medir
+a configuração, **cada imagem é prevista só pelo modelo do *fold* em que ela ficou de fora**:
+
+```
+imagem TCGA-18-5592 → está na validação do fold 2 → é prevista só pelo modelo do fold 2
+imagem TCGA-HE-7128 → está na validação do fold 0 → é prevista só pelo modelo do fold 0
+```
+
+Assim, as 37 imagens recebem uma predição feita por um modelo que nunca as viu no treino; a média dessas 37 predições é a nota da
+configuração. Por isso os 5 modelos são gravados (não só o do melhor *fold*): com um só, ~80% das imagens seriam imagens que ele
+viu no treino. Cada modelo gravado traz, ao lado, as imagens de validação dele, para saber qual usar em cada imagem.
+
+**O modelo final é o que se usa.** É treinado com as 37 imagens, pelo número de épocas da validação cruzada (a mediana das
+melhores épocas dos *folds*), e é ele que avalia o teste e que segmentaria uma imagem nova.
+
+**Alternativa registrada (*ensemble*):** em vez do treino final, cada imagem nova passaria pelos 5 modelos dos *folds*, e a média
+das saídas seria a predição. É o que o nnU-Net faz 📖 (❓ referência a reunir); costuma render um pouco mais, a 5× o custo de
+predição. Fica como possibilidade para o notebook final, já que os 5 modelos estarão gravados.
+
+### 7.3 Seleção da época e parada antecipada ✅
+
+Em cada *fold*, o modelo é avaliado na validação a cada época; guarda-se o estado da **melhor época** (maior Dice de validação),
+e o treino para depois de 20 validações seguidas sem melhora (máximo de 200 épocas). O *cosine schedule* cobre sempre 200 épocas,
+inclusive no treino final, para que a curva da taxa de aprendizado seja a mesma nos dois.
+
+### 7.4 O que é gravado ✅
+
+| O quê | Onde | Conteúdo |
+|---|---|---|
+| Resultados de cada experimento | `docs/estudo/resultados/<experimento>/` (no git) | configuração e procedência (commit, versões, GPU), métricas por imagem da validação, melhor época por *fold*, curvas, resumo pareado com o Cellpose, figura |
+| Modelos dos *folds* | `MyDrive/cell-fuzzy-models/<experimento>/fold<k>.pt` + `.json` (no Colab; fora do git, ~98 MB cada) | pesos da MarkerUNet na melhor época (float32), imagens de treino e de validação do *fold*, melhor época, configuração, procedência |
+| Modelo final | `.../<experimento>/final.pt` + `.json` | pesos da MarkerUNet treinada com as 37 imagens |
+| Resultado do teste | `docs/estudo/resultados/final_<experimento>/` | métricas por imagem do teste, resumo pareado com o Cellpose, figura |
+
+Só a MarkerUNet é gravada: o ScribblePrompt é congelado e vem do checkpoint dele. Os pesos são gravados com `torch.save` e lidos
+com `torch.load(..., weights_only=True)`, que não executa código ao carregar.
+
+### 7.5 Ressalva para o texto 📜
+
+As 14 imagens de teste **já foram usadas como validação** nos exp. 1–6 e tiveram o Dice calculado nos experimentos `legado/`
+(`base_dice_tv`, `dice_size`, `base_negativo`). As decisões desses experimentos vieram da validação cruzada, mas o teste não é
+mais "virgem". O MoNuSeg não tem outro conjunto de teste; um teste realmente independente exigiria um segundo conjunto de dados.
+
+---
+
+## 8. Decisões (2026-09-27)
 
 | # | Pergunta | Resposta | Onde ficou |
 |---|---|---|---|

@@ -80,9 +80,19 @@
 
 **A — antes de rodar mais experimentos** (vale para todo resultado novo)
 1. ✅ Atualizar o índice deste documento (2026-10-17).
-2. PD-02: a chave `RODAR_TESTE` proposta para os notebooks de experimento. O autor prefere **não** acrescentá-la (notebooks mais
-   simples); a forma de garantir que o teste não escolha configurações fica a definir.
-3. PD-10: salvar os modelos treinados (cada *fold* e o final). Decidido salvar; o desenho será discutido antes.
+2. PD-02: a chave `RODAR_TESTE` não será criada. **Decisão do autor (2026-10-17), opção (b):** os notebooks de experimento fazem só
+   a validação cruzada nas 37 imagens de treino (sem treino final, sem teste; figura com imagens da validação); um notebook final
+   treina a configuração escolhida com as 37 e avalia as 14 de teste uma única vez. Os dados já estão separados (divisão oficial,
+   sem sobreposição). Ressalva para o texto: o teste já foi usado como validação nos exp. 1–6 e foi visto nos experimentos novos.
+   A figura passa a depender dos modelos dos *folds*, então a implementação vai junto com o item 3. **Aplicado (09 §18.18).**
+   **Legados (decisão do autor, 2026-10-17):** `base_dice_tv`, `dice_size` e `base_negativo` (já rodados) vão para
+   `notebooks/experiments/legado/`, com uma primeira célula dizendo o que não têm da estrutura nova, os resultados e os
+   aprendizados; o `oraculo_scribbleprompt` (GT antigo) vai para `notebooks/exploration/legado/` com o mesmo aviso. `base_dice`,
+   `negativo_sem_tv`, `dice_dmap`, `rmse` e `tese` (não rodados) são convertidos para a estrutura nova; as saídas parciais do
+   `base_dice` e do `tese` são descartadas.
+3. PD-10: salvar os modelos treinados (cada *fold* e o final). **Decidido e aplicado (09 §18.18):** no Drive de quem roda, em
+   float32, com `torch.save` (leitura com `weights_only=True`); a melhor época de cada *fold* e o modelo final. Por que os 5 e
+   para que serve o final: [05-treinamento.md §7.2](05-treinamento.md).
 4. PD-15: conferir o SHA-256 do checkpoint do ScribblePrompt no download (a explicar ao autor quando chegar a vez).
 
 **B — experimentos** (precisam do Colab)
@@ -146,7 +156,7 @@ validação) e `run_final` (treino com as 37 pelo número de épocas da mediana 
 A investigação do exp. 1 (hoje em [06-experimentos.md §2.3](06-experimentos.md)) recomenda E2 (sensibilidade do ScribblePrompt aos scribbles), E3 (oráculo: marcador =
 GT, ou uma erosão do GT) e E5 (rede final dummy). Nenhum notebook faz isso. **O E3 é o mais importante:** se o ScribblePrompt
 não passar do Cellpose nem com o marcador ideal, nenhuma MarkerUNet vai passar.
-**E3 executado (2026-09-27):** notebook [oraculo_scribbleprompt.ipynb](../../notebooks/exploration/oraculo_scribbleprompt.ipynb),
+**E3 executado (2026-09-27):** notebook [oraculo_scribbleprompt.ipynb](../../notebooks/exploration/legado/oraculo_scribbleprompt.ipynb),
 rodado em CPU fora do Colab. Os resultados estão em [03-modelos.md §8](03-modelos.md#8-resultado-do-oráculo-2026-09-27), e a
 conclusão virou a [PD-40](#pd-40). E2 e E5 continuam não executados. O E2 ficou parcialmente respondido, porque o oráculo varia
 o tipo de marcador, o canal negativo e a resolução.
@@ -953,7 +963,7 @@ publicado, e o oráculo entra como resultado ([06-experimentos.md §6](06-experi
    (`por_imagem.csv.gz`, 33.300 linhas), o resumo, o `config.json` (grade, commit, versões, SHA-256 do checkpoint) e três
    figuras. A execução salva é a do autor no Colab (T4, 2026-10-09, ~9 min). Ela bate com uma execução independente em CPU
    (2026-10-08) nas 33.300 linhas: diferença máxima de 7·10⁻⁵ na precisão e de 2·10⁻⁵ no Dice. As figuras foram geradas
-   em CPU, com as células do próprio notebook. Falta salvar o oráculo antigo (`oraculo_scribbleprompt.ipynb`).
+   em CPU, com as células do próprio notebook. Falta salvar o oráculo antigo (`exploration/legado/oraculo_scribbleprompt.ipynb`).
    **Diagnóstico dos marcadores e oráculo de resolução (2026-10-15):** rodados com `SALVAR_RESULTADOS = False`, a pedido do
    autor (avaliar no próprio Colab); o registro são as saídas dos notebooks. Para virar material de artigo, rodar de novo com
    `SALVAR_RESULTADOS = True`.
