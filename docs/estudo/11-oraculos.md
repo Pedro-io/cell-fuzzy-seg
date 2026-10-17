@@ -236,10 +236,14 @@ vazarem?
 | blocos 256 → 128² | blocos de 256 × 256 px reduzidos para 128² | ~11 px | 25 (5 × 5) |
 
 - **Blocos:** cada bloco recebe o seu pedaço da imagem e dos canais positivo e negativo e é segmentado sozinho. Blocos vizinhos se
-  sobrepõem em 1/4 do lado (blocos de 256 px começam a cada 192 px; o último encosta na borda). As probabilidades são coladas de
-  volta por média ponderada com uma janela de Hann (peso mínimo 0,05), que dá menos peso à borda de cada bloco, onde a rede vê
-  menos contexto. É a estratégia de blocos sobrepostos da U-Net (*overlap-tile*) e da inferência por janela deslizante de
-  ferramentas como o nnU-Net e o MONAI 📖 (❓ referências ainda não reunidas em `docs/papers/`).
+  sobrepõem em 1/4 do lado (blocos de 256 px começam a cada 192 px, em 0, 192, 384, 576 e 744; o último encosta na borda, e por
+  isso a última sobreposição é de 88 px). As probabilidades são coladas de volta por média ponderada com uma janela de Hann (peso
+  mínimo 0,05), que dá menos peso à borda de cada bloco, onde a rede vê menos contexto.
+- **De onde vêm esses números:** a sobreposição de 1/4 e a janela de Hann com piso 0,05 são **escolhas nossas**, sem fonte. Como
+  referência de prática, ✅ conferido no código-fonte: o MONAI 1.6.1 (`sliding_window_inference`) usa por padrão sobreposição
+  de 0,25 e média simples (`BlendMode.CONSTANT`), com opção gaussiana; o nnU-Net v2 2.8.1 usa por padrão passo de 1/2 do bloco
+  (`tile_step_size=0.5`) e peso gaussiano com σ = 1/8 do bloco (`use_gaussian=True`). ❓ Os artigos dessas ferramentas (e o da
+  U-Net, que descreve o *overlap-tile*) não foram lidos nem estão em `docs/papers/`; para o texto, citar os artigos, não o código.
 - **Tempo por chamada na T4:** 0,04 s (256²), 0,11 s (512²), 0,45 s (1024²), 0,63 s (blocos 128), 0,67 s (blocos 256 → 256²) e
   0,16 s (blocos 256 → 128²).
 

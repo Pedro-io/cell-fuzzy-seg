@@ -29,6 +29,7 @@ Notebooks de treino da MarkerNet com a rede final congelada (ScribblePrompt). To
 | `dice_dmap.ipynb` | Dice + DMap (0,1; mapa por núcleo). |
 | `rmse.ipynb` | RMSE no lugar do Dice. |
 | `tese.ipynb` | combinação da tese: Dice + Size (0,1) + DMap (1/3000) + TV (1/3000). |
+| `recortes.ipynb` | o `base_dice` com **recortes**: treino com 4 recortes de 256² por imagem por época (MarkerUNet sem redução, ScribblePrompt em 128²); avaliação da imagem inteira em 25 blocos de 256² com sobreposição de 1/4 e janela de Hann. |
 | `experimento_final.ipynb` | treino final da configuração escolhida e avaliação única no teste. |
 
 Todos usam a mesma configuração de treino (só a perda e o negativo mudam) e precisam de GPU.

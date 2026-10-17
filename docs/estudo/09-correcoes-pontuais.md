@@ -468,6 +468,7 @@ seção. No fim de cada etapa, rodar a suíte inteira e registrar o resultado no
 | Contraste do marcador + `negativo_sem_tv` (§18.17) | `19e41af` (validado pelo autor) | 158: 154 ok, 3 falhas conhecidas (PD-11), 1 pulado | `marker_mean_nucleo`/`marker_mean_fundo` no `evaluate`; notebook testado em CPU com 1 época |
 | Bloco A, itens 2 e 3: experimentos só com validação cruzada, modelos gravados, notebook final, legados (§18.18) | `97522a1` (código) e o commit seguinte (notebooks e docs), validados pelo autor | 169: 165 ok, 3 falhas conhecidas (PD-11), 1 pulado | `checkpoints.py`, `figures.py`, `models_dir` no k-fold; notebooks testados em CPU com 1 época |
 | Bloco A, item 4: SHA-256 do checkpoint do ScribblePrompt (PD-15, §18.19) | este commit (validado pelo autor) | 173: 169 ok, 3 falhas conhecidas (PD-11), 1 pulado | conferido com o checkpoint real |
+| Bloco B, passo 2: treino por recortes e avaliação em blocos (§18.20) | `723f10b` (código) e o commit seguinte (notebooks e docs), validados pelo autor | 184: 180 ok, 3 falhas conhecidas (PD-11), 1 pulado | `TiledPipeline`, recortes no dataset, `recortes.ipynb` testado em CPU com 1 época |
 
 ---
 
@@ -1320,4 +1321,37 @@ arquivo existente corrompido). Suíte: 173 casos, 169 ok, 3 falhas conhecidas (P
 também com o checkpoint real, baixado do Dropbox.
 
 **Com isso, o bloco A do plano está completo.**
+
+### 18.20 Passo 2: treino por recortes e avaliação em blocos (2026-10-17, validado pelo autor)
+
+**Desenho aprovado pelo autor** (bloco B, item 6): o treino usa recortes de 256 × 256 px da imagem original, sorteados a cada
+época (4 por imagem, lote de 16); a MarkerUNet vê o recorte sem redução (núcleo com ~21 px; antes, ~5 px) e o ScribblePrompt
+recebe o mesmo recorte em 128² (núcleo com ~11 px), o modo "blocos 256 → 128²" do oráculo de resolução. Na avaliação (validação
+de cada época, *folds*, figura e teste), a imagem inteira é dividida em 25 blocos de 256² que andam 192 px (0, 192, 384, 576 e 744
+em cada eixo; sobreposição de 1/4, 88 px entre os dois últimos), e as saídas são coladas por média ponderada com janela de Hann
+(piso 0,05). A sobreposição e a janela são escolhas nossas; os padrões do MONAI e do nnU-Net, conferidos no código-fonte, estão
+no 11 §7.1. Comparação pareada com o `base_dice` (só Dice, sem negativo).
+
+**Custo medido** ✅ (CPU, para proporção): um passo com 16 recortes de 256² (MarkerUNet 256², ScribblePrompt 128²) leva 8,8 s,
+contra 6,5 s de um passo do `base_dice` (4 imagens de 1000², MarkerUNet 256², ScribblePrompt 256²): 1,4×. Com 4 recortes por
+imagem, o treino de uma época custa ~1,3× o atual; ❓ com a validação em blocos, estima-se ~1 h no Colab para os 5 *folds*.
+
+**O que muda** ✅:
+- [preprocessed_dataset.py](../../src/data/load/preprocessed_dataset.py): `PreprocessedDataset(crop_size, crops_per_image)` —
+  recorte em posição sorteada depois da aumentação, o mesmo em todas as chaves; o dataset tem `len(ids) × crops_per_image` itens.
+- [tiled_pipeline.py](../../src/pipeline/tiled_pipeline.py) (novo): `TiledPipeline` envolve o pipeline; imagens do tamanho do
+  bloco passam direto (treino), maiores são divididas em blocos, que passam pelo pipeline e são coladas (`segmentation` e
+  `markers`). Como expõe `run` e `steps`, `Trainer`, `evaluate`, `run_kfold`, `load_pipeline` e a figura funcionam sem mudança.
+- [kfold.py](../../src/training/kfold.py): `TrainConfig(crop_size, crops_per_image)`; só o dataset de treino usa recortes.
+- [distance_map_loss.py](../../src/losses/distance_map_loss.py), [total_variation_loss.py](../../src/losses/total_variation_loss.py):
+  normalização por `max(soma do GT, 1)`, para um lote sem núcleo não dividir por zero (PD-43).
+- Notebook [recortes.ipynb](../../notebooks/experiments/recortes.ipynb) (gerado pelo mesmo modelo dos outros, que não mudaram) e a
+  instrução do `experimento_final` para copiar também a `factory` quando o experimento usa recortes.
+
+**Testes** ✅: +11 (recortes com o tamanho certo e a mesma janela em todas as chaves, mudando entre acessos e repetindo com a
+mesma semente, validação das opções; posições dos blocos, janela de Hann, blocos colados iguais à imagem inteira para um pipeline
+ponto a ponto, passagem direta de imagens pequenas, opções inválidas e imagem menor que o bloco num eixo; k-fold com recortes
+avaliando imagens inteiras em blocos; DMap e TV finitos num lote sem núcleo e iguais ao de antes com núcleo). Suíte: 184 casos,
+180 ok, 3 falhas conhecidas (PD-11), 1 pulado. `ruff` sem avisos. O `recortes.ipynb` rodou em CPU numa versão reduzida
+(10 imagens, 1 época): treino por recortes, validação em blocos, 5 modelos gravados, resultados e figura.
 

@@ -61,7 +61,7 @@
 | [PD-40](#pd-40) | 🔴 | Resultados | Com marcadores do tipo da tese, o ScribblePrompt não alcança o Cellpose nem com o marcador ideal | Aberta; oráculo refeito (2026-10-08): o negativo do Cellpose leva o miolo a 0,820 (Cellpose 0,845). 2026-10-15: com entrada 1024² + negativo, o miolo passa (0,852); sem negativo, blocos 256 → 128² dão 0,808 |
 | [PD-41](#pd-41) | 🟠 | Loss | `BorderTerm` pune marcadores sobre 16–17% dos pixels de núcleo real | Aberta |
 | [PD-42](#pd-42) | ⚪ | Docs | Docstring do `LossComposer` diz que o Size olha a predição (olha os marcadores) | Aberta |
-| [PD-43](#pd-43) | 🟡 | Loss | Com GT vazio: DMap e TV dividem por zero; Size perde a normalização | Aberta (latente) |
+| [PD-43](#pd-43) | 🟡 | Loss | Com GT vazio: DMap e TV dividem por zero; Size perde a normalização | Parcial (2026-10-17): DMap e TV protegidos contra lote sem núcleo (recortes); Size já tratava; falta o caso de GT vazio por imagem |
 | [PD-44](#pd-44) | 🟠 | Experimento | Plano do experimento-base "só Dice + TV" (256², só positivos) | ✅ Executada (2026-10-07): validação 0,775, teste 0,777 × Cellpose 0,837; seguida por `dice_size`, `base_negativo` e outros |
 | [PD-45](#pd-45) | ⚪ | Treino | Médias por época são por batch, não por imagem (o último batch tem 2 imagens) | Aberta |
 | [PD-46](#pd-46) | 🟡 | Treino | Não há seleção do melhor modelo nem early stopping; avalia-se a última época | ✅ Resolvida (2026-10-07): `BestModelCallback` com parada antecipada, usado por `run_kfold` em todos os experimentos |
@@ -97,7 +97,9 @@
 
 **B — experimentos** (precisam do Colab)
 5. Rodar de novo o `base_dice` e rodar o `negativo_sem_tv`: o TV achata o marcador?
-6. Passo 2: recortes sem o negativo (desenho dos detalhes validado antes do código).
+6. Passo 2: recortes sem o negativo (desenho dos detalhes validado antes do código). **Desenho aprovado e código aplicado
+   (09 §18.20, validado pelo autor):** recortes de 256², 4 por imagem por época, lote de 16, avaliação em 25 blocos
+   com sobreposição de 1/4 e janela de Hann; notebook `recortes.ipynb`, comparado com o `base_dice`.
 7. Passo 3: recortes com o negativo.
 8. Conforme 5–7: marcador quase binário (*straight-through*) ou a volta do Size e do DMap.
 9. Decisão de rumo do autor (PD-40/PD-52, caminho d).
@@ -900,6 +902,10 @@ Com um batch sem nenhum pixel de núcleo, as duas dão `inf`/`NaN`. O `ObjectSiz
 normalizar**, milhões de vezes maior que o valor normal. Com as imagens inteiras do MoNuSeg isso não acontece, porque toda imagem
 tem núcleos e a soma é sobre o batch. Passa a acontecer se o projeto usar **recortes** (ideia da PD-05).
 **Correção:** `normalization.clamp_min(1.0)` (ou ε) nos três, e decidir o que um recorte sem núcleos deve custar.
+**Atualização (2026-10-17):** com o treino por recortes (09 §18.20), um lote inteiro sem núcleo ficou possível. O `DistanceMapLoss` e
+o `TotalVariationLoss` passaram a normalizar por `max(soma do GT, 1)` (e a raiz disso, no TV), o que só muda o valor quando o lote
+não tem nenhum pixel de núcleo; o `ObjectSizeLoss` já tratava esse caso. Teste em `tests/test_losses_empty_batch.py`. A
+normalização continua sendo pelo lote inteiro (PD-12).
 
 ### PD-44
 **🟠 Plano do experimento-base "só Dice + TV".** Decidido pelo autor em 2026-09-27 ([04-losses.md §4 e §6](04-losses.md)).
