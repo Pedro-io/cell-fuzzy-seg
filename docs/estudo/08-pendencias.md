@@ -103,7 +103,8 @@
 7. ✅ Passo 3: recortes com o negativo. Notebook `recortes_negativo.ipynb` (só Dice). **Rodado: 0,835**, o melhor até aqui (PD-52).
 8. Conforme 5–7: marcador quase binário (*straight-through*) ou a volta do Size e do DMap. **Em andamento (2026-10-18,
    09 §18.21):** a falta que sobra é de precisão; notebooks `recortes_negativo_dmap` (Dice + DMap 0,1) e
-   `recortes_negativo_bce` (Dice + BCE 1,0; termo novo `BCETerm`), sobre o vencedor do passo 3. Tversky (α 0,7, β 0,3)
+   `recortes_negativo_bce` (Dice + BCE 1,0; termo novo `BCETerm`), sobre o vencedor do passo 3. **DMap rodado (2026-10-18):**
+   0,830, pior que o `recortes_negativo` (0,835): marcador menor e limpo, segmentação quase igual (PD-40, leitura transversal). Tversky (α 0,7, β 0,3)
    fica de reserva. Decisão do autor: Dice + BCE não fere a regra "Dice ou RMSE". **Pedido do autor (2026-10-18):** também
    `recortes_negativo_tese` (perdas da tese sem TV: Dice + Size 0,1 + DMap 1/3000), `recortes_negativo_tese_bce` (o mesmo + BCE)
    e uma combinação sugerida pelo Claude, `recortes_negativo_bce_dmap` (Dice + BCE 1,0 + DMap 0,1).
@@ -879,6 +880,31 @@ superam o Cellpose no melhor limiar:
    1024², muito acima do tamanho de treino, inunda.
 5. Ressalva: marcadores binários e ideais. O pipeline treinado aprende marcadores suaves e fracos (PD-52), que a rede expande de
    outro jeito; o ganho só se confirma treinando.
+
+**Leitura transversal: o tamanho do marcador (2026-10-18)** — pedido do autor: registrar que **encolher o marcador piora o
+resultado**. As evidências até aqui:
+
+| Evidência | O que mostra | Status |
+|---|---|---|
+| Oráculo com negativo, 256², sem negativo (11 §4.1) | GT inteiro (24% da imagem) 0,915 > miolo (8%) 0,754 > centros (4%) 0,542: com o ScribblePrompt, o Dice cai à medida que o marcador encolhe, porque a rede não expande o bastante até a borda | ✅ |
+| `dice_size` × `base_dice_tv` (256²) | o Size encolhe o marcador (9,0% → 5,8% da imagem): precisão sobe (0,727 → 0,753), revocação cai (0,838 → 0,807) e o Dice empata (0,775 → 0,774) | ✅ |
+| `recortes_negativo_dmap` × `recortes_negativo` (DMap 0,1, que empurra o marcador para o miolo) | o marcador encolhe (14,2% → 8,2% da imagem) e fica limpo (média fora dos núcleos 0,36 → 0,09), mas a **segmentação quase não muda** (massa 1,07 → 1,07): precisão 0,812 → 0,807, revocação 0,864 → 0,858, Dice 0,835 → 0,830 (2/35 imagens, p = 10⁻⁹) | ✅ (pior, mas não pela troca precisão × revocação) |
+| Oráculo de resolução, blocos 256 → 128² sem negativo (11 §7.2) | aqui o **GT inteiro vaza** (0,698, massa 1,93) e o miolo vai melhor (0,808): um marcador grande demais também piora | ✅ |
+
+**Leitura:** com o ScribblePrompt como camada de segmentação, o tamanho certo do marcador é o que a rede consegue expandir até a
+borda do núcleo, nem menos nem mais. Encolhê-lo além disso (Size, DMap, a busca da tese por marcadores pequenos) troca revocação
+por precisão e não melhora o Dice; aumentá-lo além disso faz a rede vazar. O ponto de equilíbrio depende de quanto a rede expande,
+que depende da resolução da entrada (11 §7.3). **Com o negativo do Cellpose, porém, o marcador pesa menos:** no
+`recortes_negativo_dmap`, o marcador ficou bem menor e mais limpo e a segmentação quase não mudou (precisão e revocação caíram um
+pouco, juntas). ❓ Leitura: com o negativo, quem desenha a borda e o fundo é o negativo com o ScribblePrompt; mexer no marcador
+quase não chega à saída. O que sobra de erro (núcleos densos fundidos, sobretudo em 20×) parece estar na camada de segmentação,
+não no marcador: em 128², o espaço de 1–2 px entre núcleos vizinhos some. Nos *folds* 0 e 1 do DMap a melhor época foi cedo
+(28 e 24, contra ~100 sem o DMap), o que pode ter custado um pouco (❓).
+
+**Para o texto (discussão):** isto contrasta com a tese, em que os regularizadores (L_size, L_Dmap) buscam marcadores pequenos e
+centrais para que sejam editáveis por um humano, e quem expande o marcador até o objeto é a hierarquia do FMBS. Sem o FMBS, a
+expansão fica limitada ao alcance do ScribblePrompt, e marcadores pequenos deixam de ser vantajosos para a segmentação. A
+editabilidade humana não é objetivo do TCC (decisão do autor sobre o L_comp).
 
 ### PD-41
 **🟠 O `BorderTerm` pune marcadores sobre núcleos reais.** ✅ (medido)
