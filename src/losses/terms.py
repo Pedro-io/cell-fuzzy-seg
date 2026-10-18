@@ -4,6 +4,7 @@ from typing import Dict
 
 import torch
 
+from .bce_loss import BinaryCrossEntropyLoss
 from .border_loss import BorderLoss
 from .distance_map_loss import DistanceMapLoss
 from .loss_term import LossTerm
@@ -89,6 +90,21 @@ class DiceTerm(LossTerm):
     @property
     def name(self) -> str:
         return "dice"
+
+    def compute(self, ctx: Dict[str, torch.Tensor]) -> torch.Tensor:
+        return self._loss(ctx["prediction"], ctx["gt_masks"])
+
+
+class BCETerm(LossTerm):
+    """Envolve :class:`BinaryCrossEntropyLoss`. Usa ``prediction`` e ``gt_masks``."""
+
+    def __init__(self, weight: float = 1.0) -> None:
+        super().__init__()
+        self._loss = BinaryCrossEntropyLoss(weight=weight)
+
+    @property
+    def name(self) -> str:
+        return "bce"
 
     def compute(self, ctx: Dict[str, torch.Tensor]) -> torch.Tensor:
         return self._loss(ctx["prediction"], ctx["gt_masks"])

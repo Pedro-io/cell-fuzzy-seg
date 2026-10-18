@@ -1,5 +1,6 @@
 """Loss and regularization modules for cell segmentation."""
 
+from .bce_loss import BinaryCrossEntropyLoss
 from .border_loss import BorderLoss
 from .distance_map_loss import DistanceMapLoss
 from .loss_composer import LossComposer
@@ -10,6 +11,7 @@ from .rmse_accuracy import RMSEAccuracy
 from .rmse_loss import RMSELoss
 from .soft_dice_loss import SoftDiceLoss
 from .terms import (
+    BCETerm,
     BorderTerm,
     DiceTerm,
     DMapTerm,
@@ -22,6 +24,7 @@ from .total_variation_loss import TotalVariationLoss
 
 __all__ = [
     # Primitives
+    "BinaryCrossEntropyLoss",
     "BorderLoss",
     "DistanceMapLoss",
     "NotTooThinLoss",
@@ -33,6 +36,7 @@ __all__ = [
     # Strategy pattern
     "LossTerm",
     "LossComposer",
+    "BCETerm",
     "BorderTerm",
     "DiceTerm",
     "DMapTerm",
