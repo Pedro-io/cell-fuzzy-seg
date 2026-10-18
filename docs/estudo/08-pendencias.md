@@ -104,7 +104,9 @@
 8. Conforme 5–7: marcador quase binário (*straight-through*) ou a volta do Size e do DMap. **Em andamento (2026-10-18,
    09 §18.21):** a falta que sobra é de precisão; notebooks `recortes_negativo_dmap` (Dice + DMap 0,1) e
    `recortes_negativo_bce` (Dice + BCE 1,0; termo novo `BCETerm`), sobre o vencedor do passo 3. Tversky (α 0,7, β 0,3)
-   fica de reserva. Decisão do autor: Dice + BCE não fere a regra "Dice ou RMSE".
+   fica de reserva. Decisão do autor: Dice + BCE não fere a regra "Dice ou RMSE". **Pedido do autor (2026-10-18):** também
+   `recortes_negativo_tese` (perdas da tese sem TV: Dice + Size 0,1 + DMap 1/3000), `recortes_negativo_tese_bce` (o mesmo + BCE)
+   e uma combinação sugerida pelo Claude, `recortes_negativo_bce_dmap` (Dice + BCE 1,0 + DMap 0,1).
 9. Decisão de rumo do autor (PD-40/PD-52, caminho d).
 
 **C — ablações já decididas**, sobre a melhor configuração

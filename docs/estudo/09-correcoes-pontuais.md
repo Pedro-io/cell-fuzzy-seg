@@ -1384,3 +1384,14 @@ excesso na borda e núcleos densos colados. As candidatas atacam isso:
 que um incerto; o termo lê `prediction` e `gt_masks` e se soma ao Dice no `LossComposer`). Suíte: 188 casos, 184 ok, 3 falhas
 conhecidas (PD-11), 1 pulado. `ruff` sem avisos. Os dois notebooks rodaram em CPU numa versão reduzida (10 imagens, 1 época).
 
+**Mais três combinações (pedido do autor, 2026-10-18)**, todas sobre o `recortes_negativo` e geradas do mesmo jeito (diferença de
+código conferida linha a linha; só mudam a perda e o nome):
+- `recortes_negativo_tese`: as perdas da tese **sem o TV** (e sem o L_comp, não implementado), com os pesos da tese divididos por
+  λ_seg: Dice 1 + Size 0,1 + DMap 1/3000. Com esse peso o DMap vale ~0,0002 e quase não age (§18.13), então, na prática, é Dice +
+  Size; está escrito no notebook.
+- `recortes_negativo_tese_bce`: o mesmo + BCE (1,0).
+- `recortes_negativo_bce_dmap` (sugestão do Claude): Dice + BCE (1,0) + DMap (0,1). A falta que sobra é de precisão; a BCE age
+  sobre a segmentação (afina a borda) e o DMap, com um peso que age, sobre o marcador (menos expansão, vizinhos separados). Size e TV
+  ficam de fora (o Size sozinho só trocou precisão por revocação; o TV achatava o marcador).
+O `recortes_negativo_tese_bce`, que junta as quatro perdas, rodou em CPU numa versão reduzida (10 imagens, 1 época), sem NaN. Validados pelo autor (2026-10-18).
+
