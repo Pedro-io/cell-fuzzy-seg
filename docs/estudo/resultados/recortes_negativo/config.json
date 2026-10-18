@@ -1,0 +1,36 @@
+{
+  "nome": "recortes_negativo",
+  "descricao": {
+    "perdas": "soft Dice (1,0), sem regularização do marcador",
+    "rede_final": "ScribblePrompt-UNet v1 congelado, scribble_mode=positive, tau=0.5, input_size=(128, 128), negativo = fundo do Cellpose (faixa livre de 3 px)",
+    "marker_net": "MarkerUNet (smp Unet, resnet34 ImageNet, 4 canais)",
+    "rgba_alpha": "mask",
+    "aumentacao": "rot90 + flips, sorteada a cada época",
+    "recortes": "treino com 4 recortes de 256² por imagem por época (MarkerUNet sem redução); avaliação da imagem inteira em blocos de 256² com sobreposição 0.25 e janela de Hann"
+  },
+  "config": {
+    "k": 5,
+    "batch_size": 16,
+    "max_epochs": 200,
+    "patience": 20,
+    "min_delta": 0.0,
+    "lr": 0.0001,
+    "grad_clip": 1.0,
+    "threshold": 0.5,
+    "seed": 42,
+    "device": "cuda",
+    "log_every": 10,
+    "crop_size": 256,
+    "crops_per_image": 4
+  },
+  "final_epochs": 98,
+  "procedencia": {
+    "commit": "d77540abb91a0d26f506267e29aa180cdbf0f33c",
+    "mudancas_locais_em_src": false,
+    "python": "3.12.13",
+    "torch": "2.11.0+cu128",
+    "numpy": "2.0.2",
+    "gpu": "Tesla T4",
+    "criado_em": "2026-10-18 18:20:01"
+  }
+}

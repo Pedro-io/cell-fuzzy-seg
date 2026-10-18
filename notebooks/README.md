@@ -31,6 +31,8 @@ Notebooks de treino da MarkerNet com a rede final congelada (ScribblePrompt). To
 | `tese.ipynb` | combinação da tese: Dice + Size (0,1) + DMap (1/3000) + TV (1/3000). |
 | `recortes.ipynb` | o `base_dice` com **recortes**: treino com 4 recortes de 256² por imagem por época (MarkerUNet sem redução, ScribblePrompt em 128²); avaliação da imagem inteira em 25 blocos de 256² com sobreposição de 1/4 e janela de Hann. |
 | `recortes_negativo.ipynb` | os **recortes** com o **negativo do Cellpose** (só Dice): junta as duas mudanças que mais renderam. |
+| `recortes_negativo_dmap.ipynb` | o `recortes_negativo` com o termo **DMap** da tese (0,1) sobre o marcador: empurra o marcador para o centro dos núcleos e para fora do fundo. |
+| `recortes_negativo_bce.ipynb` | o `recortes_negativo` com **Dice + entropia cruzada binária** (1,0) sobre a segmentação: pune cada pixel de fundo com probabilidade alta. |
 | `experimento_final.ipynb` | treino final da configuração escolhida e avaliação única no teste. |
 
 Todos usam a mesma configuração de treino (só a perda e o negativo mudam) e precisam de GPU.

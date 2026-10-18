@@ -469,6 +469,7 @@ seção. No fim de cada etapa, rodar a suíte inteira e registrar o resultado no
 | Bloco A, itens 2 e 3: experimentos só com validação cruzada, modelos gravados, notebook final, legados (§18.18) | `97522a1` (código) e o commit seguinte (notebooks e docs), validados pelo autor | 169: 165 ok, 3 falhas conhecidas (PD-11), 1 pulado | `checkpoints.py`, `figures.py`, `models_dir` no k-fold; notebooks testados em CPU com 1 época |
 | Bloco A, item 4: SHA-256 do checkpoint do ScribblePrompt (PD-15, §18.19) | este commit (validado pelo autor) | 173: 169 ok, 3 falhas conhecidas (PD-11), 1 pulado | conferido com o checkpoint real |
 | Bloco B, passo 2: treino por recortes e avaliação em blocos (§18.20) | `723f10b` (código) e o commit seguinte (notebooks e docs), validados pelo autor | 184: 180 ok, 3 falhas conhecidas (PD-11), 1 pulado | `TiledPipeline`, recortes no dataset, `recortes.ipynb` testado em CPU com 1 época |
+| Bloco B, item 8: `BCETerm` e notebooks `recortes_negativo_dmap`/`recortes_negativo_bce` (§18.21) | dois commits (código; notebooks, resultados e docs), validados pelo autor | 188: 184 ok, 3 falhas conhecidas (PD-11), 1 pulado | notebooks testados em CPU com 1 época |
 
 ---
 
@@ -1358,4 +1359,28 @@ avaliando imagens inteiras em blocos; DMap e TV finitos num lote sem núcleo e i
 **Resultado (2026-10-17)** ✅ — `docs/estudo/resultados/recortes/` (commit `b5455ad`, T4, ~1 h 40 min): validação cruzada 0,831, o
 melhor até aqui (+0,046 sobre o `base_dice`, 37/37 imagens; Cellpose 0,845). Detalhes, comparação com o `base_dice` e o
 `negativo_sem_tv` e leitura na PD-52. A estimativa de tempo (~1 h) ficou abaixo do real.
+
+### 18.21 Perdas além do Dice sobre os recortes (2026-10-18, validado pelo autor)
+
+**Base** (aprovada pelo autor): no `recortes`, a revocação já passa a do Cellpose (0,844 × 0,826; no `recortes_negativo`, 0,864); falta **precisão** (0,822 × 0,867; 0,812 com o negativo):
+excesso na borda e núcleos densos colados. As candidatas atacam isso:
+- **DMap (da tese, já em `src/`):** o mapa vale 0 no centro de cada núcleo e 1 na borda e no fundo; penalizar o marcador nele o
+  empurra para o centro e para fora do fundo. Agora que o marcador tem forma, o termo tem o que ajustar. Peso 0,1.
+- **BCE sobre a segmentação (novo):** o soft Dice otimiza probabilidades, mas a avaliação binariza em 0,5; a BCE pune cada pixel
+  de fundo com probabilidade alta e deve afinar a borda "borrada" vista no diagnóstico (11 §8). Peso 1,0. Dice + BCE é uma
+  combinação comum (📖 o nnU-Net usa Dice + entropia cruzada; a conferir no artigo). O autor confirmou que ela não fere a regra
+  "Dice ou RMSE, nunca os dois".
+- **Tversky** (α = 0,7 para falso positivo, β = 0,3; ❓ referência Salehi et al. 2017, não conferida): de reserva.
+- O **Size** fica para depois do DMap (no `dice_size`, em 256², só trocou precisão por revocação).
+
+**O que muda** ✅:
+- [bce_loss.py](../../src/losses/bce_loss.py) (novo): `BinaryCrossEntropyLoss` (média por pixel sobre probabilidades, cortadas em
+  `[1e-6, 1 − 1e-6]`); `BCETerm` em [terms.py](../../src/losses/terms.py), exportado em `src/losses/__init__.py`.
+- Notebooks `recortes_negativo_dmap.ipynb` e `recortes_negativo_bce.ipynb`: cópias do `recortes_negativo` (o vencedor do passo 3,
+  0,835) que só mudam a perda e os textos (diferença de código conferida linha a linha). Foram montados primeiro sobre o `recortes`
+  e refeitos sobre o `recortes_negativo` quando o resultado dele saiu, como combinado com o autor.
+
+**Testes** ✅: +4 (igual à fórmula da BCE; probabilidades 0 e 1 dão valor e gradiente finitos; um falso positivo confiante custa mais
+que um incerto; o termo lê `prediction` e `gt_masks` e se soma ao Dice no `LossComposer`). Suíte: 188 casos, 184 ok, 3 falhas
+conhecidas (PD-11), 1 pulado. `ruff` sem avisos. Os dois notebooks rodaram em CPU numa versão reduzida (10 imagens, 1 época).
 

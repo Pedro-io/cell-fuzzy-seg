@@ -70,7 +70,7 @@
 | [PD-49](#pd-49) | 🟠 | Modelo/Experimento | Só positivo: um fundo ≥ 1e-3 no canal positivo faz o ScribblePrompt marcar a imagem inteira; a sigmoid da MarkerUNet nunca dá 0 | ✅ Resolvida (`df0a30f`, validada pelo autor): modo `positive` com corte em τ |
 | [PD-50](#pd-50) | ⚪ | Código | Código, testes e notebooks citam a história do projeto (PD-nn, "investigação, P5", "C2", "regra 23") | Aberta (regra do autor, 2026-10-01) |
 | [PD-51](#pd-51) | ⚪ | Dados | Uma região de área ~0 é classificada de forma diferente conforme a versão do numpy (só muda o log) | Aberta |
-| [PD-52](#pd-52) | 🔴 | Resultados | O pipeline perde para o Cellpose por **precisão** (0,73 × 0,87): segmenta ~17% a mais que o GT | Aberta; 2026-10-17: o TV achata o marcador; recortes 0,831 (melhor até aqui; Cellpose 0,845) |
+| [PD-52](#pd-52) | 🔴 | Resultados | O pipeline perde para o Cellpose por **precisão** (0,73 × 0,87): segmenta ~17% a mais que o GT | Aberta; 2026-10-18: recortes + negativo 0,835 (melhor até aqui; Cellpose 0,845; 7/37 imagens acima) |
 
 ---
 
@@ -100,8 +100,11 @@
 6. ✅ Passo 2: recortes sem o negativo (desenho dos detalhes validado antes do código). **Rodado: 0,831** (PD-52). **Desenho aprovado e código aplicado
    (09 §18.20, validado pelo autor):** recortes de 256², 4 por imagem por época, lote de 16, avaliação em 25 blocos
    com sobreposição de 1/4 e janela de Hann; notebook `recortes.ipynb`, comparado com o `base_dice`.
-7. Passo 3: recortes com o negativo. Notebook `recortes_negativo.ipynb` (só Dice; testado em CPU com 1 época), a rodar.
-8. Conforme 5–7: marcador quase binário (*straight-through*) ou a volta do Size e do DMap.
+7. ✅ Passo 3: recortes com o negativo. Notebook `recortes_negativo.ipynb` (só Dice). **Rodado: 0,835**, o melhor até aqui (PD-52).
+8. Conforme 5–7: marcador quase binário (*straight-through*) ou a volta do Size e do DMap. **Em andamento (2026-10-18,
+   09 §18.21):** a falta que sobra é de precisão; notebooks `recortes_negativo_dmap` (Dice + DMap 0,1) e
+   `recortes_negativo_bce` (Dice + BCE 1,0; termo novo `BCETerm`), sobre o vencedor do passo 3. Tversky (α 0,7, β 0,3)
+   fica de reserva. Decisão do autor: Dice + BCE não fere a regra "Dice ou RMSE".
 9. Decisão de rumo do autor (PD-40/PD-52, caminho d).
 
 **C — ablações já decididas**, sobre a melhor configuração
@@ -1166,3 +1169,10 @@ Drive do autor. Todos com Dice e sem regularização do marcador.
   continuam as piores (`TCGA-HE-7129`: −0,058, núcleos pequenos e densos fundidos).
 - **Custo:** o `recortes` levou ~1 h 40 min no Colab (T4), contra a estimativa de ~1 h (09 §18.20).
 **Próximo passo:** passo 3, recortes com o negativo do Cellpose (só Dice).
+
+**Passo 3: recortes com o negativo (`recortes_negativo`, 2026-10-18)** ✅ — `docs/estudo/resultados/recortes_negativo/` (commit
+`d77540a`, T4): Dice **0,835**, o melhor até aqui (Cellpose 0,845; −0,010, p = 1,4·10⁻⁶), com **7/37** imagens acima do Cellpose (por
+0,001 a 0,011). Sobre o `recortes`: +0,004 (24/13 imagens, p = 0,017), ganho pequeno mas consistente; sobre o `negativo_sem_tv`:
++0,016 (37/37). O negativo sobe mais a revocação (0,844 → 0,864) que a precisão (0,822 → 0,812; Cellpose 0,867); massa 1,07; marcador
+0,50 dentro × 0,36 fora dos núcleos. As imagens em 20× seguem abaixo do Cellpose (0,799 / 0,836 / 0,793 × 0,818 / 0,863 / 0,828).
+**Próximo passo:** perdas que ataquem a precisão sobre esta base (`recortes_negativo_dmap`, `recortes_negativo_bce`; 09 §18.21).
