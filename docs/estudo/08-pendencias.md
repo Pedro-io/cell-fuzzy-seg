@@ -100,7 +100,7 @@
 6. ✅ Passo 2: recortes sem o negativo (desenho dos detalhes validado antes do código). **Rodado: 0,831** (PD-52). **Desenho aprovado e código aplicado
    (09 §18.20, validado pelo autor):** recortes de 256², 4 por imagem por época, lote de 16, avaliação em 25 blocos
    com sobreposição de 1/4 e janela de Hann; notebook `recortes.ipynb`, comparado com o `base_dice`.
-7. Passo 3: recortes com o negativo.
+7. Passo 3: recortes com o negativo. Notebook `recortes_negativo.ipynb` (só Dice; testado em CPU com 1 época), a rodar.
 8. Conforme 5–7: marcador quase binário (*straight-through*) ou a volta do Size e do DMap.
 9. Decisão de rumo do autor (PD-40/PD-52, caminho d).
 
