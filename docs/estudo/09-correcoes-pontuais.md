@@ -1432,3 +1432,27 @@ foram commitadas. Resultados válidos:
 - **Limiar de saída:** 0,6 leva a massa a 1,00 com o Dice igual (0,8351); 0,7 piora (0,8303).
 A interação iterativa será testada na segunda execução, com o código no GitHub.
 
+**Segunda execução (2026-10-19):** já com `0b92208`, mas na **mesma sessão** do Colab da primeira ("Drive already mounted"). O
+`git pull` atualizou os arquivos, mas o Python manteve o `src/` antigo em memória (módulos já importados não são relidos), então as
+passadas de novo saíram idênticas à base, com o mesmo tempo (1,6 min). O negativo entre núcleos repetiu o resultado da primeira.
+**Correção no notebook:** antes de avaliar, ele confere se a classe carregada tem o `n_interactions` e, se não tiver, para com
+"reinicie a sessão do Colab". Próxima execução: reiniciar a sessão e rodar tudo.
+
+**Terceira execução (2026-10-19, com a conferência de versão; 2,0 min)** ✅ — a válida; saídas commitadas no notebook. Base 0,8350
+(igual ao registrado). Todas as condições ficam **abaixo** da base no limiar 0,5:
+
+| Condição | Dice | Δ base | Imagens melhores/piores |
+|---|---|---|---|
+| 2 passadas | 0,8330 | −0,002 | 1/36 |
+| 3 passadas | 0,8314 | −0,004 | 1/36 |
+| negativo entre núcleos, 1 px | 0,8323 | −0,003 | 0/37 |
+| negativo entre núcleos, 2 px | 0,8287 | −0,006 | 0/37 |
+| 2 passadas + negativo entre núcleos, 1 px | 0,8298 | −0,005 | 1/36 |
+
+Os limiares 0,6 e 0,7 não mudam o quadro (a base em 0,6 empata: 0,8351). As passadas alargam um pouco a segmentação (massa
+1,071 → 1,075) e perdem precisão. 📖 Explicação provável, conferida no artigo do ScribblePrompt (§3.2): no treino dele, as passadas
+seguintes recebem a predição anterior **e** correções novas tiradas da região de erro; repetir a rede só com a própria saída está
+fora do treino. Ressalva: o modelo foi treinado com uma passada; treinar com várias poderia mudar o resultado (❓), mas não há sinal
+que justifique. **Próximo passo** (plano aprovado pelo autor): testes de configurações externas à MarkerUNet (faixa do negativo,
+τ, sobreposição dos blocos, entrada do ScribblePrompt, TTA) e, depois, segmentação por núcleo, a ideia do PromptNucSeg e do CellSAM.
+
