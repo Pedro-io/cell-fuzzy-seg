@@ -470,6 +470,7 @@ seção. No fim de cada etapa, rodar a suíte inteira e registrar o resultado no
 | Bloco A, item 4: SHA-256 do checkpoint do ScribblePrompt (PD-15, §18.19) | este commit (validado pelo autor) | 173: 169 ok, 3 falhas conhecidas (PD-11), 1 pulado | conferido com o checkpoint real |
 | Bloco B, passo 2: treino por recortes e avaliação em blocos (§18.20) | `723f10b` (código) e o commit seguinte (notebooks e docs), validados pelo autor | 184: 180 ok, 3 falhas conhecidas (PD-11), 1 pulado | `TiledPipeline`, recortes no dataset, `recortes.ipynb` testado em CPU com 1 época |
 | Bloco B, item 8: `BCETerm` e notebooks `recortes_negativo_dmap`/`recortes_negativo_bce` (§18.21) | dois commits (código; notebooks, resultados e docs), validados pelo autor | 188: 184 ok, 3 falhas conhecidas (PD-11), 1 pulado | notebooks testados em CPU com 1 época |
+| Testes depois do treino: `n_interactions` e notebook `testes_pos_treino` (§18.22) | dois commits (código; notebook e docs), validados pelo autor | 192: 188 ok, 3 falhas conhecidas (PD-11), 1 pulado | notebook testado em CPU com modelos de teste |
 
 ---
 
@@ -1394,4 +1395,40 @@ código conferida linha a linha; só mudam a perda e o nome):
   sobre a segmentação (afina a borda) e o DMap, com um peso que age, sobre o marcador (menos expansão, vizinhos separados). Size e TV
   ficam de fora (o Size sozinho só trocou precisão por revocação; o TV achatava o marcador).
 O `recortes_negativo_tese_bce`, que junta as quatro perdas, rodou em CPU numa versão reduzida (10 imagens, 1 época), sem NaN. Validados pelo autor (2026-10-18).
+
+### 18.22 Testes depois do treino: interação iterativa e negativo entre núcleos (2026-10-19, validado pelo autor)
+
+**Base** (aprovada pelo autor): com recortes e negativo, o pipeline estaciona em ~0,835; DMap e BCE não mudaram a segmentação, e o
+erro que sobra (núcleos vizinhos fundidos) parece estar na camada de segmentação (PD-40, leitura transversal). Como os modelos dos
+*folds* ficam gravados, duas ideias que mudam o que entra no ScribblePrompt são testadas **sem retreinar**, como no diagnóstico:
+- **Interação iterativa:** o ScribblePrompt roda 2 ou 3 vezes; a partir da segunda, recebe os *logits* da anterior como
+  `mask_input`. ✅ No código do pacote, o `mask_input` são os *logits* da predição anterior (`scribbleprompt/models/unet.py`); hoje o
+  pipeline passa zeros. 📖 O treino do ScribblePrompt com interações em passos está no artigo (a conferir no PDF).
+- **Negativo entre núcleos:** além do fundo do Cellpose a 3 px, vira negativo todo pixel que tem, num disco de raio 1 ou 2 px,
+  dois rótulos diferentes de núcleo do Cellpose (filtros de máximo e de mínimo sobre as instâncias). ❓ Ideia nova; risco: no GT,
+  núcleos que se tocam estão fundidos, então separá-los perde alguns pixels de revocação.
+
+**O que muda** ✅:
+- [scribble_prompting_network.py](../../src/models/networks/final_segmentation/scribble_prompting_network.py): parâmetro
+  `n_interactions` (padrão 1, o comportamento de antes); com mais de uma passada, os *logits* da anterior entram como `mask_input`,
+  e o gradiente atravessa todas (serve também para treinar com a interação, se ela ganhar).
+- Notebook [testes_pos_treino.ipynb](../../notebooks/exploration/testes_pos_treino.ipynb): carrega os modelos dos 5 *folds* do
+  experimento indicado (padrão `recortes_negativo`), confere a configuração contra o `config.json` dele e avalia, nas 37 imagens
+  (cada uma pelo modelo que não a viu), a base, 2 e 3 passadas, o negativo entre núcleos com 1 e 2 px e a melhor combinação, nos
+  limiares 0,5, 0,6 e 0,7; tabela pareada contra a base e o Cellpose, as imagens em 20× e uma figura de mapas de erro. O negativo
+  entre núcleos fica no notebook; se ganhar, vai para `cellpose_negative` com testes.
+
+**Testes** ✅: +4 (uma passada é o padrão e não muda a saída; a segunda passada recebe os *logits* da primeira; o gradiente
+atravessa as passadas; `n_interactions` é validado). O dublê do pacote nos testes passou a respeitar o `mask_input`. Suíte: 192
+casos, 188 ok, 3 falhas conhecidas (PD-11), 1 pulado. `ruff` sem avisos.
+
+**Primeira execução (2026-10-19, Colab T4, 1,6 min)** ✅ — com os modelos do `recortes_negativo`; a base reproduziu exatamente o
+Dice registrado (0,8350). **As condições de passadas não valem:** o Colab clonou `18bcdbc`, anterior ao `n_interactions`, então o
+atributo foi ignorado e elas saíram idênticas à base (o push do código ainda não tinha sido feito). As saídas dessa execução não
+foram commitadas. Resultados válidos:
+- **Negativo entre núcleos piora:** 1 px, 0,8323 (−0,003, pior em 37/37 imagens); 2 px, 0,8287 (−0,006, 0/37). A precisão sobe
+  pouco e a revocação cai mais; as imagens em 20× pioram (0,81 → 0,80 / 0,79). Era o risco previsto: no GT, núcleos que se tocam
+  estão fundidos, então separá-los custa revocação.
+- **Limiar de saída:** 0,6 leva a massa a 1,00 com o Dice igual (0,8351); 0,7 piora (0,8303).
+A interação iterativa será testada na segunda execução, com o código no GitHub.
 
