@@ -104,7 +104,13 @@
 8. Conforme 5–7: marcador quase binário (*straight-through*) ou a volta do Size e do DMap. **Em andamento (2026-10-18,
    09 §18.21):** a falta que sobra é de precisão; notebooks `recortes_negativo_dmap` (Dice + DMap 0,1) e
    `recortes_negativo_bce` (Dice + BCE 1,0; termo novo `BCETerm`), sobre o vencedor do passo 3. **DMap rodado (2026-10-18):**
-   0,830, pior que o `recortes_negativo` (0,835): marcador menor e limpo, segmentação quase igual (PD-40, leitura transversal). Tversky (α 0,7, β 0,3)
+   0,830, pior que o `recortes_negativo` (0,835): marcador menor e limpo, segmentação quase igual (PD-40, leitura transversal).
+   **BCE rodada (2026-10-18):** `recortes_negativo_bce` 0,834 (−0,002; 11/26 imagens; p = 0,008): a precisão sobe um pouco
+   (0,812 → 0,817) e a revocação cai (0,864 → 0,854), massa 1,07 → 1,05; as imagens em 20× não mudam. **Decisão do autor:** não
+   rodar o `recortes_negativo_bce_dmap` nem os dois da tese (as perdas sozinhas não ganharam; ~5 h de Colab). Leitura: com
+   recortes e negativo, o pipeline estaciona em ~0,835; o erro que sobra (vizinhos fundidos) parece estar na camada de
+   segmentação. Próximo: testes depois do treino com os modelos salvos (interação iterativa do ScribblePrompt, negativo entre
+   núcleos; 09 §18.22). Tversky (α 0,7, β 0,3)
    fica de reserva. Decisão do autor: Dice + BCE não fere a regra "Dice ou RMSE". **Pedido do autor (2026-10-18):** também
    `recortes_negativo_tese` (perdas da tese sem TV: Dice + Size 0,1 + DMap 1/3000), `recortes_negativo_tese_bce` (o mesmo + BCE)
    e uma combinação sugerida pelo Claude, `recortes_negativo_bce_dmap` (Dice + BCE 1,0 + DMap 0,1).
