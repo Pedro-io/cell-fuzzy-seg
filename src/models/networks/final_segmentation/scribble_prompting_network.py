@@ -69,6 +69,9 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
         positive_threshold: Limiar τ do modo ``"positive"`` (padrão ``0.5``).
         unet: UNet interna congelada (registrada como submódulo).
         input_size: Tamanho espacial da entrada da rede (padrão do pacote: ``(128, 128)``).
+        n_interactions: Número de passadas da rede por forward (padrão ``1``). A partir da
+            segunda, a rede recebe os *logits* da passada anterior como ``mask_input``, como na
+            interação em passos do ScribblePrompt.
     """
 
     CHECKPOINT_URLS: Dict[str, str] = {
@@ -92,6 +95,7 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
         scribble_temperature: float = 10.0,
         positive_threshold: float = 0.5,
         input_size: Optional[Tuple[int, int]] = None,
+        n_interactions: int = 1,
         config: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Inicializa a rede congelada do ScribblePrompt.
@@ -110,12 +114,15 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
             input_size: ``(altura, largura)`` da entrada da rede; ambas divisíveis por 16 (a U-Net
                 tem 4 *poolings*). ``None``: o tamanho do pacote, ``(128, 128)``. A rede é totalmente
                 convolucional, então outros tamanhos usam os mesmos pesos.
+            n_interactions: Passadas da rede por forward, ``>= 1``. Com mais de uma, cada passada
+                recebe os *logits* da anterior como ``mask_input``; o gradiente atravessa todas.
             config: Configuração extra armazenada na rede.
 
         Raises:
             ImportError: Se o pacote ``scribbleprompt`` não estiver instalado.
             RuntimeError: Se o checkpoint não for encontrado.
-            ValueError: Se ``scribble_mode``, ``positive_threshold`` ou ``input_size`` forem inválidos.
+            ValueError: Se ``scribble_mode``, ``positive_threshold``, ``input_size`` ou
+                ``n_interactions`` forem inválidos.
         """
         if scribble_mode not in ("sharpened", "dense_soft", "positive"):
             raise ValueError(
@@ -123,6 +130,8 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
             )
         if not 0.0 <= positive_threshold < 1.0:
             raise ValueError(f"positive_threshold deve estar em [0, 1), recebido {positive_threshold}.")
+        if int(n_interactions) != n_interactions or n_interactions < 1:
+            raise ValueError(f"n_interactions deve ser um inteiro >= 1, recebido {n_interactions}.")
         if input_size is not None:
             input_size = tuple(int(v) for v in input_size)
             if len(input_size) != 2 or any(v <= 0 or v % 16 for v in input_size):
@@ -137,6 +146,7 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
                 "scribble_temperature": scribble_temperature,
                 "positive_threshold": positive_threshold,
                 "input_size": input_size,
+                "n_interactions": int(n_interactions),
             }
         super().__init__(config=config)
 
@@ -185,6 +195,7 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
         self.unet.eval()
 
         self.input_size = input_size if input_size is not None else tuple(self._sp.input_size)
+        self.n_interactions = int(n_interactions)
         logger.debug(
             f"[ScribblePromptingNetwork] Inicializada (version={version}, "
             f"device={self.device}, input_size={self.input_size})"
@@ -240,11 +251,16 @@ class ScribblePromptingNetwork(BaseFinalSegmentation):
         original_size = tuple(img.shape[-2:])
 
         inputs = self._rescale_inputs({"img": img, "scribbles": scribbles}, self.input_size)
-        x = self._prepare_inputs(inputs).float().to(device)  # (N, 5, 128, 128)
 
         # Chamada direta na UNet congelada (sem no_grad): gradiente flui até os
-        # scribbles, permitindo otimizar a MarkerNet através da loss.
-        logits = self.unet(x)
+        # scribbles, permitindo otimizar a MarkerNet através da loss. A partir da
+        # segunda passada, os logits da anterior entram como mask_input.
+        logits = None
+        for _ in range(self.n_interactions):
+            if logits is not None:
+                inputs["mask_input"] = logits
+            x = self._prepare_inputs(inputs).float().to(device)  # (N, 5, h, w)
+            logits = self.unet(x)
 
         if self.resize_output and tuple(logits.shape[-2:]) != original_size:
             logits = F.interpolate(logits, size=original_size, mode="bilinear", align_corners=False)

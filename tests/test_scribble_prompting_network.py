@@ -58,7 +58,9 @@ def fake_prepare_inputs(inputs):
     scribbles = inputs.get("scribbles")
     if scribbles is None:
         scribbles = torch.zeros(img.shape[0], 2, *img.shape[-2:], device=img.device)
-    mask = torch.zeros_like(img)
+    mask = inputs.get("mask_input")
+    if mask is None:
+        mask = torch.zeros_like(img)
     return torch.cat([img, box, scribbles, mask], dim=1)
 
 
@@ -395,3 +397,43 @@ def test_existing_corrupted_checkpoint_raises_instead_of_being_used(monkeypatch,
     with pytest.raises(RuntimeError, match="Apague o arquivo"):
         ScribblePromptingNetwork.download_checkpoint(str(tmp_path))
     assert calls == []
+
+
+def test_one_interaction_is_the_default_and_matches_a_single_pass(fake_scribbleprompt):
+    data = {"image": torch.rand(1, 1, 128, 128), "scribbles": torch.rand(1, 1, 128, 128)}
+    default = ScribblePromptingNetwork(scribble_mode="positive")
+    single = ScribblePromptingNetwork(scribble_mode="positive", n_interactions=1)
+    single.unet.load_state_dict(default.unet.state_dict())
+
+    assert default.n_interactions == 1
+    assert torch.equal(default(data), single(data))
+    assert torch.equal(_unet_input(default, data)[:, 4], torch.zeros(1, 128, 128))   # mask_input vazio
+
+
+def test_second_interaction_receives_the_first_logits_as_mask_input(fake_scribbleprompt):
+    net = ScribblePromptingNetwork(scribble_mode="positive", n_interactions=2)
+    data = {"image": torch.rand(1, 1, 128, 128), "scribbles": torch.rand(1, 1, 128, 128)}
+    seen = []
+    handle = net.unet.register_forward_hook(lambda m, args, out: seen.append((args[0].detach(), out.detach())))
+    net(data)
+    handle.remove()
+
+    assert len(seen) == 2
+    assert torch.equal(seen[0][0][:, 4], torch.zeros(1, 128, 128))
+    assert torch.allclose(seen[1][0][:, 4:5], seen[0][1])                              # logits da 1ª passada
+
+
+def test_gradient_flows_through_all_interactions(fake_scribbleprompt):
+    net = ScribblePromptingNetwork(scribble_mode="positive", n_interactions=3)
+    scribbles = torch.full((1, 1, 32, 32), 0.8, requires_grad=True)
+
+    net({"image": torch.rand(1, 1, 32, 32), "scribbles": scribbles}).sum().backward()
+
+    assert scribbles.grad is not None and scribbles.grad.abs().sum() > 0
+
+
+def test_n_interactions_is_validated(fake_scribbleprompt):
+    with pytest.raises(ValueError, match="n_interactions"):
+        ScribblePromptingNetwork(n_interactions=0)
+    with pytest.raises(ValueError, match="n_interactions"):
+        ScribblePromptingNetwork(n_interactions=1.5)
