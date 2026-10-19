@@ -30,7 +30,7 @@ image (B,3,1000,1000) ─► tons de cinza ─┐                         pos = 
   os scribbles, e daí até a MarkerUNet. ✅
 - Três achados deste tema:
   - O canal negativo marca como "fundo" **todo pixel não marcado, inclusive o interior dos núcleos**. Isso vai contra o
-    L_size, que quer marcadores pequenos (reforça o PD-04).
+    L_size, que quer marcadores pequenos (reforça o PD-04).NOTA: ACREDITO QUE MUDAMOS ISSO, VERIFIQUE 
   - As reduções de resolução não usam *antialias* (PD-37).
   - A entrada da MarkerUNet não recebe a normalização que o encoder ImageNet espera (PD-36).
 - A resolução de 128² **não impede sozinha** de superar o Cellpose: uma predição perfeita em 128² ainda daria Dice
@@ -82,7 +82,7 @@ treinados com entradas normalizadas (média ~0,45, desvio ~0,22 por canal, isto 
 oferece `get_preprocessing_fn` para isso, e o projeto não usa. As BatchNorms do encoder compensam parte dessa diferença
 durante o *fine-tuning*, mas o ponto de partida pré-treinado fica menos aproveitado (PD-36). ❓ O tamanho do impacto só se
 sabe testando.
-
+ 
 ### 2.4 Como o `MarkerStep` a executa ✅ — [marker_step.py](../../src/pipeline/steps/inference/marker_step.py)
 
 | | Treino (`differentiable=True`) | Inferência (`differentiable=False`) |
@@ -166,6 +166,9 @@ sabe testando.
 | 1,00 | 0,993 | 0,007 | 0,07 |
 
 Leituras:
+
+NOTA: FIQUEI NA DÚVIDA AQUI, ESTAMOS  CRIANDO UM "BACKGROUD" ENTÃO? 
+
 1. **Todo pixel com marcador baixo vira "rabisco negativo" quase cheio**, inclusive o interior de um núcleo que o marcador
    não cobriu. Na tese, o marcador de objeto é pequeno e o que não é marcado é decidido pela hierarquia. Aqui, "não
    marcado" é dito ao ScribblePrompt como "**isto é fundo**". Isso cria um conflito direto: o L_size empurra o marcador para

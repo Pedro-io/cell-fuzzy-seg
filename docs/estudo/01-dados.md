@@ -41,12 +41,15 @@ Citações exigidas pelo desafio:
 Na literatura, o treino é descrito como 7 órgãos: mama, fígado, rim, próstata, bexiga, cólon e estômago. ❓ Isso vem de
 um resumo de busca, não da página oficial; conferir no artigo antes de usar no texto.
 
+NOTA: ESSA PARTE É NECESSARIA NO PAPER, VAMOS INCLUÍLO COM UM POUCO MAIS DE DETALHES E CITANDO O TRABALHO QUE PROPÕE A BASE
+
 **Por que o MoNuSeg é difícil para este pipeline** ✅ (medido, §4):
 - centenas de objetos pequenos por imagem (mediana de ~400 núcleos, com um máximo de 1.863);
 - núcleos colados uns nos outros;
 - variação de escala entre imagens (PD-24).
 
----
+
+NOTA: INFO IMPORTANTE TAMBÉM ---
 
 ## 3. O que há no disco ✅
 
@@ -249,7 +252,7 @@ notebook, a partir do `MonusegDataset`, mas usam o mesmo `build_batch`.
 | 4 | `data_source/README.md` com atribuição e licença | Sim | ✅ [data_source/README.md](../../data_source/README.md) criado; PD-27 parcial (falta a licença do código) |
 | 5 | Imagens em 20× | O autor não sabia | PD-24, agora com o impacto medido no Cellpose e as opções de tratamento |
 
-### Perguntas originais (histórico)
+### Perguntas originais (histórico) NOTA: VAMOS REMOVER
 
 1. **`Binary_masks/` e `Binary_masks_instance/`**: de onde vieram? Do download original, de algum código do orientador ou
    gerados por você? (PD-26) vieram do download original 

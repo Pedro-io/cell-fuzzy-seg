@@ -68,6 +68,8 @@ lugar? E, sem ele, os resultados podem ser melhores? (sua resposta, 2026-09-27)
 citando **tipos de células em microscopia**. Nesse caso a cue do usuário é desnecessária, exatamente como no TCC, em que o
 Cellpose faz esse papel. 📖 Pode ser um bom gancho para o texto do TCC.
 
+NOTA: ESSA SEÇÃO É UMA BOA CONTEXTUALIZAÇÃO QUE PODE ENTRAR NO PAPER, VAMOS EXTRUTURAR ISSO MELHOR, INCLUSIVE A 2.4 QUE FALA UM POUCO SOBRE A CONTRIBUIÇÃO
+
 ---
 
 ## 3. O que o TCC muda em relação à tese
@@ -80,7 +82,7 @@ gera uma segmentação intermediária, e a rede de marcadores transforma essa se
 | Segmentação intermediária | U-Net interativa treinada, entrada = imagem + cues | **Cellpose** (modelo `cpsam`, congelado, **pré-computado uma vez**) | ✅ [cellpose_step.py:28](../../src/pipeline/steps/preprocessing/cellpose_step.py#L28) |
 | Rede de marcadores | U-Net com **3 encoders** ResNet34 (imagem; seg. objeto+fundo; saliency map) | **MarkerUNet**: U-Net `smp` com **1 encoder** ResNet34 ImageNet e entrada de **4 canais** (RGB + máscara Cellpose), ou seja, fusão precoce, como a prova de conceito da tese (5.4.1) | ✅ [marker_unet_config.py](../../src/models/configs/marker_unet_config.py) |
 | Camada de segmentação | **FMBS** sobre hierarquia (sem pesos aprendíveis) | **ScribblePrompt-UNet congelado** (rede neural de segmentação interativa biomédica, entrada 128×128) | ✅ [scribble_prompting_network.py](../../src/models/networks/final_segmentation/scribble_prompting_network.py) |
-| Marcador de fundo | fixo (4 cliques nos cantos) ou aprendido por inversão (5.4.3) | **complemento do marcador de objeto**: canal negativo = `sigmoid(T·(0.5−s))`, denso na imagem toda. ⚠️ Você não lembra o motivo e acha que **provavelmente foi um erro**: [PD-04](08-pendencias.md#pd-04) | ✅ [scribble_prompting_network.py:348-352](../../src/models/networks/final_segmentation/scribble_prompting_network.py#L348-L352) |
+| Marcador de fundo | fixo (4 cliques nos cantos) ou aprendido por inversão (5.4.3) | **complemento do marcador de objeto**: canal negativo = `sigmoid(T·(0.5−s))`, denso na imagem toda. ⚠️ Você não lembra o motivo e achano que **provavelmente foi um erro**: [PD-04](08-pendencias.md#pd-04) NOTA: AQUI  TEMOS QUE VERIFICAR, PROVAVELMENTE FOI ALTERADO | ✅ [scribble_prompting_network.py:348-352](../../src/models/networks/final_segmentation/scribble_prompting_network.py#L348-L352) |
 | Regularizações | L_size, L_Dmap, L_comp, L_TV | L_size, L_Dmap e L_TV implementados. **L_comp removido de propósito** (§6 e §8). Extras que não estão na tese: Border, NotTooThin e RMSE, **sugeridos pelo orientador** | ✅ [terms.py](../../src/losses/terms.py) |
 | Dados | MSRA10K / MS COCO + 4 datasets não vistos | **MoNuSeg**: 30 imagens de treino e 14 de teste, 1000×1000 | ✅ [meta.json](../../data_source/MoNuSegPreprocessed/meta.json) |
 
@@ -93,6 +95,8 @@ não der resultado, outras redes podem ser testadas, e o código foi feito para 
 📖 Argumento a favor do ScribblePrompt para o texto: ele é uma rede de segmentação interativa feita para imagens
 **biomédicas**, e o treino dele inclui datasets de células (artigo, seção 3.3).
 
+NOTA: ESSA TABELA TRÁS A IDEIA DA ARQUITETURA GERAL, PORÉM VAMOS ATUALIZALA PARA O NOSSO CONTEXTO REAL
+
 ### 3.1 Uma diferença conceitual importante 📖✅❓
 
 No FMBS, a segmentação é **inteiramente determinada** pelos marcadores e pela hierarquia. É isso que torna o marcador uma
@@ -101,6 +105,8 @@ Ela pode segmentar coisas que o marcador não "explica", e foi treinada com **tr
 ❓ Com isso a propriedade "marcador editável e interpretável" da tese fica mais fraca, e vale discutir isso no texto do TCC.
 O código já tenta aproximar a entrada da distribuição de treino do ScribblePrompt com o modo `sharpened`
 ([scribble_prompting_network.py:55-60](../../src/models/networks/final_segmentation/scribble_prompting_network.py#L55-L60)).
+
+NOTA: PODEMOS CITAR EM TRABALHOS FUTUROS QUE ESSA É UMA POSSIVEL LIMITAÇÃO E QUE PODE SER INTERESSANTE  ADICIONAR UMA NOVA REDE NA CAMADA FINAL QUE PODERIA FAZER O PAPEL DO FMBS D EFORMA MAIS FIDEDIGNA
 
 ---
 
@@ -148,6 +154,8 @@ Dice(segmentation, gt) + Size(markers) + DMap(markers, distance_map) + TV(marker
 A resolução passa por **1000 → 256 → 1000 → 128 → 1000**. O gargalo de detalhe é o ScribblePrompt, que trabalha em
 128×128: cada pixel dele equivale a ~7,8 px da imagem original, e um núcleo do MoNuSeg tem poucas dezenas de pixels de
 diâmetro. ✅ (os tamanhos estão no código) · ❓ (o impacto disso nos resultados é inferência minha)
+
+NOTA: PODE AJUDAR NA METODOLOGIA, MAS LÁ FAZ MAIS SENTIDO AS "CAIXAS" DO QUE O CÓDIGO EM SI 
 
 ---
 

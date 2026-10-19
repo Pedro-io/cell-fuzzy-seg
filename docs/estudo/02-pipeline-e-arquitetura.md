@@ -39,6 +39,10 @@ A motivação aparece em dois documentos antigos (hoje só no git):
   mesmo raciocínio vale para a rede final (`BaseFinalSegmentation`), que já foi trocada três vezes: watershed, U-Net congelada
   e ScribblePrompt.
 
+- 
+-NOTA: VAMOS REMOVER A CITAÇÃO DE OUTRAS REDES E DOCS ANTIGOS (ISSO VALE PARA TODOS OS DOCUMENTOS) PENSE QUE NA ATUALIZAÇÃO, ISSO SERA UMA ESPECIE DE DOCUMENTO DO USUÁRIO  USADO PARA ENTENDER TODO O FLUXO COM O DETALAMENTO QUE JÁ TEMOS
+
+ 
 O `ARCHITECTURE.md` descrevia isso como "arquitetura oficial" com princípios SOLID (responsabilidade única, baixo
 acoplamento etc.). A §3 mostra o quanto o código segue de fato.
 
@@ -292,8 +296,7 @@ nos temas 3 e 5.
 
 ---
 
-## 9. Decisões confirmadas (2026-09-27)
-
+## 9. Decisões confirmadas (2026-09-27) NOTA: VAMOS REMOVER ESSE TIPO DE PONTO DOS DOCS FINAIS E CENTALIZAR TUDO EM UM DOCUMENTO SÓ, COMO JÁ TEMOS O PENDENCIAS PODEMOS CRIAR UMA SEÇÃO LA DE DECISÕES 
 | # | Pergunta | Resposta | Onde ficou |
 |---|---|---|---|
 | 1 | Origem de `flow_threshold=0.2` e `min_size=4` | **Testes do autor**: pelo que ele lembra, esses valores melhoraram a segmentação inicial e encontravam melhor os núcleos. O teste não ficou registrado. | PD-30: remedir junto com o diâmetro, registrando os números |
