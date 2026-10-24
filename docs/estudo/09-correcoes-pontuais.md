@@ -1456,3 +1456,75 @@ fora do treino. Ressalva: o modelo foi treinado com uma passada; treinar com vá
 que justifique. **Próximo passo** (plano aprovado pelo autor): testes de configurações externas à MarkerUNet (faixa do negativo,
 τ, sobreposição dos blocos, entrada do ScribblePrompt, TTA) e, depois, segmentação por núcleo, a ideia do PromptNucSeg e do CellSAM.
 
+
+**Decisão do autor com o coordenador (2026-10-23):** a segmentação um núcleo por vez (um recorte e um prompt por núcleo, ideia do
+PromptNucSeg e do CellSAM) **não será feita**, pelo custo. O plano segue com as configurações externas à MarkerUNet
+(`testes_pos_treino_2.ipynb`, `0790ca9`) e, se alguma vencer, o retreino com ela (e com o termo Focal).
+
+### 18.23 Configurações externas à MarkerUNet, sem retreinar (2026-10-23)
+
+Notebook `notebooks/exploration/testes_pos_treino_2.ipynb` (`0790ca9`), com os modelos dos *folds* de `recortes_negativo`; cada
+imagem é prevista pelo modelo do *fold* em que ficou de fora, limiar 0,5. Um fator por vez contra a base; "vence" = Δ > 0, mais
+imagens melhorando que piorando e Wilcoxon p < 0,05. Execução do autor no Colab (T4), 4,8 min. Base 0,8350, igual ao registrado ✅.
+Cellpose: Dice 0,8450, precisão 0,8674, revocação 0,8263.
+
+| Condição | Dice | Precisão | Revocação | Massa | Δ base | Melhores/piores | p | Acima do Cellpose | Dice 20× |
+|---|---|---|---|---|---|---|---|---|---|
+| base (faixa 3 px, τ 0,5, sobreposição 1/4, 128², sem TTA) | 0,8350 | 0,812 | 0,864 | 1,070 | — | — | — | 7 | 0,810 |
+| faixa do negativo 1 px | 0,8370 | 0,867 | 0,812 | 0,940 | +0,002 | 21/16 | 0,31 | 4 | 0,821 |
+| **faixa do negativo 2 px** | **0,8394** | 0,837 | 0,845 | 1,014 | +0,004 | 28/9 | < 0,001 | 8 | 0,823 |
+| faixa do negativo 5 px | 0,8273 | 0,797 | 0,864 | 1,091 | −0,008 | 0/37 | < 0,001 | 3 | 0,799 |
+| τ 0,3 | 0,7766 | 0,681 | 0,915 | 1,371 | −0,058 | 0/37 | < 0,001 | 0 | 0,719 |
+| τ 0,4 | 0,8228 | 0,771 | 0,887 | 1,160 | −0,012 | 5/32 | < 0,001 | 4 | 0,780 |
+| τ 0,6 | 0,8340 | 0,826 | 0,846 | 1,028 | −0,001 | 13/24 | 0,10 | 4 | 0,810 |
+| **sobreposição 1/2** | 0,8355 | 0,812 | 0,864 | 1,069 | +0,0005 | 32/5 | < 0,001 | 8 | 0,810 |
+| entrada do ScribblePrompt 160² | 0,8310 | 0,788 | 0,883 | 1,127 | −0,004 | 9/28 | < 0,001 | 7 | 0,803 |
+| entrada do ScribblePrompt 192² | 0,8336 | 0,796 | 0,879 | 1,109 | −0,001 | 17/20 | 0,14 | 7 | 0,809 |
+| **TTA (8 rotações e espelhamentos)** | 0,8383 | 0,815 | 0,867 | 1,070 | +0,003 | 36/1 | < 0,001 | 8 | 0,814 |
+| **combinação: faixa 2 px + sobreposição 1/2 + TTA** | **0,8423** | 0,840 | 0,848 | 1,014 | **+0,007** | 33/4 | < 0,001 | **11** | **0,827** |
+
+Leitura:
+- A combinação é o melhor resultado até aqui: 0,8423, a 0,003 do Cellpose (0,8450), com 11 das 37 imagens acima dele. Ainda não
+  passa.
+- **A faixa do negativo é o fator que mais pesa**, e com 2 px a massa fica em 1,01. Com 1 px, precisão e revocação ficam quase
+  iguais às do Cellpose (0,867 × 0,867; 0,812 × 0,826): quanto mais justo o negativo, mais a saída copia a máscara do Cellpose ❓
+  (leitura dos números; no limite de 0 px, o pipeline só poderia encolher as máscaras). Isso pesa no argumento do trabalho: o ganho
+  com a faixa menor vem em parte de seguir mais o Cellpose.
+- TTA e sobreposição 1/2 são só de inferência: ganham pouco, mas em quase todas as imagens (36/1 e 32/5), e não pedem retreino.
+- τ e a entrada maior do ScribblePrompt pioram: com τ menor, o marcador fraco vira scribble e a saída incha (massa 1,37 em τ 0,3);
+  a entrada maior também incha (o mesmo efeito da resolução visto no oráculo, 11 §7).
+- **Ressalva:** os vencedores foram escolhidos nas mesmas 37 imagens em que a combinação foi medida, e o modelo foi treinado com a
+  faixa de 3 px; o +0,007 é otimista. A faixa de 2 px precisa ser confirmada retreinando (`recortes_negativo` com
+  `NEGATIVE_RADIUS = 2`), avaliado com TTA e sobreposição 1/2.
+
+### 18.24 Fechamento morfológico dos marcadores antes do ScribblePrompt (2026-10-23, aguardando validação do autor)
+
+**Pedido.** O coordenador sugeriu "tapar os buraquinhos" dos marcadores antes do ScribblePrompt com uma operação clássica, a
+dilatação seguida de erosão (o **fechamento**), para facilitar a edição humana dos marcadores, o que seria uma contribuição do
+trabalho.
+
+**Base.**
+- 📖 Fechamento em tons de cinza com elemento estruturante plano: dilatação = máximo na vizinhança, erosão = mínimo (Haralick,
+  Sternberg e Zhuang, IEEE TPAMI 9(4):532–550, 1987, doi 10.1109/TPAMI.1987.4767941; PDF em `docs/papers/`).
+- 📖 Erosão, dilatação, abertura e fechamento de funções por conjuntos **comutam com a limiarização** (Maragos e Schafer, IEEE TASSP
+  35(8):1153–1169, 1987, p. 1158, doi 10.1109/TASSP.1987.1165259; PDF em `docs/papers/`), e o fechamento é **extensivo** (p. 1164).
+  Consequência (dedução nossa, conferida num teste): fechar o marcador difuso e depois aplicar o corte `relu(m − τ)/(1 − τ)` dá o
+  mesmo que cortar e depois fechar, porque o corte é crescente e contínuo.
+- 📖 A tese do orientador (§7.1.4, p. 92) propõe operadores morfológicos (o fechamento, "gap filling") como trabalho futuro, para
+  marcadores mais fáceis de editar; lá como **perda**, aqui como **operação** sobre o marcador.
+- A baixar pelo autor: Sternberg (CVGIP, 1986), Soille (*Morphological Image Analysis*, 2ª ed.), Bloch e Maître (Pattern
+  Recognition, 1995, morfologia de conjuntos difusos) e Franchi, Fehri e Yao (Pattern Recognition, 2020, camadas morfológicas
+  treináveis). DOIs no `CLAUDE.md` e a passar para `docs/notas-do-projeto/referencias.md`.
+
+**Código (working tree).**
+- `src/pipeline/steps/inference/marker_closing_step.py` (novo): `disk_offsets`, `grey_dilation`, `grey_erosion`, `grey_closing`
+  (disco euclidiano de raio r px; pixels fora da imagem não contam, então a borda não cria nem apaga marcador; raio 0 = identidade)
+  e `MarkerClosingStep(radius, input_key="markers", output_key="markers_closed")`, que só acrescenta a chave.
+- `FrozenSegmentationStep(markers_key="markers")`: a chave dos marcadores passa a ser configurável; o padrão não muda nada.
+- `tests/test_marker_closing_step.py` (14 casos): igual ao `scipy.ndimage` dentro da imagem, extensivo e idempotente, tapa buraco
+  menor que o disco, não muda marcador convexo nem marcador na borda, comuta com o corte em τ, raio 0 é a identidade, o gradiente
+  passa, e o `FrozenSegmentationStep` lê `markers_key`. Suíte: 202 ok, 3 falhas conhecidas (PD-11), 1 pulado.
+- `notebooks/exploration/testes_pos_treino_3.ipynb` (novo): raios 1, 2, 3 e 5 px sobre a melhor inferência (§18.23), sem
+  retreinar; tabela da segmentação (pareada contra o raio 0), tabela de editabilidade (componentes, fragmentos < 20 px, buracos,
+  fração das regiões do GT sem marcador, com um componente e partidas, componentes que unem regiões ou caem fora do GT) e figura.
+  O limiar de 20 px dos fragmentos é escolha nossa.

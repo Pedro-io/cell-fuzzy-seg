@@ -114,6 +114,12 @@
    fica de reserva. Decisão do autor: Dice + BCE não fere a regra "Dice ou RMSE". **Pedido do autor (2026-10-18):** também
    `recortes_negativo_tese` (perdas da tese sem TV: Dice + Size 0,1 + DMap 1/3000), `recortes_negativo_tese_bce` (o mesmo + BCE)
    e uma combinação sugerida pelo Claude, `recortes_negativo_bce_dmap` (Dice + BCE 1,0 + DMap 0,1).
+   **Testes depois do treino (2026-10-19, 09 §18.22):** interação iterativa e negativo entre núcleos ficam abaixo da base. Próximo:
+   configurações externas à MarkerUNet, sem retreinar (`testes_pos_treino_2.ipynb`, `0790ca9`: faixa do negativo, τ, sobreposição
+   dos blocos, entrada do ScribblePrompt, TTA), depois retreinar o que vencer (e o termo Focal). **Decisão do autor com o
+   coordenador (2026-10-23):** a segmentação um núcleo por vez (ideia do PromptNucSeg e do CellSAM) **não será feita**, pelo custo.
+   **Configurações externas rodadas (2026-10-23, 09 §18.23):** faixa do negativo 2 px + sobreposição 1/2 + TTA = **0,8423**
+   (+0,007 pareado, 33/4; 11/37 acima do Cellpose; Cellpose 0,8450), sem retreinar. Próximo: retreinar com a faixa de 2 px.
 9. Decisão de rumo do autor (PD-40/PD-52, caminho d).
 
 **C — ablações já decididas**, sobre a melhor configuração
