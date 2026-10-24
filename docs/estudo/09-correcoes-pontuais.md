@@ -1627,3 +1627,9 @@ com **faixa do negativo de 2 px** e **fechamento de 3 px do marcador no treino e
 descrição ganha a chave `fechamento`; seção 8b com os modelos gravados: "registro" (tem de repetir o Dice da validação cruzada) e
 "melhor inferência" (sobreposição 1/2 e TTA), contra o Cellpose, e a editabilidade do marcador cru e do fechado, gravadas em
 `melhor_inferencia.csv` e `editabilidade.csv` na pasta de resultados. Os *folds* e as sementes são os do `recortes_negativo`.
+
+**Rodada 2 (preparada em 2026-10-24, a pedido do autor):** `recortes_negativo_r2_fechamento_tese` = a mistura com as **perdas do
+marcador da tese, sem o TV**: Dice + Size (0,1) + DMap (0,1). Só as perdas mudam em relação à mistura (mesmos *folds*, sementes,
+faixa e fechamento). As perdas do marcador agem sobre o marcador **cru** (`data["markers"]`, conferido em `Trainer`), e o
+fechamento emenda os pedaços antes do ScribblePrompt: é a hipótese de que o fechamento faz parte do papel do L_comp, que segurava os
+componentes na tese ❓. Critério: editabilidade (seção 8b) com o Dice sem queda relevante em relação à mistura.
