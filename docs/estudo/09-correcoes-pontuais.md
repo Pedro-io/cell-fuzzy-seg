@@ -1528,3 +1528,48 @@ trabalho.
   retreinar; tabela da segmentação (pareada contra o raio 0), tabela de editabilidade (componentes, fragmentos < 20 px, buracos,
   fração das regiões do GT sem marcador, com um componente e partidas, componentes que unem regiões ou caem fora do GT) e figura.
   O limiar de 20 px dos fragmentos é escolha nossa.
+
+**Resultado (2026-10-24, execução do autor no Colab, 18,7 min).** Conferência: "como foi treinado" = 0,8350, igual ao registrado ✅;
+melhor inferência sem fechamento = 0,8423, igual ao §18.23 ✅.
+
+| Raio | Dice | Δ raio 0 | Melhores/piores | p | Massa | Componentes | Fragmentos | Buracos | Regiões com 1 componente | Regiões partidas | Componentes unindo regiões |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0,8423 | — | — | — | 1,014 | 2.746 | 2.028 | 1.052 | 18,2% | 80,0% | 20,7 |
+| 1 px | 0,8425 | +0,0002 | 22/15 | 0,41 | 1,034 | 1.544 | 878 | 377 | 46,1% | 52,0% | 22,9 |
+| 2 px | 0,8421 | −0,0002 | 17/20 | 0,75 | 1,053 | 938 | 313 | 161 | 81,1% | 17,1% | 29,2 |
+| 3 px | 0,8416 | −0,0006 | 14/23 | 0,25 | 1,060 | 800 | 231 | 18 | 89,5% | 8,6% | 46,6 |
+| 5 px | 0,8381 | −0,0042 | 10/27 | 0,001 | 1,095 | 510 | 142 | 13 | 95,6% | 2,6% | 87,6 |
+
+(Editabilidade: médias por imagem; cada imagem tem em média ~650 regiões do GT. Regiões sem marcador: 1,9% em todos os raios.)
+
+Leitura:
+- **O fechamento não muda o Dice até 3 px** (diferenças de até 0,0006, sem significância) e **deixa o marcador muito mais
+  editável**: com 3 px, os buracos caem 98% (1.052 → 18 por imagem), os componentes caem 71% e a fração das regiões do GT com um
+  único componente de marcador sobe de 18% para 90%. Sem fechamento, 80% das regiões têm o marcador partido.
+- O custo aparece em **componentes que unem regiões vizinhas** (21 → 47 por imagem em 3 px, ~7% das regiões) e numa massa um pouco
+  maior. Com 5 px, o Dice cai (−0,004, p = 0,001) e as uniões dobram de novo. **2 a 3 px** é a faixa útil.
+- Na figura, o marcador cru tem uma textura em grade (pontos claros e escuros alternados) que gera a maior parte dos buracos;
+  o fechamento a apaga. Origem da textura ❓ (possível artefato de *upsampling* do decodificador ou do corte em τ; não verificado).
+- Conclusão: o fechamento é uma operação sem custo de segmentação que entrega marcadores mais próximos de "um traço por núcleo", o
+  que serve à contribuição de editabilidade (tese, §7.1.4).
+
+### 18.25 Perdas da tese julgadas pela editabilidade (2026-10-24, aguardando validação do autor)
+
+**Pedido do autor.** Na tese, as perdas do marcador (Size, DMap, L_comp) dizem o que é um **marcador bom para editar** (pequeno,
+dentro do objeto, poucos componentes), e não servem para subir o Dice. Então elas devem ser julgadas pela **editabilidade** do
+marcador, com o Dice como restrição (não piorar), e não só pelo Dice. O TV fica fora (achata o marcador neste pipeline, §18.17).
+
+**Ordem decidida (um bloco de cada vez):**
+1. Medir a editabilidade dos modelos já treinados (`recortes_negativo`, `_dmap`, `_bce`), sem retreinar:
+   `notebooks/exploration/editabilidade_experimentos.ipynb`.
+2. Retreinar com a faixa do negativo de 2 px: só Dice e Dice + Size + DMap (sem TV).
+3. Edição simulada com cliques binários (100% positivos ou negativos) sobre o marcador.
+
+**Peso do DMap (decisão do autor: "o que tiver dado o melhor resultado").** Com recortes e negativo, o DMap só foi rodado com
+peso 0,1 (`recortes_negativo_dmap`, 0,830, marcador menor e limpo); o peso da tese em proporção ao Dice (1/3000) nunca rodou nessa
+configuração e, em rodadas anteriores, quase não agia. Fica **0,1**. O Size fica em 0,1 (λ_size/λ_seg da tese).
+
+**Código (working tree).** `src/evaluation/editability.py` (novo): `marker_editability(marker, ground_truth, tau, fragment_area)`,
+a mesma medida do `testes_pos_treino_3`, agora em `src/` para ser usada por mais de um notebook; `tests/test_editability.py`
+(6 casos: caso ideal, marcador partido com buraco, fragmentos e componente fora, componente unindo dois núcleos, corte em τ,
+tensores, formato). Suíte: 208 ok, 3 falhas conhecidas (PD-11), 1 pulado. O `testes_pos_treino_3` mantém a sua cópia (já rodado).
