@@ -36,6 +36,7 @@ Notebooks de treino da MarkerNet com a rede final congelada (ScribblePrompt). To
 | `recortes_negativo_tese.ipynb` | o `recortes_negativo` com as **perdas da tese sem o TV**: Dice + Size (0,1) + DMap (1/3000), os pesos da tese divididos por λ_seg (o DMap quase não age com esse peso). |
 | `recortes_negativo_tese_bce.ipynb` | o mesmo conjunto da tese sem o TV **+ BCE** (1,0). |
 | `recortes_negativo_bce_dmap.ipynb` | o `recortes_negativo` com **BCE (1,0) + DMap (0,1)**: as duas perdas que atacam a precisão, juntas. |
+| `recortes_negativo_r2_fechamento.ipynb` | o `recortes_negativo` com **faixa livre do negativo de 2 px** (era 3 px) e **fechamento de 3 px do marcador no treino e na avaliação** (`MarkerClosingStep`), as duas mudanças externas que funcionaram sem retreinar; a seção 8b avalia os modelos dos *folds* com a melhor inferência (sobreposição 1/2 e TTA) contra o Cellpose e mede a editabilidade do marcador cru e do fechado. |
 | `experimento_final.ipynb` | treino final da configuração escolhida e avaliação única no teste. |
 
 Todos usam a mesma configuração de treino (só a perda e o negativo mudam) e precisam de GPU.

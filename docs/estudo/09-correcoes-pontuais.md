@@ -1573,3 +1573,57 @@ configuração e, em rodadas anteriores, quase não agia. Fica **0,1**. O Size f
 a mesma medida do `testes_pos_treino_3`, agora em `src/` para ser usada por mais de um notebook; `tests/test_editability.py`
 (6 casos: caso ideal, marcador partido com buraco, fragmentos e componente fora, componente unindo dois núcleos, corte em τ,
 tensores, formato). Suíte: 208 ok, 3 falhas conhecidas (PD-11), 1 pulado. O `testes_pos_treino_3` mantém a sua cópia (já rodado).
+
+**Resultado do passo 1 (2026-10-24, execução do autor no Colab, 22,6 min).** Conferência: "como foi treinado" reproduz o Dice
+registrado dos três experimentos (0,8350, 0,8302, 0,8335) ✅.
+
+Segmentação (Δ e p pareados contra `recortes_negativo` na mesma condição):
+
+| Condição | `recortes_negativo` | `_dmap` | `_bce` |
+|---|---|---|---|
+| como foi treinado | 0,8350 | 0,8302 (−0,005; 2/35; p < 0,001) | 0,8335 (−0,002; 11/26; p = 0,008) |
+| melhor inferência (2 px, 1/2, TTA) | **0,8423** | 0,8381 (−0,004; 4/33) | 0,8404 (−0,002; 8/29) |
+| melhor inferência + fechamento 3 px | 0,8416 | 0,8384 (−0,003; 6/31) | 0,8413 (−0,0003; 14/23; p = 0,32) |
+
+Editabilidade (médias por imagem, marcador do "melhor inferência"):
+
+| Experimento | Fechamento | Área marcada | Componentes | Fragmentos | Buracos | Regiões sem marcador | Regiões com 1 componente | Regiões partidas | Unindo regiões |
+|---|---|---|---|---|---|---|---|---|---|
+| `recortes_negativo` | 0 | 14,2% | 2.746 | 2.028 | 1.052 | 1,9% | 18% | 80% | 21 |
+| | 3 px | 19,1% | 800 | 231 | 18 | 1,9% | **90%** | **9%** | 47 |
+| `_dmap` | 0 | 8,2% | 3.309 | 2.741 | 588 | 8,0% | 12% | 80% | 13 |
+| | 3 px | 11,8% | 821 | 280 | 19 | 8,0% | 66% | 26% | 23 |
+| `_bce` | 0 | 9,3% | 5.298 | 4.517 | 550 | 1,6% | 7% | 91% | 13 |
+| | 3 px | 15,2% | 1.199 | 562 | 140 | 1,6% | 65% | 33% | 34 |
+
+Leitura:
+- **O `recortes_negativo` (só Dice) com fechamento de 3 px é o melhor nos dois critérios:** maior Dice e marcador mais editável
+  (90% dos núcleos com um único componente). Leitura do autor na figura: o marcador do Dice é bem melhor.
+- **O DMap faz o que a tese pede só em parte:** o marcador fica menor (8,2% da imagem contra 14,2%) e une menos núcleos, mas fica
+  **mais picotado** (traços finos verticais na figura; 2.741 fragmentos) e deixa **8% dos núcleos sem marcador**. Mesmo com o
+  fechamento, só 66% dos núcleos ficam com um componente. A BCE também picota o marcador (91% das regiões partidas sem fechamento).
+- Hipótese: na tese, o L_comp (número de componentes) equilibra o DMap e o Size; sem ele, encolher o marcador o quebra em
+  pedaços. O fechamento faz parte desse papel, mas não basta para o DMap. ❓ não testado.
+- Os três marcadores crus têm uma textura em grade ou em listras (§18.24), de origem não verificada ❓.
+
+### 18.26 Passo 2: uma rodada só, faixa de 2 px + fechamento no treino (2026-10-24, aguardando validação do autor)
+
+**Decisão do autor.** Com poucas execuções de Colab sobrando, em vez de retreinar só a faixa de 2 px e, depois, as perdas da tese,
+fazer **uma mistura usando os 2 px**. Escolhida (proposta do Claude): `recortes_negativo_r2_fechamento` = o `recortes_negativo`
+com **faixa do negativo de 2 px** e **fechamento de 3 px do marcador no treino e na avaliação**, só Dice.
+
+**Por quê.**
+- As duas mudanças são externas à MarkerUNet e funcionaram sem retreinar: a faixa de 2 px subiu o Dice (+0,004, 28/37; §18.23) e
+  o fechamento de 3 px não mudou o Dice e deixou 90% dos núcleos com um único componente de marcador (§18.24, §18.25).
+- As perdas da tese ficam fora: o DMap deixou o marcador menor, mas picotado e com 8% dos núcleos sem marcador, e baixou o Dice
+  (§18.25). Sem o L_comp, não há o que segure os componentes.
+- Com o fechamento dentro do treino, a MarkerUNet aprende sabendo que o marcador será fechado (o gradiente passa pelo máximo e pelo
+  mínimo, testado em `tests/test_marker_closing_step.py`). Hipótese ❓: isso pode limpar a textura em grade do marcador cru.
+- Ressalva: duas mudanças juntas não separam o efeito de cada uma. Os testes sem retreinar já deram o efeito isolado de cada uma
+  (§18.23, §18.24); esta rodada mede o efeito das duas no treino.
+
+**Código (working tree).** `notebooks/experiments/recortes_negativo_r2_fechamento.ipynb`: `NEGATIVE_RADIUS = 2`,
+`RAIO_FECHAMENTO = 3`, `factory` com `MarkerStep → MarkerClosingStep → FrozenSegmentationStep(markers_key="markers_closed")`, a
+descrição ganha a chave `fechamento`; seção 8b com os modelos gravados: "registro" (tem de repetir o Dice da validação cruzada) e
+"melhor inferência" (sobreposição 1/2 e TTA), contra o Cellpose, e a editabilidade do marcador cru e do fechado, gravadas em
+`melhor_inferencia.csv` e `editabilidade.csv` na pasta de resultados. Os *folds* e as sementes são os do `recortes_negativo`.
