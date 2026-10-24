@@ -37,6 +37,7 @@ class FrozenSegmentationStep(PipelineStep):
         device: Dispositivo PyTorch para inferência (cpu ou cuda).
         negative_key: Chave de ``data`` com um canal negativo fixo, repassado à
             rede final como ``"negative"`` (``None``: nenhum).
+        markers_key: Chave de ``data`` com os marcadores repassados à rede final.
         name: Identificador deste passo no pipeline.
     """
 
@@ -46,6 +47,7 @@ class FrozenSegmentationStep(PipelineStep):
         device: Optional[str] = None,
         negative_key: Optional[str] = None,
         name: str = "FrozenSegmentationStep",
+        markers_key: str = "markers",
     ):
         """Inicializa o FrozenSegmentationStep.
 
@@ -58,10 +60,14 @@ class FrozenSegmentationStep(PipelineStep):
                 chave ``"negative"`` (como a ``ScribblePromptingNetwork``).
                 ``None``: nenhum negativo é repassado.
             name: Identificador deste passo no pipeline.
+            markers_key: Chave de ``data`` com os marcadores (padrão ``"markers"``,
+                a saída do MarkerStep; ``"markers_closed"`` para os marcadores do
+                :class:`MarkerClosingStep`).
         """
         super().__init__(name=name)
         self.final_network = final_network
         self.negative_key = negative_key
+        self.markers_key = markers_key
 
         if device is None:
             self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -80,8 +86,8 @@ class FrozenSegmentationStep(PipelineStep):
         Args:
             data: Dicionário contendo:
                 - ``"image"``: imagem de entrada (numpy ou tensor).
-                - ``"markers"``: marcadores nebulosos gerados pela MarkerNet
-                  (numpy ou tensor). São repassados à rede final como
+                - ``markers_key`` (padrão ``"markers"``): marcadores nebulosos
+                  gerados pela MarkerNet (numpy ou tensor). São repassados à rede final como
                   ``"scribbles"``, o contrato da
                   :class:`BaseFinalSegmentation`.
                 - ``negative_key`` (se configurada): canal negativo fixo,
@@ -93,13 +99,15 @@ class FrozenSegmentationStep(PipelineStep):
                   segmentação final produzida pela rede.
 
         Raises:
-            KeyError: Se ``"image"``, ``"markers"`` ou ``negative_key`` estiverem ausentes em ``data``.
+            KeyError: Se ``"image"``, ``markers_key`` ou ``negative_key`` estiverem ausentes em ``data``.
             RuntimeError: Se ``final_network`` não foi fornecido ou a inferência falhar.
         """
         if "image" not in data:
             raise KeyError("Missing 'image' in data. Ensure the image is provided before FrozenSegmentationStep.")
-        if "markers" not in data:
-            raise KeyError("Missing 'markers' in data. Ensure MarkerStep runs before FrozenSegmentationStep.")
+        if self.markers_key not in data:
+            raise KeyError(
+                f"Missing '{self.markers_key}' in data. Ensure MarkerStep runs before FrozenSegmentationStep."
+            )
         if self.negative_key is not None and self.negative_key not in data:
             raise KeyError(f"Missing '{self.negative_key}' in data (negative_key of {self.name}).")
 
@@ -110,7 +118,7 @@ class FrozenSegmentationStep(PipelineStep):
 
         try:
             # Contrato da rede final: dict com image + scribbles (marcadores).
-            inputs = {"image": data["image"], "scribbles": data["markers"]}
+            inputs = {"image": data["image"], "scribbles": data[self.markers_key]}
             if self.negative_key is not None:
                 inputs["negative"] = data[self.negative_key]
             # Sem torch.no_grad(): o grafo computacional deve permanecer
