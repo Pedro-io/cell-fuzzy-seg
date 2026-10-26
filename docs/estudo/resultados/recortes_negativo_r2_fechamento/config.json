@@ -1,0 +1,33 @@
+{
+ "nome": "recortes_negativo_r2_fechamento",
+ "descricao": {
+  "perdas": "soft Dice (1,0), sem regularização do marcador",
+  "rede_final": "ScribblePrompt-UNet v1 congelado, scribble_mode=positive, tau=0.5, input_size=(128, 128), negativo = fundo do Cellpose (faixa livre de 2 px)",
+  "fechamento": "fechamento em tons de cinza do marcador por um disco de 3 px antes do ScribblePrompt, no treino e na avaliação",
+  "marker_net": "MarkerUNet (smp Unet, resnet34 ImageNet, 4 canais)",
+  "rgba_alpha": "mask",
+  "aumentacao": "rot90 + flips, sorteada a cada época",
+  "recortes": "treino com 4 recortes de 256² por imagem por época (MarkerUNet sem redução); avaliação da imagem inteira em blocos de 256² com sobreposição 0.25 e janela de Hann"
+ },
+ "config": {
+  "k": 5,
+  "batch_size": 16,
+  "max_epochs": 200,
+  "patience": 20,
+  "min_delta": 0.0,
+  "lr": 0.0001,
+  "grad_clip": 1.0,
+  "threshold": 0.5,
+  "seed": 42,
+  "device": "cuda",
+  "log_every": 10,
+  "crop_size": 256,
+  "crops_per_image": 4
+ },
+ "final_epochs": 67,
+ "procedencia": {
+  "commit": "3b10c55",
+  "gpu": "Tesla T4",
+  "reconstruido": "arquivo reconstruído em 2026-10-26 a partir das saídas gravadas em notebooks/experiments/recortes_negativo_r2_fechamento.ipynb (descrição impressa na célula de configuração, épocas do treino final impressas no resumo, commit impresso no setup); o TrainConfig é o do código do notebook, igual ao de recortes_negativo_r2_fechamento_tese. A pasta original de resultados (CSVs por imagem, curvas) não foi baixada do Colab."
+ }
+}
