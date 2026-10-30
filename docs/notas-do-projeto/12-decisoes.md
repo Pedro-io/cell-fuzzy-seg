@@ -5,7 +5,7 @@ outros capítulos descrevem o estado atual e citam as decisões por aqui quando 
 
 **Como usar.** Cada decisão tem um identificador `D-nn`, que não é reaproveitado. Uma decisão revista não é apagada: ela fica
 marcada como **substituída por D-nn**, para que o caminho até o estado atual continue legível. Decisões em aberto ficam na seção
-12.8. Uma decisão nova entra no fim do tema correspondente, com o próximo número livre (hoje, D-41).
+12.9. Uma decisão nova entra no fim da seção 12.8, que segue a ordem das datas, com o próximo número livre (hoje, D-56).
 
 As perguntas e respostas originais que deram origem às decisões de 2026-09-27 estão nas seções "Decisões" e "Perguntas
 originais" dos documentos `docs/estudo/00` a `06`, no commit `b5455ad`. As decisões de 2026-09-28 em diante estão registradas
@@ -58,9 +58,9 @@ em [08-pendencias.md](../estudo/08-pendencias.md) e [09-correcoes-pontuais.md](.
 | D-21 | antes de 2026-09 | Canal negativo = complemento do marcador (modos `sharpened` e `dense_soft`). **Substituída por D-22.** | O autor não lembra o motivo e considera provável que tenha sido um erro. | Cap. 7, seção 7.3; PD-04 |
 | D-22 | 2026-09-27 | Usar só o canal positivo. | O complemento informa o interior não marcado dos núcleos como fundo; no oráculo, derruba os marcadores pequenos (miolo de 0,754 para 0,561). | Cap. 7, seção 7.3; cap. 10; PD-04 |
 | D-23 | 2026-10-07 | Converter o marcador com um corte: $\max(m - \tau, 0)/(1 - \tau)$, $\tau = 0{,}5$ (modo `positive`). | Um fundo de $10^{-3}$ no canal positivo já faz a rede segmentar a mais; a sigmoide da MarkerUNet nunca dá zero. | Cap. 7, seção 7.3; PD-49 |
-| D-24 | 2026-10-15 | Oferecer como opção um canal de fundo tirado do Cellpose (pixels a mais de 3 px de qualquer núcleo), calculado na leitura dos dados para acompanhar a aumentação. | No oráculo, a informação de borda vem do negativo; sem retreinar, o canal sobe o pipeline de 0,773 para 0,802. | Cap. 7, seção 7.4; 09 §18.15 |
+| D-24 | 2026-10-15 | Oferecer como opção um canal de fundo tirado do Cellpose (pixels a mais de 3 px de qualquer núcleo), calculado na leitura dos dados para acompanhar a aumentação. **A faixa de 3 px foi substituída por D-47.** | No oráculo, a informação de borda vem do negativo; sem retreinar, o canal sobe o pipeline de 0,773 para 0,802. | Cap. 7, seção 7.4; 09 §18.15 |
 | D-25 | 2026-09-27 | Manter a redução sem *antialias* do pacote do ScribblePrompt. | No oráculo, o *antialias* piora o resultado. | Cap. 7, seção 7.5; PD-37 |
-| D-26 | 2026-10-17 | Conferir o SHA-256 do checkpoint do ScribblePrompt no download, gravando antes num arquivo temporário. | O pacote abre o arquivo com `torch.load` sem restrição; um arquivo adulterado executaria código. | Cap. 7, seção 7.7; PD-15 |
+| D-26 | 2026-10-17 | Conferir o SHA-256 do checkpoint do ScribblePrompt no download, gravando antes num arquivo temporário. | O pacote abre o arquivo com `torch.load` sem restrição; um arquivo adulterado executaria código. | Cap. 7, seção 7.8; PD-15 |
 
 ## 12.6 Perdas
 
@@ -71,7 +71,7 @@ em [08-pendencias.md](../estudo/08-pendencias.md) e [09-correcoes-pontuais.md](.
 | D-29 | 2026-09-27 | Usar o Dice ou o RMSE como perda de segmentação, nunca os dois. | Decisão do autor; o motivo não foi registrado. | Cap. 8, seção 8.2 |
 | D-30 | 2026-10-06 | Mapa de distância normalizado por núcleo, a partir da máscara por instância, antes de mexer no peso do $L_{Dmap}$. | Com o máximo da imagem, o centro de 43,5% dos núcleos do treino era punido como borda. | Cap. 8, seção 8.3; PD-06 |
 | D-31 | 2026-09-27 | O termo de borda da imagem fica fora do experimento-base e só volta se provar ganho. | O motivo original do termo é desconhecido, e ele pune 16 a 17% dos pixels de núcleo. Os termos de borda, "não muito fino" e RMSE vieram do orientador. | Cap. 8, seção 8.4; PD-41 |
-| D-32 | 2026-09-27 | Experimento-base só com Dice e TV, ScribblePrompt em 256², só positivo, sem Size, Dmap nem borda; depois, reintroduzir as regularizações uma a uma. | Os oráculos mostram que Size, Dmap e borda puxam contra o Dice com esta camada. | Cap. 8, seção 8.6; cap. 11; PD-44 |
+| D-32 | 2026-09-27 | Experimento-base só com Dice e TV, ScribblePrompt em 256², só positivo, sem Size, Dmap nem borda; depois, reintroduzir as regularizações uma a uma. **O TV saiu por D-41.** | Os oráculos mostram que Size, Dmap e borda puxam contra o Dice com esta camada. | Cap. 8, seção 8.6; cap. 11; PD-44 |
 
 ## 12.7 Treino e protocolo
 
@@ -84,26 +84,47 @@ em [08-pendencias.md](../estudo/08-pendencias.md) e [09-correcoes-pontuais.md](.
 | D-37 | 2026-10-17 | Gravar os modelos de cada *fold* e o final no Google Drive de quem roda, em float32, com leitura restrita a pesos. | Refazer a predição de cada imagem pelo modelo que não a viu e permitir o *ensemble*. | Cap. 9, seção 9.6; PD-10 |
 | D-38 | 2026-10-17 | Os notebooks já rodados na estrutura antiga vão para `legado/`, com uma célula que diz o que não têm, o resultado e o que se aprendeu. | Manter os resultados sem misturar estruturas. | Cap. 11, seção 11.1 |
 | D-39 | 2026-10-15 | Recortes no pipeline inteiro: treino com recortes de 256 px (MarkerUNet sem redução, ScribblePrompt em 128²) e avaliação da imagem inteira em blocos sobrepostos. | O oráculo de resolução apontou esse formato como equilibrado; o autor também não queria reduzir tanto a imagem na MarkerUNet. A alternativa descartada era usar blocos só na entrada do ScribblePrompt. | Cap. 4, seção 4.3; 09 §18.15 |
-| D-40 | 2026-10-15 | Ordem dos próximos passos, uma mudança por vez: canal de fundo do Cellpose, depois recortes sem ele, depois os dois juntos. | Medir o efeito de cada mudança separadamente. | Cap. 11, seção 11.5 |
+| D-40 | 2026-10-15 | Ordem dos próximos passos, uma mudança por vez: canal de fundo do Cellpose, depois recortes sem ele, depois os dois juntos. | Medir o efeito de cada mudança separadamente. | Cap. 11, seção 11.1 |
 
-## 12.8 Em aberto
+## 12.8 Decisões de 2026-10-17 em diante
+
+| ID | Data | Decisão | Motivo | Onde |
+|---|---|---|---|---|
+| D-41 | 2026-10-17 | Tirar o TV de todos os experimentos seguintes. | Atrapalhou em todas as configurações (+0,011 sem ele na imagem inteira; +0,012 com o canal de fundo) e, com o canal de fundo, achatava o marcador num campo uniforme. | Cap. 8, seção 8.3; cap. 11 |
+| D-42 | 2026-10-18 | O `recortes_negativo` (recortes, canal de fundo de 3 px, só Dice) passa a ser a base dos experimentos seguintes. | Melhor resultado da etapa: 0,835, acima do `recortes` em 24 de 37 imagens. | Cap. 11, seção 11.2 |
+| D-43 | 2026-10-18 | Testar, sobre essa base, o Dmap (0,1) e a BCE (1); o Tversky fica de reserva. Somar a BCE ao Dice não fere a regra "Dice ou RMSE" (D-29). | A perda que sobra é de precisão; o Dmap age sobre o marcador e a BCE sobre a borda da segmentação. O Size, sozinho, só trocou precisão por revocação. | Cap. 8, seção 8.2; 09 §18.21 |
+| D-44 | 2026-10-23 | Não fazer segmentação um núcleo por vez (um recorte e um prompt por núcleo). | Custo; decisão do autor com o coordenador. | 09 §18.22 |
+| D-45 | 2026-10-23 | Fechamento morfológico do marcador antes do ScribblePrompt, disco de 3 px. | Sugestão do coordenador para facilitar a edição humana. Sem retreinar, não mudou o Dice até 3 px e levou as regiões com um componente de 18% para 90%; com 5 px o Dice cai e as uniões de núcleos dobram. | Cap. 4, seção 4.2; cap. 11, seção 11.4 |
+| D-46 | 2026-10-24 | Julgar as perdas da tese pela editabilidade do marcador, com o Dice como restrição (não piorar), e não só pelo Dice. | Na tese, essas perdas definem um marcador bom para editar, não servem para subir a segmentação. | Cap. 8, seção 8.3; 09 §18.25 |
+| D-47 | 2026-10-24 | Uma única rodada de treino com a faixa do canal de fundo de 2 px e o fechamento de 3 px no treino e na avaliação, só com Dice (`recortes_negativo_r2_fechamento`). | Poucas execuções de Colab restantes. As duas mudanças funcionaram sem retreinar (+0,004 com 2 px; fechamento sem custo) e são externas à MarkerUNet. Ressalva: juntas, não separam o efeito de cada uma. | Cap. 4, seção 4.5; 09 §18.26 |
+| D-48 | 2026-10-24 | Rodada seguinte com as perdas do marcador da tese, sem o TV: Size 0,1 e Dmap 0,1 sobre a D-47. | Testar se o fechamento cumpre parte do papel do $L_{comp}$, segurando os componentes enquanto Size e Dmap encolhem o marcador. O Dmap usa 0,1, o peso que já tinha rodado com recortes; com o peso da tese em proporção (1/3000), ele quase não age. | Cap. 8, seção 8.5; 09 §18.26 |
+| D-49 | 2026-10-24 | Inferência final com blocos sobrepostos em 1/2 e TTA de 8 orientações. | Só de inferência, sem retreinar, e melhoraram quase todas as imagens (32 e 36 de 37). | Cap. 9, seção 9.8 |
+| D-50 | 2026-10-23 | O notebook final, que avalia o teste, só roda se a validação cruzada passar do Cellpose. **Substituída por D-52.** | Preservar o teste para a configuração que valha a pena medir. | Cap. 9, seção 9.4 |
+| D-51 | 2026-10-26 | Plano de publicação: o que já existe sustenta o TCC e um artigo (pipeline sem FMBS perto do Cellpose, marcadores editáveis pelo fechamento, oráculos, análise do tamanho do marcador). A edição com cliques binários fica para um segundo artigo, possivelmente com outra camada de segmentação; o desenho está guardado e não deve ser implementado sem pedido. | Decisão do autor. | Cap. 2, seção 2.6; cap. 13; 09 §18.27 |
+
+| D-52 | 2026-10-26 | Encerrar os experimentos e avaliar no teste a configuração escolhida pela validação cruzada, `recortes_negativo_r2_fechamento`, mesmo sem ela passar do Cellpose. | Pelo plano de publicação (D-51), o resultado no nível do Cellpose com marcadores editáveis já sustenta o trabalho. Escolhida pelos dois critérios: maior Dice no registro e marcador mais editável; as perdas da tese (`_r2_fechamento_tese`) perderam nos dois. | Cap. 11, seção 11.7; 09 §18.28 |
+| D-53 | 2026-10-26 | Treino final por 200 épocas, e não pelas 67 da mediana das melhores épocas dos *folds*. Decidido antes de ver o teste. | Completar o ciclo da agenda em cosseno, que cobre 200 épocas. Contra: as 200 épocas não foram validadas (os *folds* pararam entre 23 e 99). | Cap. 9, seção 9.4 |
+| D-54 | 2026-10-26 | Declarar antes do teste os dois números a reportar, com o da inferência final (sobreposição de 1/2 e TTA) como número principal. | Evitar escolher o número depois de ver o teste. | Cap. 9, seção 9.4; cap. 11, seção 11.7 |
+| D-55 | 2026-10-27 | Não rodar mais nada no teste nem trocar a configuração. O modelo de 67 épocas, gravado por uma execução interrompida cujo resultado não foi visto, não é avaliado; se for, só como análise registrada, nunca para trocar o número principal. | O teste já foi usado uma vez. | Cap. 11, seção 11.8; 09 §18.28 |
+
+## 12.9 Em aberto
 
 | Assunto | Opções | Onde |
 |---|---|---|
-| Épocas do treino final | Mediana das melhores épocas dos *folds* (atual) ou a época de maior Dice na curva média dos *folds*. | Cap. 9, seção 9.4 |
-| Rumo depois dos próximos experimentos | Entre outras, o "caminho d": a MarkerUNet passa a corrigir a segmentação do Cellpose. Decisão do autor, depois dos experimentos do bloco B. | Cap. 11, seção 11.6; PD-40 |
+| Rumo depois do TCC e do primeiro artigo | A edição com cliques (D-51) e, entre outras, o "caminho d": a MarkerUNet passa a corrigir a segmentação do Cellpose. | Cap. 13; PD-40 |
 | Enquadramento pela seção 7.1.2 da tese | Ainda não discutido com o orientador. | Cap. 2, seção 2.4 |
 | Comparação com um modelo totalmente supervisionado | Proposta, não decidida: a tese (seção 7.1.2) sugere essa comparação, e um revisor pode pedi-la. | Cap. 2, seção 2.4 |
-| Faixa livre do canal de fundo | 3 px foi escolhido a dedo. Testar 1 ou 2 px, ou um raio proporcional ao diâmetro dos núcleos de cada imagem? | Cap. 7, seção 7.4 |
 | Licença do código | A escolher. | PD-27 |
 | Sobreposição de núcleos na máscara por instância | Hoje o menor núcleo vence; os autores do MoNuSeg deram o pixel ao maior. Só afeta o mapa de distância. | Cap. 3, seção 3.3 |
 | Efeito de o Cellpose-SAM ter visto as imagens de treino | Medir com um modelo que não viu o MoNuSeg, ou registrar só como limitação. | Cap. 5, seção 5.4 |
 
 ## Para o artigo
 
-- **Métodos:** as decisões D-04, D-08, D-15, D-22 a D-24, D-27 a D-30, D-33 a D-36 e D-39 aparecem como escolhas de método, com o
-  motivo em uma frase quando ele não for óbvio.
-- **Discussão:** D-02 (as camadas descartadas antes do ScribblePrompt, se houver números para mostrar), D-22 e D-27.
+- **Métodos:** as decisões D-04, D-08, D-15, D-22, D-23, D-24, D-27 a D-30, D-33 a D-36, D-39, D-45, D-47, D-49, D-53 e D-54 aparecem como
+  escolhas de método, com o motivo em uma frase quando ele não for óbvio.
+- **Discussão:** D-02 (as camadas descartadas antes do ScribblePrompt, se houver números para mostrar), D-22, D-27, D-41 e D-46.
+- **Limitações:** D-47 junta duas mudanças numa rodada só; as escolhas de inferência (D-49) foram feitas nas mesmas imagens em que
+  são medidas.
 
 ## Referências
 

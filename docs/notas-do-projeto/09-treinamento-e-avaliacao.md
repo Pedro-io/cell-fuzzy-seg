@@ -61,8 +61,21 @@ das saídas como predição (*ensemble*). É o que o nnU-Net faz: treina com val
 como *ensemble* no teste (Isensee et al., 2018, seção 2.4). Custa 5 vezes mais na predição. Fica como opção, já que os modelos
 dos *folds* são gravados.
 
-**Ainda em aberto.** Usar a mediana das melhores épocas por *fold* ou a época de maior Dice na curva média dos *folds* é uma
-decisão pendente (capítulo 12).
+**As épocas do treino final da configuração escolhida.** O padrão do código é a mediana das melhores épocas dos *folds*, que
+na configuração final dava 67. O autor decidiu, antes de ver o teste, treinar o modelo final por **200 épocas**
+(`EPOCAS_FINAL = 200` no notebook final; [09-correcoes-pontuais.md §18.28](../estudo/09-correcoes-pontuais.md)):
+
+- **a favor:** a agenda em cosseno cobre sempre 200 épocas (seção 9.1). Com 200, o treino completa o ciclo e termina com a taxa de
+  aprendizado em zero, como foi desenhado; com 67, pararia com a taxa ainda alta;
+- **contra:** as 200 épocas não foram validadas. Os *folds* pararam nas épocas 99, 23, 77, 43 e 67, pela parada antecipada, e o
+  treino final não tem validação para parar. Há risco de sobreajuste.
+
+O número de épocas vai para o texto junto com o resultado. A massa da segmentação no teste (1,15) ficou maior que na validação
+cruzada (1,06); hipótese: efeito das épocas a mais (capítulo 11, seção 11.7). A alternativa de escolher as épocas pela curva média
+de validação dos *folds* não chegou a ser usada.
+
+**Números declarados antes do teste.** Antes de rodar, ficaram definidos os dois números a reportar: o **registro** (sobreposição
+de 1/4, sem TTA) e a **inferência final** (sobreposição de 1/2 e TTA, seção 9.8), com o segundo como número principal.
 
 ## 9.5 Comparação com o Cellpose
 
@@ -88,7 +101,7 @@ diferença entre métodos na mesma imagem. O mesmo resumo é feito na validaçã
 | Resultado do teste | `docs/estudo/resultados/final_<experimento>/` | métricas por imagem do teste, resumo pareado, figura |
 
 Fontes: [report.py](../../src/evaluation/report.py) (`save_run`), [checkpoints.py](../../src/training/checkpoints.py). Só a
-MarkerUNet é gravada; o ScribblePrompt vem do checkpoint dele, conferido por hash (capítulo 7, seção 7.7). Os pesos são lidos
+MarkerUNet é gravada; o ScribblePrompt vem do checkpoint dele, conferido por hash (capítulo 7, seção 7.8). Os pesos são lidos
 com `torch.load(..., weights_only=True)`, que não executa código ao carregar. Gravar os 5 modelos dos *folds*, e não só o
 melhor, é o que permite refazer a predição de cada imagem pelo modelo que não a viu.
 
@@ -97,7 +110,51 @@ do marcador: a fração de pixels acima de 0,5 e o valor médio do marcador dent
 ([metrics.py](../../src/evaluation/metrics.py), `evaluate`). A diferença entre as duas médias mostra se o marcador ainda
 distingue núcleo de fundo.
 
-## 9.7 Ressalva sobre o conjunto de teste
+## 9.7 Editabilidade do marcador
+
+O segundo critério de avaliação, depois da segmentação, é o quanto o marcador se aproxima de "um traço por núcleo", que uma
+pessoa poderia aceitar ou corrigir com poucos gestos. A função [marker_editability](../../src/evaluation/editability.py) mede o
+marcador **depois do corte em $\tau$**, que é o que o ScribblePrompt recebe como rabisco positivo, contra as **regiões do GT
+binário** (componentes conexos; núcleos que se tocam formam uma região só):
+
+| Medida | Definição | Ideal |
+|---|---|---|
+| componentes | pedaços conexos do marcador (vizinhança de 8) | um por região |
+| fragmentos | componentes com menos de 20 px | nenhum |
+| buracos | regiões sem marcador cercadas por marcador | nenhum |
+| regiões sem marcador | fração das regiões do GT que nenhum componente toca | 0% |
+| regiões com um componente | fração das regiões do GT tocadas por exatamente um componente | 100% |
+| regiões partidas | fração das regiões do GT tocadas por dois ou mais componentes | 0% |
+| componentes unindo regiões | componentes que tocam duas ou mais regiões do GT | nenhum |
+| componentes fora | componentes que não tocam o GT | nenhum |
+
+A medida principal é a fração de **regiões com um componente**. O limite de 20 px para fragmento é escolha deste trabalho. As
+medidas são calculadas por imagem e resumidas pela média; nos notebooks atuais, para o marcador cru e para o fechado (capítulo 4,
+seção 4.2). Elas não substituem um teste com usuários: medem a forma do marcador, não o esforço real de edição (capítulo 13).
+
+## 9.8 Inferência final
+
+Duas mudanças só de inferência, sem retreinar, melhoraram o Dice em quase todas as imagens nos testes com os modelos gravados
+([09-correcoes-pontuais.md §18.23](../estudo/09-correcoes-pontuais.md)):
+
+- **blocos com sobreposição de 1/2** em vez de 1/4: cada pixel passa a ser previsto por mais blocos, e a média ponderada fica mais
+  estável (+0,0005, melhor em 32 de 37 imagens);
+- **aumento no teste (TTA)**: a imagem passa pelo pipeline nas 8 combinações de rotação de 90° e espelhamento, cada saída é desfeita
+  para a orientação original, e a predição é a média das 8 (+0,003, melhor em 36 de 37 imagens). É a mesma família de
+  transformações da aumentação do treino (capítulo 3, seção 3.6).
+
+Na configuração final, a validação de cada época e o registro da validação cruzada usam a sobreposição de 1/4 sem TTA; a
+"melhor inferência" (sobreposição de 1/2 com TTA) é medida depois, com os modelos gravados, e é a que o modelo final usaria. As
+duas estão hoje no notebook do experimento, não em `src/`.
+
+## 9.9 Ressalvas
+
+**Escolhas feitas nas mesmas imagens em que se mede.** A faixa do canal de fundo, a sobreposição dos blocos, o TTA e o raio do
+fechamento foram escolhidos comparando opções nas mesmas 37 imagens da validação cruzada. Cada imagem é prevista por um modelo que
+não a viu, mas a escolha das opções viu todas. Os ganhos dessas escolhas são, por isso, um pouco otimistas; o teste, usado uma vez
+com a configuração final, é a medida limpa.
+
+**O conjunto de teste.**
 
 As 14 imagens de teste já foram usadas antes deste protocolo: serviram de validação em experimentos anteriores e tiveram o
 Dice calculado em três experimentos da estrutura antiga (`base_dice_tv`, `dice_size`, `base_negativo`). As decisões desses
@@ -110,7 +167,10 @@ um teste independente exigiria um segundo conjunto de dados.
 - **Métodos, protocolo:** validação cruzada em 5 *folds* por imagem, seleção da época, treino final pela mediana das melhores
   épocas, teste usado uma vez (seções 9.2 a 9.4).
 - **Métodos, estatística:** comparação pareada com o Cellpose, intervalo por *bootstrap* e Wilcoxon (seção 9.5).
-- **Limitações:** a ressalva da seção 9.7 precisa aparecer no texto.
+- **Métodos, avaliação do marcador:** as medidas de editabilidade (seção 9.7), com a fração de regiões com um componente como
+  medida principal.
+- **Métodos, inferência:** sobreposição de 1/2 e TTA (seção 9.8).
+- **Limitações:** as ressalvas da seção 9.9 precisam aparecer no texto.
 
 ## Referências
 

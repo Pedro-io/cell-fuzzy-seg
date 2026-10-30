@@ -61,7 +61,8 @@ $$
 $$
 
 Abaixo de $\tau$ o canal positivo é exatamente zero; acima, cresce linearmente até 1. Os experimentos atuais usam esse modo,
-sem nenhum canal negativo derivado do marcador.
+sem nenhum canal negativo derivado do marcador. Na configuração final, o marcador passa antes pelo fechamento morfológico
+(capítulo 4, seção 4.2); como o fechamento comuta com o corte, a ordem das duas operações não muda o resultado.
 
 **Consequência para o gradiente.** Onde o marcador fica abaixo de $\tau$, o canal positivo é zero e a derivada dele em relação
 ao marcador também é zero. Um pixel que a rede de marcadores deixou abaixo do corte não recebe nenhum sinal da perda de
@@ -87,7 +88,29 @@ mostram que essa é a principal fraqueza da camada: com marcadores pequenos e se
 Como opção, um canal de fundo fixo é tirado da segmentação do Cellpose e entregue no canal negativo
 ([cellpose_negative](../../src/data/load/preprocessed_dataset.py)): ele vale 1 nos pixels a mais de $r$ pixels de qualquer
 núcleo do Cellpose e 0 no resto, ou seja, dentro dos núcleos e numa faixa de $r$ pixels em volta deles, onde a rede decide
-sozinha onde fica a borda. Os experimentos usam $r = 3$.
+sozinha onde fica a borda. A faixa existe porque a borda do Cellpose não é exata: um canal de fundo encostado na máscara cortaria
+a borda real dos núcleos que o Cellpose desenhou pequenos.
+
+**A largura da faixa.** Os primeiros experimentos usaram $r = 3$, valor escolhido a dedo (cerca de 1/7 do diâmetro de um núcleo
+em 40×). Testada depois com os modelos já treinados, sem retreinar ([09-correcoes-pontuais.md §18.23](../estudo/09-correcoes-pontuais.md)):
+
+| Faixa $r$ | Dice | Precisão | Revocação | Massa |
+|---|---|---|---|---|
+| 1 px | 0,8370 | 0,867 | 0,812 | 0,94 |
+| 2 px | **0,8394** | 0,837 | 0,845 | 1,01 |
+| 3 px (como foi treinado) | 0,8350 | 0,812 | 0,864 | 1,07 |
+| 5 px | 0,8273 | 0,797 | 0,864 | 1,09 |
+| Cellpose | 0,8450 | 0,867 | 0,826 | 0,96 |
+
+Quanto mais estreita a faixa, mais a saída se parece com a máscara do Cellpose: com 1 px, precisão e revocação ficam quase
+iguais às dele, e no limite de 0 px o pipeline só poderia encolher as máscaras do Cellpose (leitura dos números). Parte do ganho de
+uma faixa estreita vem, portanto, de seguir mais o Cellpose, o que pesa no argumento do trabalho. A configuração final usa
+$r = 2$, também no treino (capítulo 4, seção 4.5). Retreinado com 2 px, o ganho visto sem retreinar diminuiu (capítulo 11).
+
+**Fundo entre núcleos vizinhos.** Uma variação marcou também como fundo a fronteira entre dois núcleos vizinhos do Cellpose, os
+pixels que têm, num disco de 1 ou 2 px, dois rótulos de núcleo diferentes, para ajudar a separar núcleos que se tocam. Piorou em
+todas as imagens (0,8323 com 1 px e 0,8287 com 2 px, contra 0,8350): no GT binário, núcleos que se tocam formam uma região só, então
+separá-los custa revocação ([09-correcoes-pontuais.md §18.22](../estudo/09-correcoes-pontuais.md)).
 
 Esse canal é um verdadeiro marcador de fundo, mas diferente do da tese: ele não é aprendido, não passa pela MarkerUNet e não
 recebe gradiente. Ele só depende da segmentação inicial. Na tese, o marcador de fundo é fixo ou proposto pela mesma rede, a
@@ -134,14 +157,34 @@ $$
 $$
 
 em que $\hat{y}$ é a segmentação, $m$ o marcador e $\theta$ os pesos da MarkerUNet. O segundo fator vem da rede congelada,
-calculado por diferenciação automática; o terceiro é o corte da seção 7.3. Na tese, o fator equivalente vem da derivada
+calculado por diferenciação automática; o terceiro é o corte da seção 7.3 (com o fechamento, ele inclui também o máximo e o
+mínimo do fechamento, que passam o gradiente ao pixel que vence em cada vizinhança). Na tese, o fator equivalente vem da derivada
 explícita do FMBS, construída a partir do "elemento mais próximo" de cada pixel na hierarquia (Fonseca, 2026, seção 5.2).
 
 **Uma consequência.** A rede de marcadores aprende o que faz o ScribblePrompt acertar, não necessariamente um marcador que um
 humano desenharia. Nada impede que ela aprenda padrões que funcionam para a rede congelada sem parecerem marcadores. As
 regularizações da tese são o mecanismo que puxaria o marcador para formas mais simples (capítulo 8).
 
-## 7.7 Checkpoint
+## 7.7 Outras variações testadas sem retreinar
+
+Com os modelos dos *folds* gravados, algumas mudanças na entrada do ScribblePrompt foram testadas sem retreinar, cada imagem
+prevista pelo modelo do *fold* em que ficou de fora ([09-correcoes-pontuais.md §18.22 e §18.23](../estudo/09-correcoes-pontuais.md);
+modelos do `recortes_negativo`, Dice de base 0,8350):
+
+| Variação | Dice | O que mostra |
+|---|---|---|
+| corte $\tau = 0{,}3$ / $0{,}4$ / $0{,}6$ | 0,7766 / 0,8228 / 0,8340 | com $\tau$ menor, valores fracos do marcador viram rabisco e a saída incha (massa 1,37 com 0,3); 0,5 fica |
+| entrada do ScribblePrompt em 160² / 192² | 0,8310 / 0,8336 | entrada maior também incha a saída, o mesmo efeito de resolução dos oráculos (capítulo 10) |
+| 2 / 3 passadas, com a predição anterior no canal 4 | 0,8330 / 0,8314 | repetir a rede só com a própria saída alarga a segmentação; ver abaixo |
+
+**Passadas sucessivas.** O ScribblePrompt aceita a predição anterior como quinta entrada, e o wrapper tem a opção de rodá-lo duas
+ou mais vezes, realimentando os logits ([scribble_prompting_network.py](../../src/models/networks/final_segmentation/scribble_prompting_network.py),
+`n_interactions`; o gradiente atravessa todas as passadas). Piorou. No treino da rede, cada passada seguinte recebe a predição
+anterior **e** correções novas tiradas da região de erro (Wong et al., 2024, seção 3.2); repetir a rede só com a própria saída
+está fora dessa distribuição. O modelo da MarkerUNet foi treinado com uma passada; treinar com várias poderia mudar o resultado
+(hipótese não testada).
+
+## 7.8 Checkpoint
 
 O modelo usado é o ScribblePrompt-UNet v1, baixado do endereço publicado pelos autores. O download confere o SHA-256 do
 arquivo (`43f57ee8...c1acbe`) e grava primeiro num arquivo temporário, que só é renomeado se o hash bater
@@ -155,6 +198,8 @@ executaria código embutido num arquivo adulterado.
   fórmula e o motivo (a rede inunda com um fundo de $10^{-3}$), o canal de fundo da seção 7.4 e a frase sobre como o
   gradiente atravessa a rede congelada (seção 7.6).
 - **Detalhes de implementação:** a tabela de entrada da seção 7.2 e as resoluções da seção 7.5.
+- **Resultados ou discussão:** a largura da faixa do canal de fundo e o quanto ela aproxima a saída do Cellpose (seção 7.4); as
+  variações sem retreinar que não ajudaram (seção 7.7).
 - **Discussão:** o corte em $\tau$ zera o gradiente abaixo dele (seção 7.3); o marcador aprendido não precisa se parecer com um
   marcador humano (seção 7.6).
 - **Ameaças à validade:** o ScribblePrompt foi treinado com o PanNuke, de histologia H&E. Hipótese a conferir: o PanNuke

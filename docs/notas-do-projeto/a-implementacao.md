@@ -53,6 +53,7 @@ perdas. A validação cruzada chama essa função uma vez por *fold*, o que gara
 | `cellpose_segmentation` | `load_preprocessed` | a segmentação do Cellpose, renomeada na leitura | linha de base, canal de fundo |
 | `cellpose_negative` | `load_preprocessed` (opcional) | `(H, W)` 0 ou 1 | ScribblePrompt, como canal de fundo |
 | `markers` | `MarkerStep` | `(B, 1, H, W)` em $[0,1]$, com gradiente | ScribblePrompt, perdas, métricas do marcador |
+| `markers_closed` | `MarkerClosingStep` | o marcador fechado, `(B, 1, H, W)`, com gradiente | ScribblePrompt (com `markers_key="markers_closed"`) |
 | `segmentation` (no treino) | `FrozenSegmentationStep` | `(B, 1, H, W)` em $[0,1]$, com gradiente | perdas, métricas |
 
 A chave `segmentation` tem dois significados: a máscara do Cellpose na preparação e a saída final no treino. Na leitura dos dados
@@ -64,7 +65,7 @@ Renomear a saída final para `final_segmentation` está decidido e ainda não ap
 | Classe | Passos | Quando roda |
 |---|---|---|
 | [PreprocessingPipeline](../../src/pipeline/preprocessing_pipeline.py) | `CellposeStep`, `RGBAStep`, `DistanceMapStep`, `SaveResultsStep` | uma vez, no notebook de preparação, com GPU |
-| [TrainingPipeline](../../src/pipeline/training_pipeline.py) | `MarkerStep`, `FrozenSegmentationStep` | a cada lote, no treino e na avaliação |
+| [TrainingPipeline](../../src/pipeline/training_pipeline.py) | `MarkerStep`, `MarkerClosingStep` (opcional), `FrozenSegmentationStep` | a cada lote, no treino e na avaliação |
 | [TiledPipeline](../../src/pipeline/tiled_pipeline.py) | envolve um `TrainingPipeline` | no modo por recortes: passa os recortes direto e divide imagens maiores em blocos |
 
 As duas primeiras classes fazem a mesma coisa (percorrem os passos em ordem); a separação é de intenção, e nada no código impede
@@ -136,6 +137,9 @@ citações não forem removidas ([08-pendencias.md, PD-50](../estudo/08-pendenci
 | [metrics.py](../../src/evaluation/metrics.py) | métricas por imagem, com a linha de base do Cellpose e as medidas do marcador |
 | [report.py](../../src/evaluation/report.py) | resumo estatístico pareado, procedência (commit, versões, GPU) e gravação dos resultados |
 | [figures.py](../../src/evaluation/figures.py) | escolha das imagens (pior, mediana e melhor contra o Cellpose) e figura das predições |
+| [editability.py](../../src/evaluation/editability.py) | medidas de editabilidade do marcador contra as regiões do GT (capítulo 9, seção 9.7) |
+| [marker_closing_step.py](../../src/pipeline/steps/inference/marker_closing_step.py) | fechamento morfológico em tons de cinza do marcador, diferenciável (capítulo 4, seção 4.2) |
+| [bce_loss.py](../../src/losses/bce_loss.py) | entropia cruzada binária sobre a segmentação (capítulo 8, seção 8.2) |
 
 ## A.8 Como rodar
 
@@ -154,13 +158,13 @@ repositório dele sem dependências, `segment-anything` 1.0, `scikit-image`, `ma
 
 ## A.9 Testes
 
-A pasta `tests/` tem 23 arquivos e 182 funções de teste; com os casos parametrizados, a suíte tem 184 casos. Comando:
+A pasta `tests/` tem 26 arquivos e 210 funções de teste (contados em 2026-10-26). Comando:
 
 ```
 PYTHONPATH=. python -m pytest tests -q
 ```
 
-Na execução de 2026-10-17: 180 passam, 3 falham e 1 é pulado, em cerca de 7 segundos. As 3 falhas são conhecidas: os testes do
+Na última execução registrada (2026-10-24): 208 passam, 3 falham e 1 é pulado. As 3 falhas são conhecidas: os testes do
 $L_{size}$ ainda esperam a versão simétrica, revertida de propósito (capítulo 12, D-28;
 [PD-11](../estudo/08-pendencias.md#pd-11)).
 

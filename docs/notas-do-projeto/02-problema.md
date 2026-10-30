@@ -96,8 +96,11 @@ Duas diferenças de cenário pesam no desenho do método:
   O $L_{comp}$ da tese foi usado com o número alvo de máximos igual a 1, ou seja, empurrando o marcador para um único
   componente (Fonseca, 2026, seção 5.3). Nesse cenário ele puxaria na direção errada, o que se soma às razões para não
   usá-lo (capítulo 12).
-- **A editabilidade não é o objetivo.** O marcador vai para uma rede, não para um usuário. As regularizações de forma deixam
-  de ser um requisito e passam a ser uma escolha a testar: elas só ficam se ajudarem a segmentação (capítulo 8).
+- **A editabilidade continua importando, mas por outro caminho.** O marcador vai primeiro para uma rede, não para um usuário, e
+  as regularizações de forma da tese deixam de ser um requisito: elas são testadas e julgadas pela editabilidade do marcador,
+  com o Dice como restrição (capítulo 8). Ao mesmo tempo, um marcador que uma pessoa possa aceitar ou corrigir continua sendo
+  um resultado de valor, e o trabalho mede a editabilidade do marcador e a melhora com uma operação morfológica, o fechamento
+  (capítulo 4, seção 4.2).
 
 A tabela resume o que muda em relação ao modelo de marcador de objeto da tese. Os detalhes de cada linha estão nos
 capítulos indicados.
@@ -141,32 +144,40 @@ codificados como máscaras binárias e rabiscos como máscaras com valores em $[
 inteira (Wong et al., 2024, seção 3.2 e apêndice B.2). O marcador deixa, então, de ser uma explicação exata da segmentação. Essa é uma limitação conceitual da
 troca, discutida no capítulo 13.
 
-**Critério de sucesso.** A rede de marcadores recebe a segmentação do Cellpose como entrada. O pipeline só se justifica se a
-segmentação final for **melhor que a do próprio Cellpose**. A linha de base de todo resultado é, portanto, o Cellpose
-sozinho, comparado imagem a imagem com o pipeline nas mesmas imagens (capítulo 9). Até 2026-10-17, nenhuma configuração
-treinada superou essa linha de base (capítulo 11).
+**Critérios de avaliação.** O método produz duas coisas, e cada uma tem o seu critério:
 
-## 2.6 Contribuições pretendidas
+- **a segmentação**, comparada com a do próprio Cellpose, que é a entrada da rede de marcadores. A linha de base de todo resultado
+  é o Cellpose sozinho, comparado imagem a imagem com o pipeline nas mesmas imagens (capítulo 9). Superá-lo mostraria que o
+  marcador corrige a segmentação inicial; chegar perto dele mostra que o pipeline sem FMBS funciona quase no nível da entrada;
+- **o marcador**, avaliado pela editabilidade: o quanto ele se parece com "um traço por núcleo", que uma pessoa poderia aceitar ou
+  corrigir (capítulo 9, seção 9.7). É o critério que a tese usa para definir um bom marcador (seção 2.2).
 
-As contribuições se dividem entre as que valem qualquer que seja o resultado final e as que dependem dele.
+No teste, a configuração final fica 0,0037 abaixo do Cellpose em Dice (0,8333 contra 0,8370), sem superá-lo, e entrega um
+marcador com um único componente em 96% das regiões dos núcleos (capítulo 11, seção 11.7).
 
-Valem em qualquer caso:
+## 2.6 Contribuições
+
+Pelo plano de publicação do autor (2026-10-26), o que já foi feito sustenta o TCC e um artigo. As contribuições são:
 
 1. **A adaptação do aprendizado de marcadores a uma classe conhecida**, sem indicação do usuário, usando a segmentação de
    um modelo generalista como entrada da rede de marcadores. É o cenário que a tese deixou como trabalho futuro (seção 7.1.2).
-2. **A troca do FMBS por uma rede interativa pré-treinada e congelada** como camada de segmentação diferenciável, com a
-   análise do que isso muda no papel do marcador (seção 2.5).
-3. **Os oráculos:** medidas de até onde a camada de segmentação consegue chegar quando recebe marcadores ideais, tirados do
-   ground truth, sem nenhum treino. Eles separam o que é limite da camada do que é limite do treino da rede de marcadores
-   (capítulo 10).
-4. **Um protocolo de avaliação contra a própria entrada:** validação cruzada nas imagens de treino para escolher
-   configurações, conjunto de teste usado uma vez e comparação pareada com o Cellpose em todas as imagens (capítulo 9).
+2. **Um pipeline sem o FMBS que chega ao nível da própria entrada.** Com uma rede interativa pré-treinada e congelada como camada
+   de segmentação diferenciável, o pipeline fica 0,0037 abaixo do Cellpose em Dice no teste, uma diferença pequena que o teste de
+   Wilcoxon não distingue de zero (capítulo 11, seção 11.7), com a análise do que a troca de camada muda no papel do marcador
+   (seção 2.5).
+3. **Marcadores editáveis pelo fechamento morfológico.** Uma operação clássica, sem pesos e diferenciável, aplicada ao marcador
+   dentro do treino, deixa um único componente de marcador em quase 90% das regiões dos núcleos, sem custo de segmentação
+   (capítulos 4 e 11). A tese propõe operadores morfológicos para marcadores editáveis como trabalho futuro (Fonseca, 2026,
+   seção 7.1.4).
+4. **Os oráculos:** medidas de até onde a camada de segmentação consegue chegar com marcadores ideais, tirados do ground truth,
+   sem nenhum treino. Eles separam o que é limite da camada do que é limite do treino da rede de marcadores (capítulo 10).
+5. **A análise do tamanho do marcador:** sem o FMBS, o tamanho certo do marcador é o que a camada consegue expandir até a borda,
+   e as regularizações da tese, que buscam marcadores pequenos, deixam de ajudar a segmentação (capítulos 8 e 11).
+6. **Um protocolo de avaliação contra a própria entrada:** validação cruzada nas imagens de treino para escolher configurações,
+   conjunto de teste usado uma vez e comparação pareada com o Cellpose em todas as imagens (capítulo 9).
 
-Dependem do resultado:
-
-5. **Um ganho sobre o Cellpose.** Hipótese: um marcador aprendido, entregue a uma camada de segmentação interativa, corrige
-   erros da segmentação inicial. Se o ganho não aparecer, a contribuição passa a ser a explicação de por que ele não aparece,
-   com base nos oráculos e no diagnóstico dos marcadores aprendidos (capítulos 10 e 11).
+Fica para um segundo artigo a edição simulada com cliques sobre o marcador, que mediria quantos cliques o marcador economiza
+(capítulo 13).
 
 ## Para o artigo
 
@@ -175,8 +186,8 @@ Dependem do resultado:
 - **Trabalhos relacionados:** seção 2.3 (a tese e o FMBS), o ScribblePrompt e os métodos clássicos de segmentação por
   marcadores. Precisa de referências próprias, além das que a tese cita.
 - **Métodos:** a tabela da seção 2.4, convertida num parágrafo de posicionamento em relação à tese.
-- **Discussão e limitações:** a perda da editabilidade e da explicação exata ao trocar o FMBS por uma rede (seção 2.5) e o
-  $L_{comp}$ inadequado para muitos objetos (seção 2.4).
+- **Discussão e limitações:** a perda da explicação exata ao trocar o FMBS por uma rede (seção 2.5), o $L_{comp}$ inadequado
+  para muitos objetos (seção 2.4) e os dois critérios de avaliação, segmentação e editabilidade (seção 2.5).
 - **Enquadramento:** a seção 7.1.2 da tese como motivação do trabalho. Ainda não foi discutida com o orientador.
 
 ## Referências
@@ -186,7 +197,7 @@ Dependem do resultado:
   Conference on Graphics, Patterns and Images (SIBGRAPI)*, 121-125. *A conferir* (citado pela tese como referência 42).
 - Fonseca, G. B. da (2026). *Hierarchy-Based Fuzzy Segmentation and Marker Learning*. Tese de doutorado, PUC Minas e
   Université Gustave Eiffel. <https://theses.hal.science/tel-05743320>. *Conferida* (seções 1.1, 1.2, 1.3, 3.3, 5.1 a 5.4,
-  6.1, 6.2 e 7.1.2).
+  6.1, 6.2, 7.1.2 e 7.1.4).
 - Fonseca, G. B. da; Negrel, R.; Perret, B.; Cousty, J.; Guimarães, S. J. F. (2025). Hierarchy-based fuzzy segmentation and
   marker learning layer: theory and algorithms. *Journal of Mathematical Imaging and Vision*. *A conferir* (artigo que publica
   parte da tese; pode ser a referência preferível para o FMBS no artigo).

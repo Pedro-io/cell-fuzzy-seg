@@ -76,7 +76,8 @@ A [MarkerStep](../../src/pipeline/steps/inference/marker_step.py) executa a rede
 2. aplica a MarkerUNet e a sigmoide;
 3. amplia o marcador de volta ao tamanho da entrada, também por interpolação bilinear.
 
-O marcador nunca é binarizado: ele segue contínuo para a camada de segmentação, que é o que permite o gradiente passar.
+O marcador nunca é binarizado: ele segue contínuo, passando pelo fechamento morfológico na configuração final (capítulo 4, seção
+4.2), até a camada de segmentação, e é isso que permite o gradiente passar.
 
 **Modos de treino e de avaliação.** A rede tem camadas de normalização em lote no codificador e no decodificador. Durante o
 treino, elas usam as estatísticas do lote corrente e atualizam as médias acumuladas; na avaliação, usam as médias
