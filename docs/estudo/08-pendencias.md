@@ -121,6 +121,8 @@
    **Configurações externas rodadas (2026-10-23, 09 §18.23):** faixa do negativo 2 px + sobreposição 1/2 + TTA = **0,8423**
    (+0,007 pareado, 33/4; 11/37 acima do Cellpose; Cellpose 0,8450), sem retreinar. Próximo: retreinar com a faixa de 2 px.
 9. Decisão de rumo do autor (PD-40/PD-52, caminho d).
+   **Próximos passos (2026-10-26, decisão do autor):** a edição simulada com cliques binários fica como trabalho futuro (segundo
+   artigo, possivelmente com uma camada de segmentação mais complexa); desenho guardado no 09 §18.27.
 
 **C — ablações já decididas**, sobre a melhor configuração
 10. PD-36/PD-38: normalização ImageNet e congelamento do encoder.
@@ -1216,3 +1218,26 @@ Drive do autor. Todos com Dice e sem regularização do marcador.
 +0,016 (37/37). O negativo sobe mais a revocação (0,844 → 0,864) que a precisão (0,822 → 0,812; Cellpose 0,867); massa 1,07; marcador
 0,50 dentro × 0,36 fora dos núcleos. As imagens em 20× seguem abaixo do Cellpose (0,799 / 0,836 / 0,793 × 0,818 / 0,863 / 0,828).
 **Próximo passo:** perdas que ataquem a precisão sobre esta base (`recortes_negativo_dmap`, `recortes_negativo_bce`; 09 §18.21).
+
+**Perdas, configurações externas e fechamento (2026-10-18 a 2026-10-26)** — 09 §18.21 a §18.26. Validação cruzada (registro:
+sobreposição 1/4, sem TTA) e melhor inferência (sobreposição 1/2 + TTA, com os modelos gravados):
+
+| Experimento | O que muda sobre o `recortes_negativo` | Registro | Melhor inferência | Acima do Cellpose (melhor inf.) | Núcleos com 1 componente (marcador fechado, 3 px) |
+|---|---|---|---|---|---|
+| `recortes_negativo` | — | 0,8350 | 0,8423 (2 px sem retreinar) / 0,8416 com fechamento | 11/37 / 10/37 | 90% |
+| `recortes_negativo_dmap` | + DMap 0,1 | 0,8302 | 0,8381 | 2/37 | 66% |
+| `recortes_negativo_bce` | + BCE 1,0 | 0,8335 | 0,8404 | 9/37 | 65% |
+| **`recortes_negativo_r2_fechamento`** | faixa 2 px + fechamento 3 px no treino | **0,8383** | **0,8402** | 10/37 | **89%** |
+| `recortes_negativo_r2_fechamento_tese` | a mistura + Size 0,1 + DMap 0,1 | 0,8358 | 0,8380 | 8/37 | 55% |
+| Cellpose | | 0,8450 | | | |
+
+- **A mistura é a configuração escolhida pela validação cruzada**: o melhor registro e o marcador mais editável. Continua abaixo
+  do Cellpose (−0,005 com a melhor inferência, p = 0,002).
+- As perdas da tese, mesmo com o fechamento, repetem o padrão do DMap: marcador menor (6% da imagem, contra 16% na mistura) e mais
+  picotado (55% dos núcleos com um componente, 10% sem marcador), com o Dice um pouco abaixo. O fechamento não substitui o L_comp.
+- O ganho da faixa de 2 px sem retreinar (0,8423) era em parte descompasso entre treino e inferência e escolha nas mesmas imagens.
+**Teste (`experimento_final`, 200 épocas, 2026-10-27, 09 §18.28)** ✅ — `docs/estudo/resultados/final_recortes_negativo_r2_fechamento/`:
+melhor inferência (número principal, declarado antes) **0,8333** contra Cellpose **0,8370** (−0,0037, 3/14 imagens acima, Wilcoxon
+p = 0,12, não significativo); registro 0,8300 (−0,0070, p = 0,004). Revocação acima (+0,029) e precisão abaixo (−0,033) do Cellpose,
+massa 1,15. Marcador fechado: 96% das regiões do GT com um componente. **O pipeline chega ao nível do Cellpose sem superá-lo.**
+A edição com cliques fica como trabalho futuro (09 §18.27).

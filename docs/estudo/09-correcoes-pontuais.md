@@ -1633,3 +1633,155 @@ marcador da tese, sem o TV**: Dice + Size (0,1) + DMap (0,1). Só as perdas muda
 faixa e fechamento). As perdas do marcador agem sobre o marcador **cru** (`data["markers"]`, conferido em `Trainer`), e o
 fechamento emenda os pedaços antes do ScribblePrompt: é a hipótese de que o fechamento faz parte do papel do L_comp, que segurava os
 componentes na tese ❓. Critério: editabilidade (seção 8b) com o Dice sem queda relevante em relação à mistura.
+
+**Resultado da mistura `recortes_negativo_r2_fechamento` (2026-10-24, execução do autor no Colab).** Validação cruzada (registro:
+sobreposição 1/4, sem TTA): **0,8383** ± 0,029 (Cellpose 0,8450; Δ −0,0067, IC95 −0,0095 a −0,0039; 8/29; Wilcoxon p < 0,001).
+Por *fold*: 0,830, 0,838, 0,846, 0,840, 0,838 (melhores épocas 99, 23, 77, 43, 67; mediana 67). Seção 8b, com os modelos gravados:
+
+| Condição | Dice | Precisão | Revocação | Massa | Δ Cellpose | Acima/abaixo | p | Dice 20× |
+|---|---|---|---|---|---|---|---|---|
+| registro | 0,8383 | 0,816 | 0,865 | 1,065 | −0,0067 | 8/29 | < 0,001 | 0,821 |
+| melhor inferência (1/2, TTA) | **0,8402** | 0,818 | 0,867 | 1,064 | −0,0049 | 10/27 | 0,002 | 0,822 |
+
+Editabilidade (médias por imagem): marcador cru 54% dos núcleos com um componente, 1.233 buracos, 1.248 fragmentos; marcador
+fechado (o que o ScribblePrompt recebe) **89%** com um componente, 32 buracos, 259 fragmentos, 39 componentes unindo regiões; 2% dos
+núcleos sem marcador. Marcador médio 0,511 dentro dos núcleos e 0,380 fora.
+
+Leitura:
+- **É o melhor experimento treinado até aqui** no registro (0,8383 contra 0,8350 do `recortes_negativo`), mas **não passa do
+  Cellpose**: −0,005 com a melhor inferência, 10 das 37 imagens acima.
+- **O ganho da faixa de 2 px sem retreinar não se manteve com o retreino.** Com os modelos do `recortes_negativo` (treinados com 3
+  px), a faixa de 2 px na inferência levou a massa a 1,01 e o Dice a 0,8423 (§18.23); retreinando com 2 px, a massa volta a 1,06 e a
+  melhor inferência fica em 0,8402. Hipótese ❓: o ganho vinha do descompasso entre treino e inferência (o modelo treinado para
+  3 px, com uma faixa menor, segmenta menos), e o treino se reequilibra na faixa nova. Lembrar também que o 0,8423 foi escolhido nas
+  mesmas 37 imagens (otimista).
+- **O fechamento no treino limpou o marcador cru** (núcleos com um componente: 18% → 54% sem fechamento), e o marcador fechado fica
+  tão editável quanto no teste sem retreinar (89%), sem custo de Dice.
+- Comparação pareada com o `recortes_negativo`: depende dos CSVs por imagem em `docs/estudo/resultados/recortes_negativo_r2_fechamento/`
+  (a pasta baixada do Colab ainda não está no repositório).
+
+### 18.27 Próximos passos (trabalho futuro): edição com cliques binários (2026-10-26, desenho guardado, não implementado)
+
+**Decisão do autor.** A edição simulada com cliques fica como **próximo passo**, fora do TCC e do primeiro artigo. O que já foi
+feito sustenta o TCC e um artigo; a edição com cliques pode virar um segundo artigo, possivelmente com uma camada de segmentação
+mais complexa no lugar do ScribblePrompt-UNet.
+
+**Base conferida no artigo do ScribblePrompt** (`docs/papers/scribble_prompt.pdf`):
+- 📖 Apêndice "ScribblePrompt-UNet Inputs": a entrada tem 5 canais (imagem, caixa, positivo, negativo, *logits* da predição
+  anterior); cliques positivos e negativos são **máscaras binárias** (1 no pixel clicado, 0 no resto). Um clique 100% positivo ou
+  negativo está dentro da distribuição de treino da rede, ao contrário do marcador difuso.
+- 📖 §5.2, protocolo "Center Clicks": a cada passo, **um clique de correção no centro do maior componente da região de erro**
+  (positivo num falso negativo, negativo num falso positivo; centro pela transformada de distância). O artigo cita para isso Xu
+  et al., *Deep Interactive Object Selection*, CVPR 2016, doi 10.1109/CVPR.2016.47, e Sofiiuk et al., *Reviving Iterative Training
+  with Mask Guidance for Interactive Segmentation*, arXiv 2102.06583 (❓ ainda não conferidos diretamente).
+- Diferença de escala: o artigo segmenta um objeto por imagem; aqui há ~650 núcleos por imagem, então o protocolo usa vários
+  cliques por passo.
+
+**Desenho proposto (para quando for implementado):**
+1. *Entrada:* chaves opcionais `positive_clicks` e `negative_clicks` (máscaras binárias do tamanho da imagem). No
+   `ScribblePromptingNetwork`, reduzidas a 128² por **máximo por célula** (o clique vira 1 exato, como no treino; a redução
+   bilinear o diluiria). O clique tem prioridade: positivo põe 1 no canal positivo e zera o negativo (por cima do negativo do
+   Cellpose); negativo faz o contrário (por cima do marcador). Os cliques entram **depois do fechamento**. O
+   `FrozenSegmentationStep` repassa as chaves; o `TiledPipeline` já recorta qualquer tensor do tamanho da imagem. Sem cliques,
+   nada muda.
+2. *Usuário simulado* (`src/evaluation/`, com testes): a cada passo, região de erro = predição (limiar 0,5) × GT; os k maiores
+   componentes recebem um clique no ponto mais distante da borda do erro (positivo em falso negativo, negativo em falso
+   positivo); nunca dois cliques no mesmo pixel; os cliques se acumulam.
+3. *Experimento* (sem retreinar, modelos de `recortes_negativo_r2_fechamento`, cada imagem pelo modelo do *fold* em que ficou
+   de fora): passos 0 a 10 com 10 cliques por passo (até 100 por imagem, ~15% dos núcleos); duas condições: **pipeline completo**
+   (marcador fechado + negativo do Cellpose + cliques) e **sem marcador** (só cliques + negativo do Cellpose; o ScribblePrompt
+   sozinho). Medidas: curva Dice × cliques, imagens acima do Cellpose por passo e **cliques necessários para passar do Cellpose**
+   por imagem (o equivalente ao NoC, com o Cellpose como meta). A diferença entre as condições mede **quantos cliques o marcador
+   economiza**.
+4. *Variações futuras:* passar a predição anterior no canal `mask_input` (como no treino iterativo do ScribblePrompt; o modelo
+   atual foi treinado sem ele, e repetir passadas sem cliques piorou o Dice, §18.22); trocar a camada de segmentação por uma mais
+   complexa.
+
+**Resultado da rodada 2, `recortes_negativo_r2_fechamento_tese` (2026-10-26, execução do autor no Colab, T4, commit `5fabf43`).**
+Resultados em `docs/estudo/resultados/recortes_negativo_r2_fechamento_tese/`. Validação cruzada (registro): **0,8358** ± 0,029
+(Cellpose 0,8450; Δ −0,0093, IC95 −0,0114 a −0,0072; 4/33; p = 3·10⁻⁹). Por *fold*: 0,827, 0,836, 0,845, 0,836, 0,835 (melhores
+épocas 41, 19, 17, 15, 42: pararam mais cedo que a mistura). Melhor inferência (1/2 + TTA): **0,8380**, 8/37 acima do Cellpose;
+precisão 0,829, revocação 0,851, massa 1,03. Contra o `recortes_negativo` (registro, pareado): +0,0007, 20/17.
+
+Editabilidade (médias por imagem): marcador cru com 6,1% da imagem, 11% dos núcleos com um componente, 9,7% sem marcador; fechado
+(3 px): 9,6% da imagem, **55%** com um componente, 35% partidos, 32 buracos, 18 componentes unindo regiões.
+
+Leitura:
+- **Contra a mistura (só Dice):** Dice um pouco menor (0,8358 × 0,8383 no registro; 0,8380 × 0,8402 na melhor inferência; a
+  comparação pareada espera os CSVs da mistura) e marcador **menos** editável pelo critério de componentes (55% × 89%), apesar de
+  menor (9,6% × 17,9% da imagem fechado). A precisão sobe (0,829 × 0,818) e a revocação cai (0,851 × 0,867).
+- **O fechamento não segura o que o DMap e o Size picotam:** o marcador cru fica em pedaços pequenos (3.675 fragmentos por imagem),
+  provavelmente separados por mais do que o disco de 3 px consegue emendar ❓, e 10% dos núcleos ficam sem marcador nenhum, o que
+  nenhum fechamento recupera. A hipótese do §18.26
+  (o fechamento faz o papel do L_comp) **não se confirmou** com estes pesos.
+- **Configuração escolhida pela validação cruzada:** a mistura `recortes_negativo_r2_fechamento` (melhor Dice e marcador mais
+  editável). É ela que vai para o `experimento_final`.
+
+### 18.28 Experimento final: `recortes_negativo_r2_fechamento` (2026-10-26, declarado antes de rodar; resultado em 2026-10-27)
+
+**Configuração escolhida pela validação cruzada:** a mistura `recortes_negativo_r2_fechamento` (§18.26; tabela na PD-52):
+melhor Dice no registro (0,8383) e marcador mais editável (89% dos núcleos com um componente). Treino final com as 37 imagens por
+**67 épocas** (mediana das melhores épocas dos *folds*), avaliação das 14 de teste **uma única vez**.
+
+**Números do teste, declarados antes de rodar:** (1) **registro** (sobreposição 1/4, sem TTA), a mesma avaliação usada para escolher
+entre experimentos; (2) **melhor inferência** (sobreposição 1/2 + TTA), escolhida só nas 37 imagens de treino (§18.23). **O número
+principal do trabalho é o (2).** Os dois vão para o texto, com a comparação pareada com o Cellpose (0,837 no teste).
+
+**`config.json` da mistura reconstruído.** A pasta de resultados da mistura não foi baixada do Colab (só as saídas do notebook
+ficaram). Para a conferência do `experimento_final`, `docs/estudo/resultados/recortes_negativo_r2_fechamento/config.json` foi
+reconstruído a partir das saídas gravadas no notebook (descrição impressa, 67 épocas impressas, commit `3b10c55` impresso no setup)
+e do `TrainConfig` do código (igual ao da rodada 2); o arquivo diz isso no campo `procedencia.reconstruido`. Faltam os CSVs por
+imagem e as curvas da validação cruzada da mistura; dá para regerá-los dos modelos dos *folds* no Drive, sem treinar (pendente).
+
+**Notebook:** `notebooks/experiments/experimento_final.ipynb` preenchido com a configuração e a `factory` copiadas do notebook da
+mistura (a célula de conferência compara com o `config.json`); seção 5b nova: teste com a melhor inferência, comparação pareada com
+o Cellpose e editabilidade do marcador, gravados em `teste_melhor_inferencia.csv` e `teste_editabilidade.csv`. O modelo final vai
+para `MyDrive/cell-fuzzy-models/recortes_negativo_r2_fechamento/final.pt`. Resultados em
+`docs/estudo/resultados/final_recortes_negativo_r2_fechamento/`.
+
+**Decisão do autor (2026-10-26, antes de rodar o teste): treino final por 200 épocas**, e não pelas 67 da mediana da validação
+cruzada. `EPOCAS_FINAL = 200` na configuração do `experimento_final` (`None` volta à mediana). Registro para o texto:
+- a favor: o *cosine schedule* cobre sempre `max_epochs` = 200; com 200, o treino final completa o ciclo até a taxa de aprendizado
+  chegar a zero, que é o desenho do treino; com 67, pararia com a taxa ainda alta;
+- contra: as 200 épocas **não foram validadas**: os *folds* pararam nas épocas 99, 23, 77, 43 e 67 (parada antecipada após 20
+  validações sem melhora) e nenhum passou de 119; o treino final não tem validação para parar; risco de sobreajuste ❓.
+- A escolha foi feita **antes** de ver o teste. O número de épocas vai para o texto junto com o resultado.
+
+**Execução interrompida de 67 épocas (2026-10-27).** O autor começou o `experimento_final` antes da mudança para 200 épocas; essa
+execução terminou o treino de 67 épocas e gravou `final.pt` no Drive (por isso a de 200 épocas parou no `FileExistsError` de
+`ensure_new_models_dir`, antes de treinar). **O autor não viu o resultado do teste dessa execução.** O modelo e, se existirem, os
+resultados dela foram guardados com o sufixo `_67_epocas` (não apagados), e a escolha das 200 épocas continua anterior a qualquer
+olhar sobre o teste. Se a pasta `final_recortes_negativo_r2_fechamento_67_epocas` for baixada, ela entra no repositório como
+registro, sem ser usada para escolher nada.
+
+**Resultado do teste (execução de 200 épocas, 2026-10-27, T4, commit `eb95f63`, sem mudanças locais em `src/`).** Pasta
+`docs/estudo/resultados/final_recortes_negativo_r2_fechamento/` (`config.json` com `final_epochs` 200, `resumo.json`, `teste.csv`,
+`teste_melhor_inferencia.csv`, `teste_editabilidade.csv`, `figura_teste.png`). 14 imagens, todas em 40× (o teste não tem imagens em
+20×). Cellpose no teste: 0,8370. Wilcoxon pareado exato (14 pares); os números do registro batem com o `resumo.json`.
+
+| Condição | Dice | Precisão | Revocação | Massa | Δ Cellpose | Acima/abaixo | p |
+|---|---|---|---|---|---|---|---|
+| registro (1/4, sem TTA) | 0,8300 | 0,782 | 0,890 | 1,147 | −0,0070 | 2/12 | 0,004 |
+| **melhor inferência (1/2, TTA), número principal** | **0,8333** | 0,786 | 0,892 | 1,145 | **−0,0037** | 3/11 | **0,12** |
+| Cellpose | 0,8370 | 0,819 | 0,864 | 1,067 | | | |
+
+A melhor inferência sobe o Dice do registro em todas as 14 imagens (+0,0033, p = 0,0001). Por imagem (melhor inferência − Cellpose):
+de −0,017 (TCGA-A6-6782) a +0,008 (TCGA-44-2665); 9 das 11 imagens abaixo perdem menos de 0,01.
+
+Editabilidade no teste (médias por imagem): marcador cru 86% das regiões do GT com um componente, 320 buracos, 645 fragmentos;
+marcador fechado (3 px) **96%** com um componente, 48 buracos, 263 fragmentos, 22 componentes unindo regiões; 0,3% das regiões sem
+marcador; o marcador cobre 17,5% da imagem.
+
+Leitura:
+- **O pipeline fica abaixo do Cellpose no teste**, como na validação cruzada: −0,0037 no número principal (−0,0049 na validação),
+  3 das 14 imagens acima. A diferença do número principal **não é significativa** (p = 0,12, IC por *bootstrap* a calcular); a do
+  registro é (p = 0,004). Leitura honesta: o pipeline sem FMBS chega **ao nível** do Cellpose com marcadores editáveis, sem
+  superá-lo.
+- O padrão do erro é o mesmo da validação, mais forte: **revocação acima** do Cellpose (+0,029, 13/14) e **precisão abaixo**
+  (−0,033, 0/14), massa 1,15 (1,06 na validação). A segmentação sai maior que a do Cellpose e que o GT.
+- Hipótese ❓: a massa maior que na validação vem das 200 épocas (os *folds* pararam entre 23 e 99) ou só das imagens do teste. Não
+  dá para separar sem o modelo de 67 épocas, que está no Drive (`final_67_epocas.pt`) e **não foi avaliado pelo autor**. Avaliá-lo
+  agora seria olhar o teste uma segunda vez: só como análise registrada, nunca para trocar o número principal.
+- O marcador cru do treino final é mais limpo que o da validação (86% × 54% das regiões com um componente) ❓ (mais épocas?), e o
+  fechado chega a 96%: a editabilidade se confirma fora das imagens de treino.
+
