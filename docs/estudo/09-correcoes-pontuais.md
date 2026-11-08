@@ -1785,3 +1785,47 @@ Leitura:
 - O marcador cru do treino final é mais limpo que o da validação (86% × 54% das regiões com um componente) ❓ (mais épocas?), e o
   fechado chega a 96%: a editabilidade se confirma fora das imagens de treino.
 
+
+### 18.29 Decisão: o experimento final continua o da mistura; sem novo treino nem métricas da tese (2026-10-31, decisão do autor)
+
+**Proposta discutida.** O autor considerou um segundo experimento final com marcadores "bons pela tese": negativo do Cellpose sem
+faixa livre (0 px, para não depender de um parâmetro escolhido por nós), as perdas da `_tese` (Size 0,1 + DMap 0,1, sem TV) e o
+fechamento de 3 px, avaliado também com as métricas de marcador da tese.
+
+**Por que não.**
+- **A troca "Dice pior, interação mais simples" não tem base nos dados.** Pela editabilidade medida (§18.25, §18.26), o marcador
+  da `_tese` dá **mais** trabalho de edição que o da mistura (55% × 89% dos núcleos com um componente; 10% × 2% sem marcador), e a
+  facilidade de interação nunca foi medida (seria a edição com cliques, §18.27). A mistura vence nos dois critérios.
+- **Sem o negativo de 0 px, a configuração nova é a `recortes_negativo_r2_fechamento_tese`, já rodada** (0,8358 / 0,8380 na
+  validação cruzada). O negativo de 0 px foi descartado: a tese não usa o negativo assim (no treino, o fundo são quatro cliques
+  perto dos cantos, cap. 6, p. 76; o fundo aprendido vem do complemento da segmentação intermediária passado pela rede de
+  marcadores, §5.4.3), e os dados indicam que, sem faixa, a saída tende a copiar e encolher o Cellpose (1 px: precisão 0,867,
+  igual à do Cellpose, e revocação 0,812, abaixo; §18.23).
+- **Rodar outro final seria usar o teste uma segunda vez.** Fica um único resultado de teste (§18.28).
+- **As métricas da tese (§6.2: IoU, Rsize, CC, Thinness; tabelas 6.1 e 6.2) não se transferem sem várias adaptações nossas:** um
+  objeto por imagem na tese contra centenas de núcleos aqui; CC, Rsize e Thinness somam o marcador de fundo (os quatro cliques),
+  que aqui é o negativo denso do Cellpose; o IoU da tese usa a segmentação feita com os marcadores binarizados. A tese também não
+  fixa um limiar de "bom" (na arquitetura mais próxima da nossa, tab. 6.2, o marcador cobre ~20% do objeto). Julgado pelo autor:
+  mais atrapalha que ajuda.
+
+**Para o texto.** Citar os critérios da tese de forma qualitativa (pequeno, dentro do objeto, poucos componentes, suave) e
+reportar as nossas medidas de editabilidade (`src/evaluation/editability.py`), explicando por que as métricas da tese não se
+comparam diretamente. O TV fica fora porque pune a diferença entre vizinhos e, aqui, achatou o marcador num campo quase uniforme
+(§18.17; `negativo_sem_tv` 0,819 × `base_negativo` 0,808).
+
+**Orientação do coordenador (2026-11-06, relatada pelo autor).** O artigo compara as duas configurações: (x) com o que a tese
+considera um bom marcador e (y) a nossa proposta (só Dice), e diz que o TV, neste problema, suaviza os marcadores unindo-os uns
+aos outros. Como entra:
+- **x = `recortes_negativo_r2_fechamento_tese`, y = `recortes_negativo_r2_fechamento`.** As duas têm o mesmo fechamento, a mesma
+  faixa do negativo, os mesmos *folds* e sementes; só mudam as perdas do marcador, então a diferença isola o efeito delas. Dizer
+  no texto que x usa as perdas de marcador da tese que se aplicam aqui (Size 0,1, a proporção da tese; DMap 0,1, maior que a
+  proporção da tese, 1/3000, que quase não agia), sem o TV (motivo abaixo) e sem o L_comp (não implementado: depende da max-tree).
+- **Só validação cruzada** (37 imagens): x nunca foi ao teste e o teste não será usado de novo. Números: x 0,8358 / 0,8380
+  (registro / melhor inferência), y 0,8383 / 0,8402; marcador fechado com um componente por núcleo: x 55%, y 89%; núcleos sem
+  marcador: x 10%, y 2%.
+- **Falta a comparação pareada x × y**: os CSVs por imagem da validação cruzada de y não existem (pendência da §18.28). Sem eles,
+  a diferença de Dice (~0,002) não pode ser chamada de melhora.
+- **TV:** evidência em duas comparações pareadas, ambas na configuração antiga (256², sem recortes): `base_dice` × `base_dice_tv`
+  +0,011 (29/37, p = 0,002) e `negativo_sem_tv` × `base_negativo` +0,012 (36/37, p = 3·10⁻¹¹), com o marcador voltando a separar
+  núcleo e fundo (média 0,55 × 0,30) em vez do campo quase uniforme (PD-52, §18.17). O "unindo uns aos outros" é a leitura da
+  perda de contraste e da figura; o número de componentes unidos com o TV não foi medido.
