@@ -1,0 +1,20 @@
+docs/estudo/09-correcoes-pontuais.md
+  s_1daf15dff1bdb8::t_22b4082795deb0 1815-1831
+  s_1daf15dff1bdb8::t_a9363ecf45bb8d 1788-1814
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f6695fea3cffc2da90d3686bb8bb299307ac881f",
+  "prompts": {},
+  "sessions": {
+    "s_1daf15dff1bdb8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4dd3c26f-8bfe-45bb-8388-38ee45feef63",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pedro-io <p.rodrigues2532@gmail.com>"
+    }
+  }
+}
