@@ -1,0 +1,32 @@
+docs/notas-do-projeto/12-decisoes.md
+  s_5fd0bc22017392::t_c92202936d54ee 110
+  s_5fd0bc22017392::t_130a5fc0962854 8,109,111
+docs/estudo/08-pendencias.md
+  s_5fd0bc22017392::t_c92202936d54ee 28,39,48,72,74,282-283,397-398,584-591,1125-1126,1286-1288
+  s_5fd0bc22017392::t_8c952d33abf8bf 14,274-281,1120-1124,1272-1285
+docs/notas-do-projeto/03-dados.md
+  s_5fd0bc22017392::t_130a5fc0962854 86-89,93,98-101,190-213
+  s_5fd0bc22017392::t_b3c17d68a6eb21 214
+data_source/README.md
+  s_5fd0bc22017392::t_9bcb3acc6396b5 17-18,20-21,40-45
+README.md
+  s_5fd0bc22017392::t_a1ccbf806a2c10 1-49
+LICENSE
+  s_5fd0bc22017392::t_d8e400d3f0471f 1-21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fad2da418e84fc7e9a391072da89033c2737e926",
+  "prompts": {},
+  "sessions": {
+    "s_5fd0bc22017392": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "31e6ab91-57e5-4ba4-bbda-ee505a7bd3bc",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pedro-io <p.rodrigues2532@gmail.com>"
+    }
+  }
+}
