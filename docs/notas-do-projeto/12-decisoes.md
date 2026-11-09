@@ -5,7 +5,7 @@ outros capítulos descrevem o estado atual e citam as decisões por aqui quando 
 
 **Como usar.** Cada decisão tem um identificador `D-nn`, que não é reaproveitado. Uma decisão revista não é apagada: ela fica
 marcada como **substituída por D-nn**, para que o caminho até o estado atual continue legível. Decisões em aberto ficam na seção
-12.9. Uma decisão nova entra no fim da seção 12.8, que segue a ordem das datas, com o próximo número livre (hoje, D-56).
+12.9. Uma decisão nova entra no fim da seção 12.8, que segue a ordem das datas, com o próximo número livre (hoje, D-59).
 
 As perguntas e respostas originais que deram origem às decisões de 2026-09-27 estão nas seções "Decisões" e "Perguntas
 originais" dos documentos `docs/estudo/00` a `06`, no commit `b5455ad`. As decisões de 2026-09-28 em diante estão registradas
@@ -106,6 +106,9 @@ em [08-pendencias.md](../estudo/08-pendencias.md) e [09-correcoes-pontuais.md](.
 | D-53 | 2026-10-26 | Treino final por 200 épocas, e não pelas 67 da mediana das melhores épocas dos *folds*. Decidido antes de ver o teste. | Completar o ciclo da agenda em cosseno, que cobre 200 épocas. Contra: as 200 épocas não foram validadas (os *folds* pararam entre 23 e 99). | Cap. 9, seção 9.4 |
 | D-54 | 2026-10-26 | Declarar antes do teste os dois números a reportar, com o da inferência final (sobreposição de 1/2 e TTA) como número principal. | Evitar escolher o número depois de ver o teste. | Cap. 9, seção 9.4; cap. 11, seção 11.7 |
 | D-55 | 2026-10-27 | Não rodar mais nada no teste nem trocar a configuração. O modelo de 67 épocas, gravado por uma execução interrompida cujo resultado não foi visto, não é avaliado; se for, só como análise registrada, nunca para trocar o número principal. | O teste já foi usado uma vez. | Cap. 11, seção 11.8; 09 §18.28 |
+| D-56 | 2026-11-08 | Manter a regra do menor núcleo na sobreposição da máscara por instância, ao contrário dos autores do MoNuSeg, que deram o pixel ao maior. | Medido: a regra do maior apaga 2 núcleos inteiros no treino, e a do menor, nenhum. A escolha só afeta o mapa de distância, que a configuração final não usa. | Cap. 3, seções 3.3 e 3.7; PD-07 |
+| D-57 | 2026-11-08 | Licença MIT para o código. Os dados continuam sob a CC BY-NC-SA 4.0, e as bibliotecas e os modelos de terceiros, sob as licenças deles, com os créditos e as citações no `README.md` da raiz. | Pedido do autor: a licença mais comum, que só exige manter o aviso de copyright. | Cap. 3, seção 3.7; PD-27 |
+| D-58 | 2026-11-08 | Não alterar o código que gerou os dados e os modelos por problemas que não afetam os resultados: chaves não usadas do `datasets.yml` (PD-18), tolerância para contornos quase degenerados (PD-51), o README e uma docstring do carregamento de dados (PD-53). Os problemas ficam registrados nas pendências. | Os experimentos estão encerrados e não podem ser repetidos; o código deve continuar sendo o que produziu os resultados. | Cap. 3; PD-18, PD-51, PD-53 |
 
 ## 12.9 Em aberto
 
@@ -114,8 +117,6 @@ em [08-pendencias.md](../estudo/08-pendencias.md) e [09-correcoes-pontuais.md](.
 | Rumo depois do TCC e do primeiro artigo | A edição com cliques (D-51) e, entre outras, o "caminho d": a MarkerUNet passa a corrigir a segmentação do Cellpose. | Cap. 13; PD-40 |
 | Enquadramento pela seção 7.1.2 da tese | Ainda não discutido com o orientador. | Cap. 2, seção 2.4 |
 | Comparação com um modelo totalmente supervisionado | Proposta, não decidida: a tese (seção 7.1.2) sugere essa comparação, e um revisor pode pedi-la. | Cap. 2, seção 2.4 |
-| Licença do código | A escolher. | PD-27 |
-| Sobreposição de núcleos na máscara por instância | Hoje o menor núcleo vence; os autores do MoNuSeg deram o pixel ao maior. Só afeta o mapa de distância. | Cap. 3, seção 3.3 |
 | Efeito de o Cellpose-SAM ter visto as imagens de treino | Medir com um modelo que não viu o MoNuSeg, ou registrar só como limitação. | Cap. 5, seção 5.4 |
 
 ## Para o artigo

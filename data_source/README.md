@@ -14,9 +14,11 @@ Esta pasta contém o dataset **MoNuSeg** (Multi-Organ Nucleus Segmentation, desa
 - **Citação exigida pelos autores:**
 
   > N. Kumar, R. Verma, S. Sharma, S. Bhargava, A. Vahadane and A. Sethi, "A Dataset and a Technique for Generalized Nuclear
-  > Segmentation for Computational Pathology," *IEEE Transactions on Medical Imaging*, vol. 36, no. 7, pp. 1550–1560, 2017.
+  > Segmentation for Computational Pathology," *IEEE Transactions on Medical Imaging*, vol. 36, no. 7, pp. 1550–1560, 2017,
+  > doi:10.1109/TMI.2017.2677499.
 
-  > N. Kumar et al., "A Multi-organ Nucleus Segmentation Challenge," *IEEE Transactions on Medical Imaging*.
+  > N. Kumar et al., "A Multi-organ Nucleus Segmentation Challenge," *IEEE Transactions on Medical Imaging*, vol. 39, no. 5,
+  > pp. 1380–1391, 2020, doi:10.1109/TMI.2019.2947628.
 
 ## Conteúdo
 
@@ -35,7 +37,9 @@ Esta pasta contém o dataset **MoNuSeg** (Multi-Organ Nucleus Segmentation, desa
   (`__MACOSX/`, `.DS_Store`) foram descartados.
 - As pastas `Binary_masks/` e `Binary_masks_instance/`, que existiam aqui até 2026-09-28, **não fazem parte** do download
   oficial e foram removidas (PD-26). Continuam no histórico do git.
-- `MoNuSegPreprocessed/` não faz parte do MoNuSeg: é gerado a partir dele. O ground truth foi rasterizado a partir dos XMLs
-  como máscara binária. Os demais arquivos são saídas do pipeline de pré-processamento deste projeto. ⚠️ Hoje ele cobre só
-  30 das 37 imagens de treino, e será regerado (PD-23). Detalhes em
-  [`docs/estudo/01-dados.md`](../docs/estudo/01-dados.md).
+- `MoNuSegPreprocessed/` não faz parte do MoNuSeg: é gerado a partir dele, para as 37 imagens de treino e as 14 de teste
+  (versão de 2026-10-07, registrada em `MoNuSegPreprocessed/meta.json`). O ground truth é a rasterização dos XMLs: um pixel
+  pertence ao núcleo se o seu centro cai dentro do contorno, e os contornos degenerados (menos de 3 vértices ou área zero) são
+  descartados. Essa regra é escolha deste projeto, e não dos autores do MoNuSeg. Os demais arquivos são saídas do
+  pré-processamento, entre elas a segmentação do Cellpose-SAM, cujo modelo, segundo os autores, foi treinado com dados
+  CC BY-NC. Detalhes em [`docs/notas-do-projeto/03-dados.md`](../docs/notas-do-projeto/03-dados.md).

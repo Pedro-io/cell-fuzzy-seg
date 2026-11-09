@@ -11,7 +11,7 @@
 >
 > **Origem:** ✅ verificado · 📖 tese/artigo · ❓ hipótese a confirmar.
 
-Última atualização: 2026-09-29 (PD-23/PD-26: novo download; PD-25/PD-07: medição da etapa 1).
+Última atualização: 2026-11-08 (pente fino, bloco 1: PD-07 e PD-51 remedidas; PD-53 nova).
 
 ---
 
@@ -25,7 +25,7 @@
 | [PD-04](#pd-04) | 🟠 | Modelo | O scribble negativo é o complemento denso do marcador (provável erro) | ✅ Resolvida: o complemento denso foi abandonado (modo `positive`, `df0a30f`); o negativo agora é opcional e vem do Cellpose (`dfabaa5`) |
 | [PD-05](#pd-05) | 🟡 | Resolução | O ScribblePrompt trabalha em 128²: o núcleo mediano vira ~3 px | `input_size` configurável (2026-10-07); o experimento-base usa 256² |
 | [PD-06](#pd-06) | 🟠 | Dados/Loss | O mapa de distância é normalizado pelo máximo da imagem, não por núcleo | ✅ Resolvida (2026-10-06, `308ba92`); falta recalibrar o peso do DMap (fase 2) |
-| [PD-07](#pd-07) | 🟠 | Dados | O GT binário funde núcleos (−25% de componentes no treino) | Parcial: a máscara por instância alimenta o Dmap (2026-10-06); o GT binário continua fundindo (intencional) |
+| [PD-07](#pd-07) | 🟠 | Dados | O GT binário funde núcleos (−20% de componentes no treino com o GT atual; −25% era o GT antigo) | ✅ Encerrada (2026-11-08, pente fino): a fusão é intencional (avaliação por pixel); regra do menor mantida (D-56 das Notas) |
 | [PD-08](#pd-08) | 🟡 | Treino | A aumentação é estática e não há shuffle | ✅ Resolvida (2026-10-07): aumentação sorteada a cada época e ordem embaralhada no `PreprocessedDataset`/`make_loader`, usados por todos os experimentos |
 | [PD-09](#pd-09) | 🟡 | Treino | Os runs provavelmente validaram com a BatchNorm em `train()` | ✅ Encerrada: afeta só os exp. 1–6 (legados, GT antigo); desde `ef7d731` a validação roda em modo de avaliação |
 | [PD-10](#pd-10) | 🟡 | Reprodutibilidade | Checkpoints não salvos, saídas velhas, markdowns desatualizados | Parcial: resultados salvos por `save_run` (config, commit, métricas por imagem); faltam os checkpoints dos modelos |
@@ -36,7 +36,7 @@
 | [PD-15](#pd-15) | 🟡 | Segurança | O checkpoint do ScribblePrompt é baixado sem verificação de hash | ✅ Resolvida (2026-10-17, validada pelo autor): `download_checkpoint` confere o SHA-256 e baixa para um `.part` |
 | [PD-16](#pd-16) | 🟡 | Robustez | Fallbacks silenciosos (GT como entrada; rede "dummy") | Parcial (2026-10-01): notebook de pré-processamento corrigido; falta o `MarkerStep` |
 | [PD-17](#pd-17) | ⚪ | Código morto | `pipeline_test.py` está quebrado | Aberta |
-| [PD-18](#pd-18) | ⚪ | Config | Partes de `datasets.yml` não são usadas | Aberta |
+| [PD-18](#pd-18) | ⚪ | Config | Partes de `datasets.yml` não são usadas | Encerrada sem mudança (2026-11-08, decisão do autor: não alterar o código que gerou os resultados; D-58 das Notas) |
 | [PD-19](#pd-19) | 🟡 | Dados | Dois caminhos de carregamento; `MonusegPreprocessedDataset` não lê do disco | ✅ Resolvida (2026-10-07): módulo completo (métricas, dataset, callbacks, k-fold, registro); classe antiga removida |
 | [PD-20](#pd-20) | ⚪ | Git | `.pyc` e `egg-info` versionados | Aberta |
 | [PD-21](#pd-21) | 🟡 | Git | 1,6 GB de dados no git, incluindo 1,1 GB de `.npy` derivados | Adiada (decisão do autor) |
@@ -45,7 +45,7 @@
 | [PD-24](#pd-24) | 🟡 | Dados | 3 imagens de treino em 20× (0,5 µm/px): núcleos com metade do tamanho | Remedida (2026-10-08): Cellpose −0,01 nessas imagens; oráculo em 256² sem perda; em 128² perde muito. 2026-10-15: no pipeline treinado a perda é da MarkerUNet |
 | [PD-25](#pd-25) | 🟡 | Dados | Rasterização: o `fillPoly` engorda o GT em ~10% (o `int()` não é o problema); 5 polígonos com 2 vértices e área 0 | ✅ Resolvida (2026-09-29) |
 | [PD-26](#pd-26) | ⚪ | Dados | `Binary_masks`/`Binary_masks_instance` não vêm do download oficial e não são usadas | ✅ Resolvida (2026-09-29): removidas |
-| [PD-27](#pd-27) | 🟡 | Licença | Repositório público redistribui o MoNuSeg sem atribuição; `LICENSE` vazio | Parcial: atribuição feita; falta a licença do código |
+| [PD-27](#pd-27) | 🟡 | Licença | Repositório público redistribui o MoNuSeg sem atribuição; `LICENSE` vazio | ✅ Resolvida (2026-11-08): `LICENSE` MIT para o código; créditos e citações no `README.md` da raiz; dados seguem CC BY-NC-SA |
 | [PD-28](#pd-28) | ⚪ | Docs | `ARCHITECTURE.md` tem trechos errados (`registry/`, rede final "treinável") | ✅ Resolvida (2026-09-27) |
 | [PD-29](#pd-29) | 🟡 | Pré-proc. | A proteção contra nome de modelo do Cellpose nunca executa (`MODEL_LIST` não existe) | ✅ Resolvida (2026-10-01): nome desconhecido → erro |
 | [PD-30](#pd-30) | 🟡 | Pré-proc. | Parâmetros do Cellpose: `diam_mean` ignorado, `diameter=30` sem reescala, `flow_threshold`/`min_size` fora do padrão | ✅ Resolvida (2026-10-06): limiares padrão, sem reescala; vale a partir da regeração |
@@ -69,8 +69,9 @@
 | [PD-48](#pd-48) | 🟡 | Testes | Testes cobrem a "tubulação" com dummies; nada de redes reais, dados, métricas ou valores das losses; sem execução automática | Aberta |
 | [PD-49](#pd-49) | 🟠 | Modelo/Experimento | Só positivo: um fundo ≥ 1e-3 no canal positivo faz o ScribblePrompt marcar a imagem inteira; a sigmoid da MarkerUNet nunca dá 0 | ✅ Resolvida (`df0a30f`, validada pelo autor): modo `positive` com corte em τ |
 | [PD-50](#pd-50) | ⚪ | Código | Código, testes e notebooks citam a história do projeto (PD-nn, "investigação, P5", "C2", "regra 23") | Aberta (regra do autor, 2026-10-01) |
-| [PD-51](#pd-51) | ⚪ | Dados | Uma região de área ~0 é classificada de forma diferente conforme a versão do numpy (só muda o log) | Aberta |
+| [PD-51](#pd-51) | ⚪ | Dados | Uma região de área ~0 é classificada de forma diferente conforme o ambiente (só muda o log) | Encerrada sem mudança (2026-11-08): depende da máquina, não da versão do numpy; não muda a máscara (D-58 das Notas) |
 | [PD-52](#pd-52) | 🔴 | Resultados | O pipeline perde para o Cellpose por **precisão** (0,73 × 0,87): segmenta ~17% a mais que o GT | Aberta; 2026-10-18: recortes + negativo 0,835 (melhor até aqui; Cellpose 0,845; 7/37 imagens acima) |
+| [PD-53](#pd-53) | ⚪ | Docs/Código | Documentação dos dados desatualizada: `data_source/README.md`, `src/data/load/README.md`, docstring do `BaseDataset`, fusão de núcleos citada com o número do GT antigo | Parcial (2026-11-08): `data_source/README.md` corrigido; README do `src/data/load/` e docstring encerrados sem mudança (D-58) |
 
 ---
 
@@ -270,6 +271,16 @@ persisti-las (etapa 5). ⚠️ O `resize_sample` do notebook de pré-processamen
 **Atualização (2026-10-06):** o notebook passou a levar `ground_truth_instances` até o `DistanceMapStep`. Por decisão do autor, ela
 **não** é persistida: sai dos XMLs em CPU (~0,5 s por imagem) quando for preciso. O que resta da PD-07 é o GT binário fundir
 núcleos, o que é intencional para a avaliação por pixel.
+**Remedição com o GT atual (pente fino, 2026-11-08)** ✅: os −24,8% acima eram do GT antigo (`fillPoly`, que engorda cada
+núcleo e une mais vizinhos). Com a rasterização pelo centro do pixel, no treino as 24.133 instâncias viram **19.326** componentes
+com vizinhança 8 (**−19,9%**) ou 19.916 com vizinhança 4 (−17,5%); no teste, 6.697 viram 6.221 (−7,1%) ou 6.291 (−6,1%). As três
+imagens em 20× respondem por 26,5% dos componentes perdidos no treino. Os números das Notas (cap. 1 §1.5 e cap. 3 §3.4) já
+são os novos; o `CLAUDE.md` e o roteiro do pente fino citavam o antigo (corrigidos). **Regra de sobreposição:** medida também a
+regra dos autores do MoNuSeg (Kumar et al., 2017: o **maior** núcleo fica com o pixel): ela apaga **2** núcleos inteiros no treino
+(0 no teste), como "o último desenhado vence"; "o menor vence" não apaga nenhum. A escolha só afeta a máscara por instância
+(Dmap); o GT binário é o mesmo nas três regras.
+**✅ Encerrada (2026-11-08, pente fino, decisão do autor):** o GT binário continua fundindo núcleos (intencional), e a regra "o
+menor vence" é mantida. Registrada como D-56 nas Notas (cap. 12).
 
 ### PD-08
 **🟡 A aumentação é estática e não há shuffle.** ✅
@@ -383,6 +394,8 @@ o arquivo ou reescrevê-lo.
 [datasets.yml:11](../../configs/datasets.yml#L11) (`train_split: 0.8`), `loader_config` (L23) e `preprocessing` (L31: 256²,
 normalização, augmentation) não são lidos por nenhum código de treino. Só um notebook-tutorial imprime `loader_config`.
 Isso sugere comportamentos que não existem.
+**Encerrada sem mudança (2026-11-08, pente fino, decisão do autor):** os experimentos estão encerrados; o código e a configuração
+ficam como produziram os resultados (D-58 nas Notas). As chaves continuam sem efeito.
 
 ### PD-19
 **🟡 Dois caminhos de carregamento de dados.** ✅
@@ -568,6 +581,14 @@ aviso de que `MoNuSegPreprocessed/` é derivado e herda a CC BY-NC-SA. **Falta:*
 **Atualização (2026-09-29, `f263379` e seguinte):** o `data_source/README.md`, apagado sem querer na troca dos dados, foi restaurado
 e agora registra a origem do novo download (<https://monuseg.grand-challenge.org/Data/>), o conteúdo (37 + 14 imagens) e as
 alterações em relação ao original. Continua faltando a licença do **código**.
+**✅ Resolvida (2026-11-08, pente fino, pedido do autor: "o mais comum"):** `LICENSE` com a licença **MIT** (titular: Pedro
+Rodrigues, 2026). O `README.md` da raiz descreve o projeto em um parágrafo, separa a licença do código (MIT) da dos dados
+(CC BY-NC-SA 4.0) e lista os créditos e as citações de tudo o que é usado, com licenças conferidas nos metadados dos pacotes e no
+`LICENSE` do ScribblePrompt no commit fixado: Cellpose 4.1.1 (BSD-3-Clause; o modelo Cellpose-SAM foi treinado com dados CC BY-NC,
+segundo o README da biblioteca), ScribblePrompt (Apache-2.0; o README dos autores indica ECCV 2024), segmentation-models-pytorch
+(MIT), segment-anything (Apache-2.0), OpenCV (Apache-2.0), loguru (MIT), NumPy, SciPy e scikit-image (BSD-3-Clause), PyTorch.
+Nenhum peso de modelo está no repositório (são baixados na execução). Registrada como D-57 nas Notas. O `CITATION.cff` continua
+vazio.
 
 ### PD-28
 **⚪ Trechos errados no `ARCHITECTURE.md`.** ✅
@@ -1096,6 +1117,13 @@ fórmula do laço dá `7,3e-12` com o numpy 2.5.3 (local) e **0** com o numpy 2.
 do `TCGA-HE-7128` (área 0,025, 0 px).
 **Proposta:** tratar como degenerada uma área abaixo de uma tolerância (ex.: `< 1e-6 px²`), em vez de `<= 0`, para o log ser o
 mesmo em qualquer ambiente.
+**Correção da causa (pente fino, 2026-11-08)** ✅: num venv local com o **mesmo numpy 2.0.2** do `requirements.txt`, a área da
+região 1148 sai `7,3e-12`, e não 0. A diferença vem da máquina (o resultado do `np.dot` em ponto flutuante depende das instruções
+da CPU), não da versão do numpy. Consequência: a contagem de regiões "válidas" do treino é 24.135 nesta máquina e 24.134 no
+Colab; o número robusto, que não depende do ambiente, é o de regiões que ocupam pixels (**24.133**), e a máscara é idêntica
+(o GT persistido é igual ao rasterizado aqui em 37/37 e 14/14 imagens). A proposta acima continua válida.
+**Encerrada sem mudança (2026-11-08, decisão do autor):** a tolerância não é aplicada, para o código continuar sendo o que gerou os
+dados (D-58 nas Notas). O texto cita 24.133 regiões com pixels como o número estável (Notas, cap. 3 §3.3).
 
 ### PD-52
 **🔴 O pipeline perde para o Cellpose por precisão: ele segmenta demais.** ✅ (medido em 2026-10-08 nos resultados do Colab)
@@ -1241,3 +1269,20 @@ melhor inferência (número principal, declarado antes) **0,8333** contra Cellpo
 p = 0,12, não significativo); registro 0,8300 (−0,0070, p = 0,004). Revocação acima (+0,029) e precisão abaixo (−0,033) do Cellpose,
 massa 1,15. Marcador fechado: 96% das regiões do GT com um componente. **O pipeline chega ao nível do Cellpose sem superá-lo.**
 A edição com cliques fica como trabalho futuro (09 §18.27).
+
+### PD-53
+**⚪ Documentação dos dados desatualizada.** ✅ (pente fino, bloco 1, 2026-11-08)
+- [data_source/README.md:38-41](../../data_source/README.md#L38-L41): diz que o `MoNuSegPreprocessed/` "cobre só 30 das 37
+  imagens de treino, e será regerado (PD-23)". Foi regerado com 37 + 14 em 2026-10-07 (`0cc2d7f`; `meta.json`). Como o repositório
+  é público, é o primeiro texto que um leitor dos dados vê.
+- [src/data/load/README.md](../../src/data/load/README.md): em inglês (o resto do código é em português), descreve um
+  `monuseg_cellpose_dataset.py` que não existe e não cita o `preprocessed_dataset.py`, que é o que os experimentos usam.
+- [base_dataset.py:116-129](../../src/data/load/base_dataset.py#L116-L129): a docstring do `__getitem__` promete as chaves
+  `'mask'` e `'image_name'`; o `MonusegDataset` devolve `id`, `image`, `ground_truth`, `ground_truth_instances` e `meta`.
+- Fusão de núcleos citada como "24,8%" no `CLAUDE.md` e no roteiro do pente fino (número do GT antigo; ver PD-07). Corrigido nos dois
+  em 2026-11-08, sem commit.
+**Proposta:** corrigir o parágrafo do `data_source/README.md`; reescrever o `src/data/load/README.md` em português com os três
+arquivos atuais; corrigir a docstring. Nenhuma mudança de comportamento. Aguarda o ok do autor.
+**Parcial (2026-11-08, decisão do autor):** o `data_source/README.md` foi corrigido (37 + 14 imagens, versão do `meta.json`, regra
+de rasterização marcada como escolha do projeto, DOIs das citações, nota sobre o Cellpose-SAM). O README do `src/data/load/` e a
+docstring do `BaseDataset` ficam como estão (D-58 nas Notas).

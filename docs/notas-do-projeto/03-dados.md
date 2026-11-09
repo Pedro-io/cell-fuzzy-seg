@@ -83,17 +83,22 @@ O resultado é uma máscara por instância. O ground truth binário usado no tre
 **Diferença em relação aos autores do MoNuSeg.** Na sobreposição, os autores atribuíram cada pixel ao **maior** núcleo que o
 contém (Kumar et al., 2017, seção III); a regra 3 acima faz o contrário. A escolha só afeta a máscara por instância, que é
 usada no mapa de distância (capítulo 8); o GT binário é o mesmo nas duas regras. Com a regra do menor, nenhum núcleo some por
-inteiro ([08-pendencias.md, PD-07](../estudo/08-pendencias.md#pd-07)). A regra do maior segue a convenção dos autores, mas pode
-apagar núcleos pequenos cobertos por um maior; isso não foi medido. A escolha está em aberto (capítulo 12).
+inteiro ([08-pendencias.md, PD-07](../estudo/08-pendencias.md#pd-07)). A regra do maior segue a convenção dos autores, mas apaga
+núcleos pequenos cobertos por um maior: aplicada às mesmas máscaras, ela apaga 2 núcleos inteiros no treino e nenhum no teste
+(medido em 2026-11-08, mesma fonte). A regra do menor foi mantida (capítulo 12, D-56). Como a configuração final não usa o
+mapa de distância, essa escolha não afeta nenhum resultado final.
 
 **Por que o centro do pixel.** Pintar todo pixel tocado pela borda do polígono, o que faz o preenchimento de polígonos do
 OpenCV (`cv2.fillPoly`), deixa a máscara cerca de 10% maior que a área anotada. Com a regra do centro, a área rasterizada fica
-a 0,995 (treino) e 1,011 (teste) da área anotada, e a máscara fica mais alinhada com a segmentação do Cellpose
+a 0,995 (treino) e 1,010 (teste) da área anotada, somando todas as imagens, e a máscara fica mais alinhada com a segmentação do Cellpose
 ([09-correcoes-pontuais.md §13](../estudo/09-correcoes-pontuais.md)). Hipótese: o fato de essa convenção acertar a área
 indica que é a convenção usada na anotação; nenhum documento do desafio confirma isso.
 
 Com essas regras, das 24.140 regiões do treino, 24.135 são válidas e 24.133 ocupam pelo menos um pixel; no teste, as 6.697
-são válidas e ocupam pixels (mesma fonte). Os polígonos se sobrepõem pouco: 1,00% dos pixels de núcleo do treino e 0,25% do
+são válidas e ocupam pixels (mesma fonte). A contagem de regiões válidas do treino pode mudar em uma unidade entre
+ambientes, porque a área de um contorno de três pontos quase alinhados sai 0 ou 7·10⁻¹² conforme a máquina; a máscara é a mesma
+nos dois casos, e o número que não depende do ambiente é o de regiões que ocupam pixels, 24.133
+([08-pendencias.md, PD-51](../estudo/08-pendencias.md#pd-51)). Os polígonos se sobrepõem pouco: 1,00% dos pixels de núcleo do treino e 0,25% do
 teste são cobertos por mais de um polígono ([08-pendencias.md, PD-07](../estudo/08-pendencias.md#pd-07)).
 
 ## 3.4 O que foi medido
@@ -181,6 +186,31 @@ segmentação do Cellpose (capítulo 7).
 ([PreprocessedDataset](../../src/data/load/preprocessed_dataset.py)). Como são só rotações de 90° e espelhamentos, o mapa de
 distância continua válido sem ser recalculado. Opcionalmente, o treino usa recortes em posição sorteada em vez da imagem
 inteira (capítulo 9).
+
+## 3.7 O que vem da fonte e o que é escolha deste trabalho
+
+**Vem do MoNuSeg** (Kumar et al., 2017; Kumar et al., 2020; página de dados do desafio): as imagens, os contornos anotados, a
+divisão entre treino e teste, a escala de cada imagem no cabeçalho do XML, a licença e as citações exigidas.
+
+**Foi constatado nos arquivos, sem nenhuma escolha envolvida:** o pacote atual tem 37 imagens de treino, e não as 30 dos
+artigos; três imagens de treino estão em 20× e quatro não informam a escala; os 51 pacientes são distintos, e nenhum aparece no
+treino e no teste.
+
+**É escolha deste trabalho:**
+
+- usar as 37 imagens de treino do pacote atual (capítulo 12, D-07);
+- rasterizar pelo centro do pixel (D-08). A convenção de canto do pixel é deduzida dos dados, porque é a única que acerta a área
+  anotada nos dois conjuntos; nenhum documento do desafio a confirma (hipótese);
+- descartar os contornos com menos de 3 vértices ou área zero (D-08);
+- dar o pixel ao menor núcleo na sobreposição, ao contrário dos autores (D-08 e D-56);
+- avaliar contra o GT binário, em que núcleos que se tocam se fundem (D-04, sugestão do coordenador);
+- reorganizar as pastas do pacote, sem alterar o conteúdo de nenhum arquivo (conferido por SHA-256);
+- manter os dados no repositório público (D-10), sob a licença deles, com o código sob a licença MIT (D-57).
+
+**O que foi conferido.** Na revisão final do projeto (2026-11-08), os números deste capítulo foram recalculados a partir dos XMLs
+e dos arquivos derivados: o GT gravado é idêntico, pixel a pixel, à rasterização do código atual nas 37 imagens de treino e nas
+14 de teste, e as contagens, áreas e fusões das seções 3.3 e 3.4 se confirmaram
+([08-pendencias.md, PD-07](../estudo/08-pendencias.md#pd-07)).
 
 ## Para o artigo
 
