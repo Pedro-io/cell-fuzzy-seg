@@ -50,7 +50,8 @@ método e os resultados.
 - **Gradiente nulo abaixo do corte.** Onde o marcador fica abaixo de $\tau$, a perda de segmentação não envia nenhum sinal
   (capítulo 7, seção 7.3).
 - **Dependência do Cellpose.** A entrada da rede de marcadores e o canal de fundo vêm do Cellpose. Os erros dele, em especial os
-  núcleos que ele não encontra, limitam o que o pipeline pode recuperar; e quanto mais estreita a faixa do canal de fundo, mais a
+  núcleos que ele não encontra, limitam o que o pipeline pode recuperar: com a faixa de 2 px, 9,3% dos pixels de núcleo do GT
+  caem sob o canal de fundo, e 7,1% das regiões do GT não têm nenhum pixel da máscara do Cellpose. Quanto mais estreita a faixa do canal de fundo, mais a
   saída se parece com a máscara do Cellpose (capítulo 7, seção 7.4; capítulo 10, seção 10.2).
 - **Resolução da camada.** No modo por recortes, o ScribblePrompt trabalha em 128², com o núcleo mediano em cerca de 10 px; o
   espaço de 1 a 2 px entre núcleos vizinhos pode sumir, o que favorece a fusão de núcleos densos (hipótese; capítulo 11, seção
@@ -117,8 +118,9 @@ só fazem sentido com correções novas, que é o caso dos cliques.
   marcador cru, não cumpriu esse papel (capítulo 8, seção 8.3; capítulo 11, seção 11.4).
 - **Regularizar o marcador fechado.** Calcular o Size e o Dmap sobre o marcador depois do fechamento e do corte em $\tau$, que é o que
   o ScribblePrompt recebe, para que a perda cobre a forma que de fato importa.
-- **Marcador de fundo aprendido.** Na tese, o marcador de fundo é proposto pela mesma rede, a partir do complemento da
-  segmentação intermediária (Fonseca, 2026, seção 5.4.3). Aqui, o canal de fundo é fixo e vem direto do Cellpose.
+- **Marcador de fundo aprendido.** Na tese, como alternativa aos quatro cliques nos cantos, o marcador de fundo pode ser proposto
+  pela mesma rede de marcadores, a partir do complemento da segmentação intermediária (Fonseca, 2026, seção 5.4.3). Aqui, o canal
+  de fundo é fixo e vem direto do Cellpose.
 - **Segmentação por instância a partir dos marcadores.** Com um componente de marcador por núcleo, que o fechamento já aproxima,
   os marcadores poderiam servir de sementes para separar núcleos que se tocam, o que permitiria avaliar por instância (AJI, PQ) e
   comparar com o desafio.

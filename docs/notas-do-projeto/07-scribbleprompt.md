@@ -103,7 +103,8 @@ em 40×). Testada depois com os modelos já treinados, sem retreinar ([09-correc
 | Cellpose | 0,8450 | 0,867 | 0,826 | 0,96 |
 
 Quanto mais estreita a faixa, mais a saída se parece com a máscara do Cellpose: com 1 px, precisão e revocação ficam quase
-iguais às dele, e no limite de 0 px o pipeline só poderia encolher as máscaras do Cellpose (leitura dos números). Parte do ganho de
+iguais às dele, e no limite de 0 px a saída tende a seguir e encolher as máscaras do Cellpose (leitura dos números, sem medição
+com 0 px; o canal de fundo é uma entrada da rede, não uma restrição rígida aplicada à saída). Parte do ganho de
 uma faixa estreita vem, portanto, de seguir mais o Cellpose, o que pesa no argumento do trabalho. A configuração final usa
 $r = 2$, também no treino (capítulo 4, seção 4.5). Retreinado com 2 px, o ganho visto sem retreinar diminuiu (capítulo 11).
 
@@ -112,10 +113,24 @@ pixels que têm, num disco de 1 ou 2 px, dois rótulos de núcleo diferentes, pa
 todas as imagens (0,8323 com 1 px e 0,8287 com 2 px, contra 0,8350): no GT binário, núcleos que se tocam formam uma região só, então
 separá-los custa revocação ([09-correcoes-pontuais.md §18.22](../estudo/09-correcoes-pontuais.md)).
 
-Esse canal é um verdadeiro marcador de fundo, mas diferente do da tese: ele não é aprendido, não passa pela MarkerUNet e não
-recebe gradiente. Ele só depende da segmentação inicial. Na tese, o marcador de fundo é fixo ou proposto pela mesma rede, a
-partir do complemento da segmentação intermediária (Fonseca, 2026, seção 5.4.3). A versão deste trabalho é próxima da ideia
-da tese, com a diferença de que o complemento entra direto no ScribblePrompt, sem passar pela rede de marcadores.
+**O custo do canal de fundo.** O canal herda os erros do Cellpose. Medido nas 37 imagens de treino com $r = 2$: 69% da imagem
+é marcada como fundo, e 9,3% dos pixels de núcleo do GT caem sob esse fundo, ou seja, a rede recebe a indicação de fundo onde há
+núcleo. Cerca de 40% desses pixels estão em núcleos que o Cellpose não encontrou: 1.372 das 19.326 regiões do GT (7,1%) não têm
+nenhum pixel da máscara do Cellpose. No oráculo, o mesmo efeito aparece com o GT inteiro como marcador positivo: o canal de fundo
+do Cellpose baixa o Dice de 0,915 para 0,878 (capítulo 10).
+
+**O peso do canal no resultado.** Na imagem inteira, o canal de fundo subiu o Dice em 0,033 (34 de 37 imagens), e o marcador
+aprendido virou um campo quase uniforme, perto de 0,5: ali, o canal fazia a maior parte do trabalho. Com recortes, ele acrescenta
+só 0,004 (24 de 37 imagens; os recortes sem canal já chegam a 0,831), e o marcador da configuração final separa os núcleos do
+fundo (média de 0,511 dentro dos núcleos e 0,380 fora; 89% dos núcleos com um único componente depois do fechamento) (capítulo 11).
+
+**Comparação com a tese.** Esse canal é um verdadeiro marcador de fundo, mas diferente dos da tese: ele não é aprendido, não
+passa pela MarkerUNet, não recebe gradiente e é denso. Ele só depende da segmentação inicial. Na tese, o marcador de fundo usado no
+treino e na maior parte da avaliação são quatro cliques perto dos cantos da imagem (Fonseca, 2026, capítulo 6). Como alternativa, a
+tese propõe um marcador de fundo aprendido: o complemento da segmentação intermediária é passado pela mesma rede de marcadores,
+que devolve marcadores de fundo com as mesmas propriedades dos de objeto (Fonseca, 2026, seção 5.4.3). Aqui, o complemento da
+segmentação do Cellpose, com a faixa livre, entra direto no ScribblePrompt, sem passar pela rede de marcadores. A escolha de usar o
+fundo do Cellpose é deste trabalho, motivada pelo oráculo (capítulo 10).
 
 ## 7.5 Resolução
 

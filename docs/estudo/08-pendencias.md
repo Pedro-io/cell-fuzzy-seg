@@ -11,7 +11,7 @@
 >
 > **Origem:** ✅ verificado · 📖 tese/artigo · ❓ hipótese a confirmar.
 
-Última atualização: 2026-11-08 (pente fino, blocos 1 e 2: PD-07 e PD-51 remedidas; PD-53 e PD-54 novas).
+Última atualização: 2026-11-16 (pente fino, blocos 1 a 3: PD-07 e PD-51 remedidas; PD-53, PD-54 e PD-55 novas).
 
 ---
 
@@ -73,6 +73,7 @@
 | [PD-52](#pd-52) | 🔴 | Resultados | O pipeline perde para o Cellpose por **precisão** (0,73 × 0,87): segmenta ~17% a mais que o GT | Aberta; 2026-10-18: recortes + negativo 0,835 (melhor até aqui; Cellpose 0,845; 7/37 imagens acima) |
 | [PD-53](#pd-53) | ⚪ | Docs/Código | Documentação dos dados desatualizada: `data_source/README.md`, `src/data/load/README.md`, docstring do `BaseDataset`, fusão de núcleos citada com o número do GT antigo | Parcial (2026-11-08): `data_source/README.md` corrigido; README do `src/data/load/` e docstring encerrados sem mudança (D-58) |
 | [PD-54](#pd-54) | ⚪ | Docs/Código | Pré-processamento: docs diziam "diâmetro estimado" para `diameter=None`; `meta.json` sem procedência; nomes e detalhes do código sem efeito nos resultados | Docs corrigidos (2026-11-08); código encerrado sem mudança (D-58 das Notas) |
+| [PD-55](#pd-55) | ⚪ | Docs | Canal de fundo do Cellpose: Notas cap. 7.4 com afirmação forte demais ("só poderia encolher") e comparação imprecisa com a tese; custo do canal não medido | ✅ Docs corrigidos (2026-11-16) |
 
 ---
 
@@ -1309,3 +1310,20 @@ docstring do `BaseDataset` ficam como estão (D-58 nas Notas).
 - **Números do 09 §17.3 imprecisos:** "100% dos pixels das máscaras com `cellpose_prob` ≥ 0,5" é 99,999% (0,001% a 0,005% por
   imagem ficam entre 0,47 e 0,5); "1,45% fora das máscaras com `cellpose_prob` > 0,5" é relativo à **área das máscaras** (1,48% hoje;
   0,32% da imagem). Nenhum desses números entra no texto.
+
+### PD-55
+**⚪ Canal de fundo do Cellpose: descrições imprecisas nas Notas e custo não medido.** ✅ (pente fino, bloco 3, 2026-11-16)
+- **Afirmação forte demais:** as Notas (cap. 7.4) diziam que, com faixa de 0 px, o pipeline "só poderia encolher" as máscaras do
+  Cellpose. O canal de fundo é uma entrada da rede, não uma restrição rígida aplicada à saída; o efeito dele foi medido (no oráculo,
+  com o GT inteiro como positivo, o Dice cai de 0,915 para 0,878, 11 §4), mas o que a rede faz com 0 px não foi. Corrigido para
+  "tende a seguir e encolher", como no 09 §18.29.
+- **Comparação com a tese imprecisa:** as Notas diziam que o canal é "próximo da ideia da tese" e omitiam que, na tese, o fundo do
+  treino e da maior parte da avaliação são quatro cliques perto dos cantos (cap. 6); o fundo aprendido (§5.4.3) passa o complemento
+  da segmentação pela rede de marcadores. Conferido no PDF; reescrito no cap. 7.4 e no cap. 13.
+- **Custo medido** (37 imagens de treino, `.npy` atuais, faixa de 2 px, função `cellpose_negative` do código): 69,4% da imagem é
+  fundo; 9,3% dos pixels de núcleo do GT caem sob o fundo (17,4% com 0 px, 11,9% com 1 px, 7,8% com 3 px, 6,5% com 5 px); 40% desses
+  pixels estão em regiões do GT sem nenhum pixel do Cellpose (1.372 de 19.326 regiões, 7,1%, vizinhança 8). Registrado no cap. 7.4 e
+  no cap. 13.
+- **Peso do canal reconferido nos `folds.csv`:** +0,0328 (34/3, p = 6,5·10⁻⁹) na imagem inteira com TV, +0,0337 (35/2) sem TV e
+  +0,0040 (24/13, p = 0,017) com recortes. A tabela das faixas (1, 2, 3 e 5 px, sem retreinar) confere com a saída salva de
+  `notebooks/exploration/testes_pos_treino_2.ipynb`. Resposta à crítica "o negativo faz o trabalho" no cap. 7.4.
