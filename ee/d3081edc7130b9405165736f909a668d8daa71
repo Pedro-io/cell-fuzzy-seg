@@ -1,0 +1,30 @@
+docs/notas-do-projeto/03-dados.md
+  s_5fd0bc22017392::t_8f5c58d8961b69 175-177
+  s_5fd0bc22017392::t_29733775ac1174 178-179
+docs/estudo/08-pendencias.md
+  s_5fd0bc22017392::t_8f5c58d8961b69 14,75,1290-1311
+  s_5fd0bc22017392::t_dcba56d46c4514 508,511,518,857
+docs/estudo/11-oraculos.md
+  s_5fd0bc22017392::t_dcba56d46c4514 55,198
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "eed3081edc7130b9405165736f909a668d8daa71",
+  "prompts": {},
+  "humans": {
+    "h_f66301821ec9b5": {
+      "author": "Pedro-io <p.rodrigues2532@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_5fd0bc22017392": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "31e6ab91-57e5-4ba4-bbda-ee505a7bd3bc",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pedro-io <p.rodrigues2532@gmail.com>"
+    }
+  }
+}
