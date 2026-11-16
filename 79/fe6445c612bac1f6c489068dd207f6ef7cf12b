@@ -1,0 +1,31 @@
+docs/notas-do-projeto/07-scribbleprompt.md
+  s_5fd0bc22017392::t_563bb6f5386d8e 106-107
+  s_5fd0bc22017392::t_d6750eb77a9b57 116-133
+docs/notas-do-projeto/13-limitacoes-e-futuro.md
+  s_5fd0bc22017392::t_1466a6d57d2cc4 53-54
+  s_5fd0bc22017392::t_3a770ed8ec9694 121-123
+docs/estudo/08-pendencias.md
+  s_5fd0bc22017392::t_591a1d8659adf9 14,76,1313-1316,1320-1329
+  s_5fd0bc22017392::t_d263140713bb11 1317-1319
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "79fe6445c612bac1f6c489068dd207f6ef7cf12b",
+  "prompts": {},
+  "humans": {
+    "h_f66301821ec9b5": {
+      "author": "Pedro-io <p.rodrigues2532@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_5fd0bc22017392": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "31e6ab91-57e5-4ba4-bbda-ee505a7bd3bc",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pedro-io <p.rodrigues2532@gmail.com>"
+    }
+  }
+}
