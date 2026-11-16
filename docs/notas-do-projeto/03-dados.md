@@ -172,7 +172,11 @@ O que não depende do treino é calculado uma vez e salvo em disco. O notebook
 | `distance_map` | 1000 × 1000, float32 | mapa de distância por núcleo, em $[0,1]$ |
 
 A máscara por instância do GT não é salva; ela só é usada para calcular o mapa de distância. A versão atual dos dados
-derivados foi gerada em 2026-10-07 (`meta.json`). Se o Cellpose não carregar, o notebook para com erro em vez de seguir com
+derivados foi gerada em 2026-10-07 (`meta.json`), com o código do commit `308ba92`. Esse `meta.json` não registra o
+commit nem os parâmetros do Cellpose (a procedência foi acrescentada ao notebook logo depois); os parâmetros ficam comprovados
+pela reprodução: o Dice do Cellpose em cada imagem de treino é idêntico ao medido com os parâmetros padrão (capítulo 5, seção
+5.3). Nas 51 imagens, a imagem, o RGBA, o GT e o mapa de distância gravados são iguais aos que o código atual produz a partir
+dos XMLs e da segmentação gravada; a segmentação do Cellpose em si não foi refeita, porque exige GPU (conferido em 2026-11-08; [08-pendencias.md, PD-54](../estudo/08-pendencias.md#pd-54)). Se o Cellpose não carregar, o notebook para com erro em vez de seguir com
 outra entrada.
 
 **Leitura nos experimentos.** A função [load_preprocessed](../../src/data/load/preprocessed_dataset.py) lê os `.npy` de um split

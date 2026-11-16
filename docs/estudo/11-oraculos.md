@@ -52,7 +52,7 @@ texto sem refazer.
 ### 3.1 Dados ✅
 
 - As **37 imagens de treino** do MoNuSeg, já pré-processadas (`data_source/MoNuSegPreprocessed/train`): GT novo, rasterizado pelo
-  centro do pixel; Cellpose `cpsam` com diâmetro estimado por imagem e limiares padrão; mapa de distância por núcleo.
+  centro do pixel; Cellpose `cpsam` sem reescala (`diameter=None`) e com limiares padrão (corrigido no pente fino, 2026-11-08: no Cellpose 4.1.1, `diameter=None` não estima o diâmetro, só não reescala; PD-54); mapa de distância por núcleo.
 - O **teste não é usado**: a escolha de configuração não pode ver o teste (PD-02).
 - **Linha de base:** o Cellpose sozinho nas mesmas imagens, com **Dice 0,845**, precisão 0,867, revocação 0,826 e massa 0,955.
 
@@ -195,7 +195,7 @@ borda volta, com algum excesso (verde).
 5. **Negativo esparso piora.** ✅ Pontos negativos espalhados fazem a rede segmentar o dobro do GT (massa 1,95), pior do que
    nenhum negativo. ❓ Fora da distribuição de treino do ScribblePrompt (cliques negativos isolados, sem traço)?
 6. **Em 256², as imagens em 20× não são problema da camada de segmentação.** ✅ Elas só perdem em 128², onde um núcleo vira
-   ~1,6 px (pergunta 4, PD-24). Com o diâmetro estimado por imagem, o Cellpose também quase não perde nelas (0,836 contra 0,846).
+   ~1,6 px (pergunta 4, PD-24). Sem reescala e com os limiares padrão, o Cellpose também quase não perde nelas (0,836 contra 0,846).
 
 ---
 

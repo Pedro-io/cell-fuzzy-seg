@@ -11,7 +11,7 @@
 >
 > **Origem:** ✅ verificado · 📖 tese/artigo · ❓ hipótese a confirmar.
 
-Última atualização: 2026-11-08 (pente fino, bloco 1: PD-07 e PD-51 remedidas; PD-53 nova).
+Última atualização: 2026-11-08 (pente fino, blocos 1 e 2: PD-07 e PD-51 remedidas; PD-53 e PD-54 novas).
 
 ---
 
@@ -72,6 +72,7 @@
 | [PD-51](#pd-51) | ⚪ | Dados | Uma região de área ~0 é classificada de forma diferente conforme o ambiente (só muda o log) | Encerrada sem mudança (2026-11-08): depende da máquina, não da versão do numpy; não muda a máscara (D-58 das Notas) |
 | [PD-52](#pd-52) | 🔴 | Resultados | O pipeline perde para o Cellpose por **precisão** (0,73 × 0,87): segmenta ~17% a mais que o GT | Aberta; 2026-10-18: recortes + negativo 0,835 (melhor até aqui; Cellpose 0,845; 7/37 imagens acima) |
 | [PD-53](#pd-53) | ⚪ | Docs/Código | Documentação dos dados desatualizada: `data_source/README.md`, `src/data/load/README.md`, docstring do `BaseDataset`, fusão de núcleos citada com o número do GT antigo | Parcial (2026-11-08): `data_source/README.md` corrigido; README do `src/data/load/` e docstring encerrados sem mudança (D-58) |
+| [PD-54](#pd-54) | ⚪ | Docs/Código | Pré-processamento: docs diziam "diâmetro estimado" para `diameter=None`; `meta.json` sem procedência; nomes e detalhes do código sem efeito nos resultados | Docs corrigidos (2026-11-08); código encerrado sem mudança (D-58 das Notas) |
 
 ---
 
@@ -504,17 +505,17 @@ problema está mais adiante: com área de ~116–152 px (≈ 12–14 px de diâm
 mesma escala do resto; (b) passar ao Cellpose o diâmetro proporcional à escala de cada imagem; (c) no mínimo, registrar no
 texto e mostrar os resultados dessas três separadamente.
 
-**Remedição com os dados atuais (2026-10-08)** ✅ — Cellpose com diâmetro estimado por imagem (`diameter=None`, PD-30) e GT novo;
+**Remedição com os dados atuais (2026-10-08)** ✅ — Cellpose sem reescala e com os limiares padrão (`diameter=None`, PD-30) e GT novo (corrigido no pente fino, 2026-11-08: no Cellpose 4.1.1, `diameter=None` não estima o diâmetro, só não reescala; PD-54);
 oráculo em [oraculo_negativo.ipynb](../../notebooks/exploration/oraculo_negativo.ipynb):
 - **Cellpose:** Dice 0,836 nas três imagens em 20× contra 0,846 nas outras 34; massa 0,95 contra 0,96. A diferença caiu de ~0,05
-  para 0,01: com o diâmetro estimado, o Cellpose já trata as três quase como as outras.
+  para 0,01: com os limiares padrão e o GT novo, o Cellpose já trata as três quase como as outras.
 - **ScribblePrompt em 256²:** as três imagens não ficam abaixo das outras (miolo + negativo do Cellpose: 0,823 contra 0,820; GT
   inteiro sem negativo, limiar 0,8: 0,872 contra 0,919).
 - **ScribblePrompt em 128²:** aí elas perdem muito (miolo sem negativo: 0,542 contra 0,677; com negativo do Cellpose: 0,659
   contra 0,770). É o efeito previsto acima: o núcleo mediano dessas imagens (12,2 px) vira ~1,6 px.
 - No pipeline treinado (`base_dice_tv`, 256²), `TCGA-HE-7128` e `-7129` perdem 0,14 e 0,15 para o Cellpose. Como o oráculo em 256²
   não perde nessas imagens, ❓ a perda vem dos marcadores aprendidos (PD-52), não da escala na camada de segmentação.
-**Leitura:** com 256² e diâmetro estimado, as opções (a) e (b) não são mais necessárias; fica a (c). Severidade mantida em 🟡
+**Leitura:** com 256² e os limiares padrão do Cellpose, as opções (a) e (b) não são mais necessárias; fica a (c). Severidade mantida em 🟡
 até ver os marcadores aprendidos nessas imagens.
 
 **Marcadores aprendidos e blocos (2026-10-15)** ✅ — no diagnóstico (PD-52), o pipeline treinado dá 0,695 nessas três imagens
@@ -853,7 +854,7 @@ do caminho é do autor. O oráculo entra como **resultado do trabalho**, a ser p
 **Oráculo refeito com os dados atuais e o negativo do Cellpose (2026-10-08)** ✅ —
 [oraculo_negativo.ipynb](../../notebooks/exploration/oraculo_negativo.ipynb), resultados em
 `docs/estudo/resultados/oraculo_negativo/`. Mudanças em relação à tabela acima: GT novo (centro do pixel), 37 imagens, Cellpose
-com diâmetro estimado (**linha de base 0,845**), miolo e centros **por núcleo** (pelo mapa de distância por núcleo, não por
+sem reescala e com limiares padrão (**linha de base 0,845**;corrigido no pente fino, 2026-11-08: no Cellpose 4.1.1, `diameter=None` não estima o diâmetro, só não reescala; PD-54), miolo e centros **por núcleo** (pelo mapa de distância por núcleo, não por
 componente), e negativos derivados do Cellpose. Dice no treino, 256², com o melhor limiar de saída (0,5–0,9) e o melhor recorte
 pela máscara do Cellpose de cada célula; entre parênteses, as imagens (de 37) em que a configuração supera o Cellpose:
 
@@ -1286,3 +1287,25 @@ arquivos atuais; corrigir a docstring. Nenhuma mudança de comportamento. Aguard
 **Parcial (2026-11-08, decisão do autor):** o `data_source/README.md` foi corrigido (37 + 14 imagens, versão do `meta.json`, regra
 de rasterização marcada como escolha do projeto, DOIs das citações, nota sobre o Cellpose-SAM). O README do `src/data/load/` e a
 docstring do `BaseDataset` ficam como estão (D-58 nas Notas).
+
+### PD-54
+**⚪ Pré-processamento: descrições erradas nos docs e detalhes do código sem efeito nos resultados.** ✅ (pente fino, bloco 2,
+2026-11-08)
+- **"Diâmetro estimado" (erro de descrição):** a PD-24, a PD-40 e o `11-oraculos.md` diziam que o Cellpose roda "com diâmetro
+  estimado por imagem (`diameter=None`)". No Cellpose 4.1.1 não há estimativa de diâmetro: `eval` faz `image_scaling = 30 /
+  diameter` só se `diameter` for maior que zero, e com `None` a escala é 1,0, ou seja, **sem reescala** (`cellpose/models.py`,
+  conferido no pacote 4.1.1). O `CellposeStep`, as Notas (cap. 5 §5.3) e o `CLAUDE.md` já diziam isso certo. Os números não mudam;
+  só a explicação: a melhora das imagens em 20× entre as medições de 2026-09 e 2026-10 vem dos limiares padrão e do GT novo, e não
+  de um diâmetro. **Corrigido** no 08 e no 11 (2026-11-08, com nota no texto).
+- **Procedência do `MoNuSegPreprocessed/` (já registrada no 09 §17.1):** o `meta.json` não traz commit, versões nem parâmetros do
+  Cellpose, porque os dados (`0cc2d7f`) foram gerados com o notebook do `308ba92`, antes do `f25eaf3`, que acrescentou a procedência.
+  A prova dos parâmetros é a reprodução: o Dice por imagem no treino é idêntico ao da configuração `padrao` da PD-30 (diferença
+  máxima 4·10⁻¹⁴, reconferido em 2026-11-08) e difere em até 0,08 do `atual`. Registrado nas Notas (cap. 3 §3.6).
+- **Detalhes do código sem efeito nos resultados** (encerrados sem mudança, D-58 das Notas):
+  [cellpose_step.py:32](../../src/pipeline/steps/preprocessing/cellpose_step.py#L32) chama de `diam_mean` o que é passado ao
+  `eval` como `diameter` (o Cellpose tem um `diam_mean` próprio, que ignora); [image_utils.py:47](../../src/utils/image_utils.py#L47)
+  só divide por 255 se o máximo da imagem passar de 1 (uma imagem `uint8` toda escura não seria normalizada; nenhuma imagem do
+  MoNuSeg é assim: RGB = imagem/255 conferido nas 51).
+- **Números do 09 §17.3 imprecisos:** "100% dos pixels das máscaras com `cellpose_prob` ≥ 0,5" é 99,999% (0,001% a 0,005% por
+  imagem ficam entre 0,47 e 0,5); "1,45% fora das máscaras com `cellpose_prob` > 0,5" é relativo à **área das máscaras** (1,48% hoje;
+  0,32% da imagem). Nenhum desses números entra no texto.
