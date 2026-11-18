@@ -85,7 +85,8 @@ acumuladas. O passo expõe `set_training`, chamado pelo laço de treino e pela f
 modos ([metrics.py](../../src/evaluation/metrics.py), `evaluate`). Na avaliação, o mesmo caminho diferenciável roda sem
 gradiente.
 
-O passo também tem um modo de inferência que binariza o marcador com limiar 0,5. Os experimentos não usam esse modo.
+O passo tem um único modo, o diferenciável, e exige a rede: sem ela, ou com `differentiable=False`, ele levanta um erro em
+vez de seguir com outro comportamento.
 
 ## 6.5 Tamanho do modelo e quantidade de dados
 

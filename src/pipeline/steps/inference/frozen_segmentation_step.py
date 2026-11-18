@@ -24,12 +24,11 @@ class FrozenSegmentationStep(PipelineStep):
     **Não implementa** a arquitetura da rede final — apenas a recebe e a executa.
     **Não realiza** backward nem otimização.
 
-    Diferente do :class:`MarkerStep` (orientado à inferência), este passo mantém
-    o grafo computacional diferenciável intacto para permitir a backpropagation
-    posterior pelo Trainer. Por isso, a rede final é colocada em modo
-    ``train()``: os modos ``train()``/``eval()`` das redes são gerenciados por
-    este pipeline de treinamento (e não pelo Trainer), à semelhança de como o
-    :class:`MarkerStep` força ``eval()`` no contexto de inferência.
+    Como o :class:`MarkerStep`, este passo mantém o grafo computacional
+    diferenciável intacto para permitir a backpropagation posterior pelo
+    Trainer. Por isso, a rede final é colocada em modo ``train()``: os modos
+    ``train()``/``eval()`` das redes são gerenciados pelos passos do pipeline
+    (e não pelo Trainer).
 
     Atributos:
         final_network: Rede final de segmentação (implementação de

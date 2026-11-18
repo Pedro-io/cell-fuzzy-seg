@@ -34,7 +34,7 @@
 | [PD-13](#pd-13) | 🟡 | Loss | Desbalanceamento de classes não tratado (P8) | Aberta |
 | [PD-14](#pd-14) | ⚪ | Diagnóstico | `GradNormCallback` mede a norma depois do clipping | Aberta |
 | [PD-15](#pd-15) | 🟡 | Segurança | O checkpoint do ScribblePrompt é baixado sem verificação de hash | ✅ Resolvida (2026-10-17, validada pelo autor): `download_checkpoint` confere o SHA-256 e baixa para um `.part` |
-| [PD-16](#pd-16) | 🟡 | Robustez | Fallbacks silenciosos (GT como entrada; rede "dummy") | Parcial (2026-10-01): notebook de pré-processamento corrigido; falta o `MarkerStep` |
+| [PD-16](#pd-16) | 🟡 | Robustez | Fallbacks silenciosos (GT como entrada; rede "dummy") | ✅ Resolvida (2026-10-01 notebook; 2026-11-18 `MarkerStep`, pente fino, bloco 4) |
 | [PD-17](#pd-17) | ⚪ | Código morto | `pipeline_test.py` está quebrado | Aberta |
 | [PD-18](#pd-18) | ⚪ | Config | Partes de `datasets.yml` não são usadas | Encerrada sem mudança (2026-11-08, decisão do autor: não alterar o código que gerou os resultados; D-58 das Notas) |
 | [PD-19](#pd-19) | 🟡 | Dados | Dois caminhos de carregamento; `MonusegPreprocessedDataset` não lê do disco | ✅ Resolvida (2026-10-07): módulo completo (métricas, dataset, callbacks, k-fold, registro); classe antiga removida |
@@ -385,6 +385,16 @@ comportamento novo ("Cellpose obrigatório"), sem citar a mudança (regra da PD-
 como estão: são o registro do run que gerou os `.npy` atuais. ❓ A célula ainda não foi executada depois da mudança; isso
 acontece no Colab, na PD-30. **Falta:** o fallback do `MarkerStep` (etapa 7). O `DummyFinalNetwork` dos notebooks de
 experimento fica como está (PD-10).
+**Resolvida (2026-11-18, pente fino, bloco 4):** o `MarkerStep` ficou com um único modo, o diferenciável, que é o que todos os
+experimentos usam (22 chamadas com `differentiable=True` fora de `legado/`). Saíram o *fallback* sem modelo (que usaria
+`data["segmentation"]`, chave que nem existe na entrada da fase 2), o modo de inferência binarizado (`_forward_inference`,
+`_preprocess`, `_postprocess`, `threshold`, que além disso processava só o primeiro item de um lote) e os comentários com
+histórico. `model=None` e `differentiable=False` levantam `ValueError`; o parâmetro `differentiable` (padrão `True`) fica para os
+notebooks continuarem rodando. O caminho que produziu os resultados não mudou. Docstrings corrigidas (a entrada é float em [0,1],
+a saída é `(N, 1, H, W)`, a divisão por 255 olha o lote inteiro e nunca ocorre nos dados pré-processados). Testes: saíram os 3 dos
+modos removidos; entraram 5 (recusa de `differentiable=False` e de `model=None`, lote no tamanho alvo sem redução igual à sigmoide da
+rede, redução e ampliação, `set_training`); o teste de `eval()` da integração passou a usar `set_training(False)`. Suíte: 210 ok,
+3 falhas conhecidas (PD-11), 1 pulado. O `07-testes.md` (rascunho, chat de docs) ainda descreve os testes antigos.
 
 ### PD-17
 **⚪ `pipeline_test.py` está quebrado.** ✅

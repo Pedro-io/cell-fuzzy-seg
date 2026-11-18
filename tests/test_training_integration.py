@@ -118,10 +118,11 @@ def test_marker_net_is_in_train_mode_during_training():
     assert step.model.model.training is True
 
 
-def test_marker_net_in_eval_mode_for_inference():
-    """P3: em modo inferência (differentiable=False), a MarkerNet fica em eval()."""
+def test_marker_net_in_eval_mode_for_evaluation():
+    """Com set_training(False), a MarkerNet fica em eval()."""
     marker_net = SmallMarkerNet()
-    step = MarkerStep(model=marker_net, differentiable=False, device="cpu")
+    step = MarkerStep(model=marker_net, device="cpu")
+    step.set_training(False)
     assert step.model.model.training is False
 
 
