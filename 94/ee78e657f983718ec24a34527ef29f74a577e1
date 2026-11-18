@@ -1,0 +1,14 @@
+requirements.txt
+  h_f66301821ec9b5 15,21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "94ee78e657f983718ec24a34527ef29f74a577e1",
+  "prompts": {},
+  "humans": {
+    "h_f66301821ec9b5": {
+      "author": "Pedro-io <p.rodrigues2532@gmail.com>"
+    }
+  }
+}
