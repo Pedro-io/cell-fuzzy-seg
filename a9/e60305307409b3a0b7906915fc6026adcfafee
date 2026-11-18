@@ -1,0 +1,28 @@
+docs/estudo/08-pendencias.md
+  s_5fd0bc22017392::t_0bbe1cadce6380 14,78,1358-1379
+docs/estudo/09-correcoes-pontuais.md
+  s_5fd0bc22017392::t_0bbe1cadce6380 1510-1512
+docs/notas-do-projeto/04-metodo.md
+  s_5fd0bc22017392::t_0bbe1cadce6380 73-89,97-105
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a9e60305307409b3a0b7906915fc6026adcfafee",
+  "prompts": {},
+  "humans": {
+    "h_f66301821ec9b5": {
+      "author": "Pedro-io <p.rodrigues2532@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_5fd0bc22017392": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "31e6ab91-57e5-4ba4-bbda-ee505a7bd3bc",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pedro-io <p.rodrigues2532@gmail.com>"
+    }
+  }
+}
