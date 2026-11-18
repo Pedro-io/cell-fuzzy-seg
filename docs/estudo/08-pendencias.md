@@ -11,7 +11,7 @@
 >
 > **Origem:** ✅ verificado · 📖 tese/artigo · ❓ hipótese a confirmar.
 
-Última atualização: 2026-11-18 (pente fino, blocos 1 a 4: PD-07 e PD-51 remedidas; PD-16 resolvida; PD-53 a PD-56 novas).
+Última atualização: 2026-11-18 (pente fino, blocos 1 a 5: PD-07 e PD-51 remedidas; PD-16 resolvida; PD-53 a PD-57 novas).
 
 ---
 
@@ -75,6 +75,7 @@
 | [PD-54](#pd-54) | ⚪ | Docs/Código | Pré-processamento: docs diziam "diâmetro estimado" para `diameter=None`; `meta.json` sem procedência; nomes e detalhes do código sem efeito nos resultados | Docs corrigidos (2026-11-08); código encerrado sem mudança (D-58 das Notas) |
 | [PD-55](#pd-55) | ⚪ | Docs | Canal de fundo do Cellpose: Notas cap. 7.4 com afirmação forte demais ("só poderia encolher") e comparação imprecisa com a tese; custo do canal não medido | ✅ Docs corrigidos (2026-11-16) |
 | [PD-56](#pd-56) | ⚪ | Docs | MarkerUNet e recortes: ganho dos recortes atribuído só à resolução; ablações descritas como planejadas depois do encerramento dos experimentos | ✅ Docs corrigidos (2026-11-18) |
+| [PD-57](#pd-57) | ⚪ | Docs | Fechamento morfológico: páginas de Maragos e Schafer erradas no 09; diferenciabilidade e o disco pouco explícitos nas Notas | ✅ Docs corrigidos (2026-11-18) |
 
 ---
 
@@ -1354,3 +1355,25 @@ docstring do `BaseDataset` ficam como estão (D-58 nas Notas).
   BatchNorm no codificador e 10 no decodificador), contados com smp 0.5.0 em CPU; `patch_first_conv` do smp 0.5.0 copia os pesos
   de R para o 4º canal e multiplica tudo por 3/4 (lido e testado numericamente); modos de treino e avaliação alternados pelo
   `Trainer` e pelo `evaluate`. O `MarkerStep` foi simplificado (PD-16).
+
+### PD-57
+**⚪ Fechamento morfológico: citações e explicações a precisar.** ✅ (pente fino, bloco 5, 2026-11-18)
+- **Páginas de Maragos e Schafer (1987) erradas** no 09 §18.24 e no `CLAUDE.md`: "p. 1158" para a comutação com a limiarização e
+  "p. 1164" para a extensividade. Conferido no PDF pelo cabeçalho das páginas: a comutação está na p. 1157 (seção II-D, enunciado:
+  erosão, dilatação, abertura e fechamento de funções por conjuntos comutam com a limiarização) e na p. 1159 (seção III-C, a
+  construção); o fechamento de um conjunto o contém na p. 1158 (seção III-A); para funções, "o fechamento é sempre extensivo" é a
+  Propriedade 1, p. 1163; a idempotência está na p. 1164. Haralick, Sternberg e Zhuang (1987): fechamento extensivo na p. 542,
+  dilatação e erosão em tons de cinza por máximo e mínimo na p. 543. As Notas citam por seção e estavam certas. Tese §7.1.4 na
+  p. 92, propondo o fechamento como perda: conferido.
+- **Diferenciabilidade pouco explícita** (observação do autor): as Notas diziam que o gradiente passa, mas não que o fechamento é
+  feito só com operações de tensor do PyTorch (o que o mantém no grafo; NumPy, SciPy ou OpenCV cortariam o gradiente) nem por que
+  não se usa `max_pool2d` (janela quadrada; aqui o elemento é um disco). Acrescentado no cap. 4.2, com a conferência de ponta a
+  ponta feita no bloco (CPU, ScribblePrompt real com checkpoint conferido, recorte de 256² de `TCGA-18-5592-01Z-00-DX1`, MarkerUNet
+  com pesos aleatórios, fechamento de 3 px, canal de fundo de 2 px, Dice): gradiente não nulo em 44.658 pixels do marcador fechado
+  (os acima de τ), em 8.796 do marcador cru (os vencedores do máximo e do mínimo) e na 1ª convolução da MarkerUNet (norma 50,9);
+  nenhum dos 29 tensores de peso do ScribblePrompt recebe gradiente. Até aqui, a suíte testava só o fechamento isolado.
+- **Raio × área do disco** (pergunta do autor): o cap. 4.2 ganhou a figura do disco de raio 3 (29 pixels, 7 de diâmetro) e o que
+  cada medida significa.
+- **Conferido no bloco** (sem mudança): extensivo, idempotente e comutando com o corte `relu(m − 0,5)/0,5` (dedução nossa, testada);
+  com raio 3, vãos de até 6 px são emendados e de 7 px não, buracos de 5 × 5 são tapados e de 7 × 7 não; tabela dos raios 0 a 5 =
+  saída salva de `testes_pos_treino_3` (09 §18.24); 14 testes do passo passam.

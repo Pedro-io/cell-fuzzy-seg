@@ -1507,7 +1507,9 @@ trabalho.
 - 📖 Fechamento em tons de cinza com elemento estruturante plano: dilatação = máximo na vizinhança, erosão = mínimo (Haralick,
   Sternberg e Zhuang, IEEE TPAMI 9(4):532–550, 1987, doi 10.1109/TPAMI.1987.4767941; PDF em `docs/papers/`).
 - 📖 Erosão, dilatação, abertura e fechamento de funções por conjuntos **comutam com a limiarização** (Maragos e Schafer, IEEE TASSP
-  35(8):1153–1169, 1987, p. 1158, doi 10.1109/TASSP.1987.1165259; PDF em `docs/papers/`), e o fechamento é **extensivo** (p. 1164).
+  35(8):1153–1169, 1987, p. 1157, seção II-D, e p. 1159, seção III-C; doi 10.1109/TASSP.1987.1165259; PDF em `docs/papers/`), e o
+  fechamento é **extensivo** (p. 1158, seção III-A, para conjuntos; Propriedade 1, p. 1163, para funções). *Páginas corrigidas no
+  pente fino, 2026-11-18 (PD-57); antes estavam "p. 1158" para a comutação e "p. 1164" para a extensividade.*
   Consequência (dedução nossa, conferida num teste): fechar o marcador difuso e depois aplicar o corte `relu(m − τ)/(1 − τ)` dá o
   mesmo que cortar e depois fechar, porque o corte é crescente e contínuo.
 - 📖 A tese do orientador (§7.1.4, p. 92) propõe operadores morfológicos (o fechamento, "gap filling") como trabalho futuro, para

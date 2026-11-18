@@ -70,6 +70,23 @@ O fechamento é uma dilatação seguida de uma erosão pelo mesmo elemento estru
 Num marcador difuso, máximo e mínimo são a dilatação e a erosão em tons de cinza com elemento estruturante plano (Haralick,
 Sternberg e Zhuang, 1987; Maragos e Schafer, 1987). Pixels fora da imagem não contam, então a borda da imagem não cria nem apaga marcador.
 
+**O disco de raio 3.** O raio é a distância do centro até a borda do disco. Entram no disco os pixels cujo deslocamento
+$(d_y, d_x)$ até o centro satisfaz $d_y^2 + d_x^2 \le 9$: 29 pixels, com 7 pixels de diâmetro (3 de cada lado mais o centro):
+
+```
+. . . # . . .     1 pixel
+. # # # # # .     5 pixels
+. # # # # # .     5 pixels
+# # # o # # #     7 pixels   (o = centro)
+. # # # # # .     5 pixels
+. # # # # # .     5 pixels
+. . . # . . .     1 pixel
+```
+
+O raio é o parâmetro; o diâmetro diz o que o fechamento consegue tapar (vãos de até 6 px entre dois pedaços e buracos onde o
+disco de 7 px não cabe); a área é o número de vizinhos comparados pelo máximo e pelo mínimo em cada pixel. A área do círculo
+contínuo de raio 3 é $\pi \cdot 3^2 \approx 28{,}3$; os 29 pixels são a versão dele na grade.
+
 **Três propriedades usadas no projeto**, todas conferidas em testes
 ([test_marker_closing_step.py](../../tests/test_marker_closing_step.py)):
 
@@ -77,8 +94,15 @@ Sternberg e Zhuang, 1987; Maragos e Schafer, 1987). Pixels fora da imagem não c
 - ele **comuta com o corte em $\tau$**: fechar o marcador difuso e depois cortar em $\tau$ dá o mesmo que cortar e depois fechar,
   porque os operadores planos comutam com a limiarização (Maragos e Schafer, 1987) e o corte é crescente e contínuo (dedução
   conferida num teste). Então dá no mesmo pensar no fechamento sobre o marcador ou sobre os rabiscos que o ScribblePrompt recebe;
-- o **gradiente passa** por ele: máximo e mínimo deixam o gradiente seguir para o pixel que vence em cada vizinhança. Por isso o
-  fechamento pode ficar dentro do treino, e a MarkerUNet aprende sabendo que o marcador será fechado.
+- o **gradiente passa** por ele: máximo e mínimo deixam o gradiente seguir para o pixel que vence em cada vizinhança (são
+  sub-diferenciáveis, como o max-pooling). Para isso, o fechamento é implementado só com operações de tensor do PyTorch: o tensor
+  do marcador é deslocado para cada pixel do disco e combinado com `torch.maximum` (dilatação) ou `torch.minimum` (erosão), sem
+  NumPy, SciPy ou OpenCV, que tirariam o marcador do grafo computacional e cortariam o gradiente. O `max_pool2d` não foi usado
+  porque a janela dele é quadrada, e o elemento estruturante aqui é um disco. As mesmas operações rodam na CPU e na GPU. Por isso o
+  fechamento pode ficar dentro do treino, e a MarkerUNet aprende sabendo que o marcador será fechado. Conferido de ponta a ponta,
+  com o ScribblePrompt real num recorte de treino: depois do `backward`, o gradiente é não nulo no marcador fechado nos pixels
+  acima de $\tau$, no marcador cru nos pixels vencedores do máximo e do mínimo, e nos pesos da MarkerUNet, e nulo nos pesos do
+  ScribblePrompt, que é congelado.
 
 **Por que foi incluído.** O coordenador do trabalho sugeriu "tapar os buraquinhos" dos marcadores com uma operação clássica,
 para facilitar a edição humana, o que seria uma contribuição do trabalho. A tese propõe operadores morfológicos como o
