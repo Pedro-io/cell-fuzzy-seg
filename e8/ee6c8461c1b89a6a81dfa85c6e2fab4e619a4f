@@ -1,0 +1,33 @@
+docs/notas-do-projeto/04-metodo.md
+  s_5fd0bc22017392::t_b590da61c63c83 129-131
+docs/estudo/08-pendencias.md
+  s_5fd0bc22017392::t_19d7fca2a4dd5b 14,55,57,59,77,1341-1356
+docs/notas-do-projeto/11-resultados.md
+  s_5fd0bc22017392::t_b590da61c63c83 195-197
+docs/notas-do-projeto/12-decisoes.md
+  s_5fd0bc22017392::t_19d7fca2a4dd5b 52
+  s_5fd0bc22017392::t_b590da61c63c83 51
+docs/notas-do-projeto/06-markerunet.md
+  s_5fd0bc22017392::t_b590da61c63c83 46-47,95-97,105-106
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e8ee6c8461c1b89a6a81dfa85c6e2fab4e619a4f",
+  "prompts": {},
+  "humans": {
+    "h_f66301821ec9b5": {
+      "author": "Pedro-io <p.rodrigues2532@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_5fd0bc22017392": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "31e6ab91-57e5-4ba4-bbda-ee505a7bd3bc",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pedro-io <p.rodrigues2532@gmail.com>"
+    }
+  }
+}
