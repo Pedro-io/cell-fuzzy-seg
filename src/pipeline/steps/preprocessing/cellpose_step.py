@@ -41,9 +41,7 @@ class CellposeStep(PipelineStep):
             name: Identificador deste passo no pipeline.
             pretrained_model: Nome de um modelo do Cellpose (no Cellpose 4, ``"cpsam"`` ou um
                 modelo registrado pelo usuário) ou caminho de um arquivo de modelo. Um nome
-                desconhecido levanta ``ValueError``: sem a checagem, o Cellpose trocaria o
-                modelo pelo ``cpsam`` só com um aviso, mudando a entrada da MarkerNet e a linha
-                de base.
+                desconhecido levanta ``ValueError``.
             diam_mean: Diâmetro típico dos núcleos, em pixels. O Cellpose reescala a imagem por
                 ``30 / diam_mean`` antes da rede; ``None`` (padrão) ou ``30`` não reescalam. No
                 MoNuSeg, reescalar pelo diâmetro medido (~22 px em 40×) quase não muda o Dice e
