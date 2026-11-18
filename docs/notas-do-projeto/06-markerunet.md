@@ -43,7 +43,8 @@ A entrada é o tensor `rgba` montado na preparação dos dados (capítulo 3, se�
 Uma variante, escolhida na leitura dos dados, troca a máscara binária pela probabilidade de célula do Cellpose
 ([load_preprocessed](../../src/data/load/preprocessed_dataset.py), opção `alpha="prob"`). A probabilidade carrega mais
 informação que a máscara, por exemplo a incerteza nas bordas e nos núcleos que o Cellpose quase encontrou. Essa variante
-ainda não foi avaliada ([08-pendencias.md, PD-34](../estudo/08-pendencias.md#pd-34)).
+não foi avaliada: os experimentos foram encerrados antes (D-52), e ela fica como limitação
+([08-pendencias.md, PD-34](../estudo/08-pendencias.md#pd-34)).
 
 **Sem normalização do ImageNet.** Os pesos pré-treinados no ImageNet esperam entradas padronizadas pela média e pelo desvio
 de cada canal; a smp oferece uma função para isso. A MarkerUNet recebe os valores em $[0,1]$ sem essa padronização. As
@@ -91,8 +92,9 @@ vez de seguir com outro comportamento.
 ## 6.5 Tamanho do modelo e quantidade de dados
 
 São 24,4 milhões de parâmetros treinados com 37 imagens, sem congelar nenhuma parte. Duas alternativas que reduzem o número
-de parâmetros livres, congelar o codificador e usar a padronização do ImageNet, serão testadas juntas numa ablação depois de
-escolhida a configuração principal ([08-pendencias.md, PD-38](../estudo/08-pendencias.md#pd-38)). A aumentação por rotações e
+de parâmetros livres, congelar o codificador e usar a padronização do ImageNet, estavam planejadas para uma ablação conjunta depois
+de escolhida a configuração principal, mas não foram rodadas: os experimentos foram encerrados antes (D-52). Ficam como
+limitação (capítulo 13; [08-pendencias.md, PD-36 e PD-38](../estudo/08-pendencias.md#pd-38)). A aumentação por rotações e
 espelhamentos e o treino por recortes também ajudam a compensar o conjunto pequeno (capítulos 3 e 9).
 
 ## Para o artigo
@@ -100,8 +102,8 @@ espelhamentos e o treino por recortes também ajudam a compensar o conjunto pequ
 - **Métodos:** seção 6.1 (arquitetura, em uma frase com a tabela) e seção 6.2 (entrada de 4 canais, fusão precoce); a
   relação com a tese em uma frase.
 - **Detalhes de implementação:** a inicialização do quarto canal (seção 6.3) e a resolução de 256² (seção 6.4).
-- **Ablações:** padronização do ImageNet e congelamento do codificador (seção 6.5), probabilidade do Cellpose no lugar da
-  máscara (seção 6.2), quando forem rodadas.
+- **Limitações:** padronização do ImageNet e congelamento do codificador (seção 6.5) e probabilidade do Cellpose no lugar da
+  máscara (seção 6.2) não foram avaliados.
 
 ## Referências
 

@@ -192,8 +192,9 @@ equilibram a expansão (capítulo 10, seção 10.3).
 
 ## 11.6 O que os resultados dizem
 
-1. **Os recortes foram o maior ganho isolado** (+0,046, melhor em todas as 37 imagens), só mudando a resolução em que as duas redes
-   veem os núcleos. A massa caiu de 1,10 para 1,03.
+1. **Os recortes foram o maior ganho isolado** (+0,046, melhor em todas as 37 imagens). Na mesma troca mudaram a resolução em que as duas
+   redes veem os núcleos, o lote (16 recortes em vez de 4 imagens) e a avaliação, por blocos; o número de passos por época ficou
+   igual, e o efeito de cada parte não foi separado. A massa caiu de 1,10 para 1,03.
 2. **O canal de fundo do Cellpose ajuda, mas aproxima a saída do Cellpose.** Ele foi o maior ganho na imagem inteira (+0,033) e
    ainda ajuda com recortes (+0,004). Quanto mais estreita a faixa, mais a saída copia a máscara do Cellpose (capítulo 7, seção 7.4).
 3. **O TV atrapalha** em todas as configurações em que foi testado; com o canal de fundo, ele achatava o marcador (capítulo 8).

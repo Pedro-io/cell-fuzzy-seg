@@ -126,7 +126,9 @@ oferece o mesmo recurso, com sobreposição e combinação configuráveis (Cardo
 
 A motivação do modo por recortes vem dos oráculos: o ScribblePrompt expande o marcador de forma diferente conforme o tamanho dos
 objetos na entrada dele, e os blocos de 256 px reduzidos para 128² foram o modo equilibrado (capítulo 10). No treino, os recortes
-subiram o Dice de 0,785 para 0,831, em todas as 37 imagens (capítulo 11).
+subiram o Dice de 0,785 para 0,831, em todas as 37 imagens (capítulo 11). Esse ganho é do modo por recortes como um todo: na
+mesma troca mudaram a resolução das duas redes, o lote (16 recortes em vez de 4 imagens) e a avaliação, que passou a ser por
+blocos; o efeito de cada parte não foi separado.
 
 ## 4.5 Configuração final
 

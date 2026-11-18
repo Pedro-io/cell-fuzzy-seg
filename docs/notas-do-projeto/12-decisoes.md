@@ -48,8 +48,8 @@ em [08-pendencias.md](../estudo/08-pendencias.md) e [09-correcoes-pontuais.md](.
 | ID | Data | Decisão | Motivo | Onde |
 |---|---|---|---|---|
 | D-18 | maio de 2026 | MarkerUNet: U-Net com um codificador ResNet34 do ImageNet e entrada de 4 canais (fusão precoce). | O motivo original não foi registrado. A escolha coincide com a prova de conceito da tese, com o codificador do modelo de objeto; sem hierarquia, não haveria o terceiro codificador. | Cap. 6 |
-| D-19 | 2026-09-27 | Testar juntos a padronização do ImageNet e o congelamento do codificador, numa ablação de 5 variantes, depois de escolhida a configuração principal. | 24,4 milhões de parâmetros treinados com 37 imagens; entrada sem a padronização que os pesos esperam. | Cap. 6, seções 6.2 e 6.5; PD-36, PD-38 |
-| D-20 | 2026-10-01 | A probabilidade do Cellpose fica disponível como quarto canal, para uma ablação. | Carrega mais informação que a máscara binária. | Cap. 6, seção 6.2; PD-34 |
+| D-19 | 2026-09-27 | Testar juntos a padronização do ImageNet e o congelamento do codificador, numa ablação de 5 variantes, depois de escolhida a configuração principal. **Não executada: os experimentos foram encerrados antes (D-52); fica como limitação.** | 24,4 milhões de parâmetros treinados com 37 imagens; entrada sem a padronização que os pesos esperam. | Cap. 6, seções 6.2 e 6.5; PD-36, PD-38 |
+| D-20 | 2026-10-01 | A probabilidade do Cellpose fica disponível como quarto canal, para uma ablação. **A opção existe no código; a ablação não foi executada, porque os experimentos foram encerrados antes (D-52), e fica como limitação.** | Carrega mais informação que a máscara binária. | Cap. 6, seção 6.2; PD-34 |
 
 ## 12.5 Camada de segmentação
 

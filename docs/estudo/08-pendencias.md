@@ -11,7 +11,7 @@
 >
 > **Origem:** ✅ verificado · 📖 tese/artigo · ❓ hipótese a confirmar.
 
-Última atualização: 2026-11-16 (pente fino, blocos 1 a 3: PD-07 e PD-51 remedidas; PD-53, PD-54 e PD-55 novas).
+Última atualização: 2026-11-18 (pente fino, blocos 1 a 4: PD-07 e PD-51 remedidas; PD-16 resolvida; PD-53 a PD-56 novas).
 
 ---
 
@@ -52,11 +52,11 @@
 | [PD-31](#pd-31) | ⚪ | Código morto | `ModelPipeline`, métodos do `OutputWriter`, `to_uint8_rgb`, `RMSEAccuracy`, `flows`/`styles` | Parcial (2026-10-01): `flows`/`styles` removidas; o resto continua decidido |
 | [PD-32](#pd-32) | ⚪ | Arquitetura | Três classes de pipeline idênticas; separação só por convenção | Aberta |
 | [PD-33](#pd-33) | 🟡 | Contrato | A chave `segmentation` significa duas coisas (Cellpose e saída final) | Decidida: renomear |
-| [PD-34](#pd-34) | ⚪ | Ideia | Usar a probabilidade contínua do Cellpose em vez do alpha binário | Implementada como opção (2026-10-01); falta a ablação |
+| [PD-34](#pd-34) | ⚪ | Ideia | Usar a probabilidade contínua do Cellpose em vez do alpha binário | Implementada como opção (2026-10-01); falta a ablação; **não executada** (experimentos encerrados, D-52 das Notas): limitação |
 | [PD-35](#pd-35) | ⚪ | Arquitetura | Acoplamento implícito a atributos internos (`step.model`, `self.model.model`) | Aberta |
-| [PD-36](#pd-36) | 🟡 | Modelo | A entrada da MarkerUNet não tem a normalização ImageNet que o encoder espera | Decidida: ablação |
+| [PD-36](#pd-36) | 🟡 | Modelo | A entrada da MarkerUNet não tem a normalização ImageNet que o encoder espera | Decidida: ablação; **não executada** (experimentos encerrados, D-52 das Notas): limitação |
 | [PD-37](#pd-37) | ⚪ | Resolução | Reduções bilineares sem antialias: o ScribblePrompt lê 6,6% dos pixels | ✅ Encerrada: o antialias piora (oráculo) |
-| [PD-38](#pd-38) | 🟡 | Modelo/Treino | 24,4 M parâmetros treinados, sem congelar nada, com 30 imagens | Decidida: ablação |
+| [PD-38](#pd-38) | 🟡 | Modelo/Treino | 24,4 M parâmetros treinados, sem congelar nada, com 30 imagens | Decidida: ablação; **não executada** (experimentos encerrados, D-52 das Notas): limitação |
 | [PD-39](#pd-39) | ⚪ | Ideia | ScribblePrompt-SAM como rede final (via `mask_input`) | Adiada (decisão do autor) |
 | [PD-40](#pd-40) | 🔴 | Resultados | Com marcadores do tipo da tese, o ScribblePrompt não alcança o Cellpose nem com o marcador ideal | Aberta; oráculo refeito (2026-10-08): o negativo do Cellpose leva o miolo a 0,820 (Cellpose 0,845). 2026-10-15: com entrada 1024² + negativo, o miolo passa (0,852); sem negativo, blocos 256 → 128² dão 0,808 |
 | [PD-41](#pd-41) | 🟠 | Loss | `BorderTerm` pune marcadores sobre 16–17% dos pixels de núcleo real | Aberta |
@@ -74,6 +74,7 @@
 | [PD-53](#pd-53) | ⚪ | Docs/Código | Documentação dos dados desatualizada: `data_source/README.md`, `src/data/load/README.md`, docstring do `BaseDataset`, fusão de núcleos citada com o número do GT antigo | Parcial (2026-11-08): `data_source/README.md` corrigido; README do `src/data/load/` e docstring encerrados sem mudança (D-58) |
 | [PD-54](#pd-54) | ⚪ | Docs/Código | Pré-processamento: docs diziam "diâmetro estimado" para `diameter=None`; `meta.json` sem procedência; nomes e detalhes do código sem efeito nos resultados | Docs corrigidos (2026-11-08); código encerrado sem mudança (D-58 das Notas) |
 | [PD-55](#pd-55) | ⚪ | Docs | Canal de fundo do Cellpose: Notas cap. 7.4 com afirmação forte demais ("só poderia encolher") e comparação imprecisa com a tese; custo do canal não medido | ✅ Docs corrigidos (2026-11-16) |
+| [PD-56](#pd-56) | ⚪ | Docs | MarkerUNet e recortes: ganho dos recortes atribuído só à resolução; ablações descritas como planejadas depois do encerramento dos experimentos | ✅ Docs corrigidos (2026-11-18) |
 
 ---
 
@@ -1337,3 +1338,19 @@ docstring do `BaseDataset` ficam como estão (D-58 nas Notas).
 - **Peso do canal reconferido nos `folds.csv`:** +0,0328 (34/3, p = 6,5·10⁻⁹) na imagem inteira com TV, +0,0337 (35/2) sem TV e
   +0,0040 (24/13, p = 0,017) com recortes. A tabela das faixas (1, 2, 3 e 5 px, sem retreinar) confere com a saída salva de
   `notebooks/exploration/testes_pos_treino_2.ipynb`. Resposta à crítica "o negativo faz o trabalho" no cap. 7.4.
+
+### PD-56
+**⚪ MarkerUNet e recortes: duas descrições imprecisas nas Notas.** ✅ (pente fino, bloco 4, 2026-11-18)
+- **Ganho dos recortes atribuído só à resolução:** as Notas (cap. 11.6, item 1) diziam que os recortes deram +0,046 "só mudando a
+  resolução". A troca `base_dice` → `recortes` mudou juntas a resolução da MarkerUNet (recorte de 256 sem redução, contra 1000²
+  reduzida a 256²), a do ScribblePrompt (recorte reduzido a 128², contra a imagem em 256²), o lote (16 recortes, contra 4 imagens)
+  e a avaliação (por blocos com janela de Hann); os passos por época ficaram iguais (~8). Reconferido nos `folds.csv`: +0,0458,
+  37/0, p = 1,5·10⁻¹¹; massa 1,10 → 1,03; precisão 0,758 → 0,822; com o canal de fundo, `recortes_negativo` −
+  `negativo_sem_tv` = +0,0160, 37/0. Corrigido no cap. 11.6 e no cap. 4.4 ("efeito do modo por recortes como um todo").
+- **Ablações descritas como planejadas:** cap. 6.2 e 6.5, o "Para o artigo" do cap. 6 e as decisões D-19 e D-20 diziam que a
+  padronização do ImageNet, o congelamento do codificador e a probabilidade do Cellpose "serão testados". Com os experimentos
+  encerrados (D-52), não serão. Corrigido para "não executadas, ficam como limitação"; PD-34, PD-36 e PD-38 marcadas assim.
+- **Conferido no bloco** (sem mudança): 24.439.505 parâmetros, todos treinados (codificador 21,29 M, decodificador 3,15 M; 36
+  BatchNorm no codificador e 10 no decodificador), contados com smp 0.5.0 em CPU; `patch_first_conv` do smp 0.5.0 copia os pesos
+  de R para o 4º canal e multiplica tudo por 3/4 (lido e testado numericamente); modos de treino e avaliação alternados pelo
+  `Trainer` e pelo `evaluate`. O `MarkerStep` foi simplificado (PD-16).
