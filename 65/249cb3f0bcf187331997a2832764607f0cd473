@@ -1,0 +1,24 @@
+src/pipeline/steps/preprocessing/cellpose_step.py
+  s_5fd0bc22017392::t_999eb3ead49861 44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "65249cb3f0bcf187331997a2832764607f0cd473",
+  "prompts": {},
+  "humans": {
+    "h_f66301821ec9b5": {
+      "author": "Pedro-io <p.rodrigues2532@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_5fd0bc22017392": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "31e6ab91-57e5-4ba4-bbda-ee505a7bd3bc",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pedro-io <p.rodrigues2532@gmail.com>"
+    }
+  }
+}
